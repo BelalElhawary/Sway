@@ -51,6 +51,15 @@ public sealed class UiHost : IDisposable
     long _lastClickTick = -MultiClickMs * 2;
     float _lastClickX, _lastClickY;
 
+    // Dragging a scrollbar thumb.
+    ElementNode? _dragScrollbar;
+    ScrollbarPart _dragScrollbarPart;
+    Affine _dragScrollbarInverse = Affine.Identity;
+    float _dragScrollbarOriginLocal;
+    float _dragScrollbarOriginScroll;
+    float _dragScrollbarRange;
+    float _dragScrollbarMax;
+
     // Open select dropdown.
     ElementNode? _openSelect;
     int _popupHover = -1;
@@ -395,6 +404,17 @@ public sealed class UiHost : IDisposable
             _pointerX = x;
             _pointerY = y;
 
+            // Dragging a scrollbar thumb keeps working while the pointer leaves the track.
+            if (_dragScrollbar is { } scrolling)
+            {
+                var local = _dragScrollbarInverse.Map(x, y);
+                float pos = _dragScrollbarPart == ScrollbarPart.Vertical ? local.Y : local.X;
+                float scroll = _dragScrollbarOriginScroll + (pos - _dragScrollbarOriginLocal) * (_dragScrollbarMax / _dragScrollbarRange);
+                if (_dragScrollbarPart == ScrollbarPart.Vertical) scrolling.ScrollY = Math.Clamp(scroll, 0, _dragScrollbarMax);
+                else scrolling.ScrollX = Math.Clamp(scroll, 0, _dragScrollbarMax);
+                return;
+            }
+
             // Dragging a selection keeps working while the pointer leaves the field.
             if (_dragEdit is { } dragging)
             {
@@ -476,6 +496,8 @@ public sealed class UiHost : IDisposable
             }
 
             var hit = HitTest(x, y);
+            if (hit.Scrollbar != ScrollbarPart.None) { BeginScrollbarDrag(hit, x, y); return; }
+
             var target = hit.Element;
             _pressed = target;
             foreach (var el in Chain(target)) el.SetState(ElementState.Active, true);
@@ -522,6 +544,37 @@ public sealed class UiHost : IDisposable
         _lastEditTick = now;
     }
 
+    /// <summary>Starts dragging a scrollbar thumb, mapping pointer movement along the track to a scroll offset.</summary>
+    void BeginScrollbarDrag(HitResult hit, float x, float y)
+    {
+        var el = hit.Element;
+        var pad = el.PaddingBox;
+        var local = hit.ToLocal(x, y);
+
+        _dragScrollbar = el;
+        _dragScrollbarPart = hit.Scrollbar;
+        _dragScrollbarInverse = hit.Inverse;
+
+        if (hit.Scrollbar == ScrollbarPart.Vertical)
+        {
+            float track = pad.Height;
+            float thumb = Scrollbars.VerticalThumb(el)!.Value.Height + Scrollbars.Margin * 2;
+            _dragScrollbarOriginLocal = local.Y;
+            _dragScrollbarOriginScroll = el.ScrollY;
+            _dragScrollbarRange = Math.Max(1, track - thumb);
+            _dragScrollbarMax = el.MaxScrollY;
+        }
+        else
+        {
+            float track = pad.Width;
+            float thumb = Scrollbars.HorizontalThumb(el)!.Value.Width + Scrollbars.Margin * 2;
+            _dragScrollbarOriginLocal = local.X;
+            _dragScrollbarOriginScroll = el.ScrollX;
+            _dragScrollbarRange = Math.Max(1, track - thumb);
+            _dragScrollbarMax = el.MaxScrollX;
+        }
+    }
+
     public void PointerUp(float x, float y)
     {
         _forceFrame = true; // any input may change what is drawn
@@ -529,6 +582,7 @@ public sealed class UiHost : IDisposable
         lock (Document.SyncRoot)
         {
             _dragEdit = null;
+            _dragScrollbar = null;
 
             if (_swallowPointer) { _swallowPointer = false; return; }
 

@@ -8,8 +8,6 @@ namespace Sway.Core.Rendering;
 /// <summary>Executes a display list against a Skia canvas.</summary>
 public sealed class Painter
 {
-    const float ScrollbarThickness = 6, ScrollbarMargin = 2, ScrollbarMinThumb = 24;
-
     public void Paint(SKCanvas canvas, Document document, IReadOnlyList<PaintOp> ops, PaintContext context)
     {
         var root = document.Root;
@@ -380,27 +378,12 @@ public sealed class Painter
     {
         if (el.Parent is not null && el.Style.VisibilityHidden) return;
 
-        var pad = el.PaddingBox;
         using var paint = new SKPaint { Color = new SKColor(128, 128, 128, 150), IsAntialias = true };
 
-        if (el.ScrollsY && el.MaxScrollY > 0)
-        {
-            float track = pad.Height;
-            float thumb = Math.Max(ScrollbarMinThumb, track * track / (track + el.MaxScrollY));
-            float top = pad.Top + (track - thumb) * (el.ScrollY / el.MaxScrollY);
-            var rect = new SKRect(pad.Right - ScrollbarThickness - ScrollbarMargin, top + ScrollbarMargin,
-                pad.Right - ScrollbarMargin, top + thumb - ScrollbarMargin);
-            canvas.DrawRoundRect(rect, ScrollbarThickness / 2, ScrollbarThickness / 2, paint);
-        }
+        if (Scrollbars.VerticalThumb(el) is { } v)
+            canvas.DrawRoundRect(v, Scrollbars.Thickness / 2, Scrollbars.Thickness / 2, paint);
 
-        if (el.ScrollsX && el.MaxScrollX > 0)
-        {
-            float track = pad.Width;
-            float thumb = Math.Max(ScrollbarMinThumb, track * track / (track + el.MaxScrollX));
-            float left = pad.Left + (track - thumb) * (el.ScrollX / el.MaxScrollX);
-            var rect = new SKRect(left + ScrollbarMargin, pad.Bottom - ScrollbarThickness - ScrollbarMargin,
-                left + thumb - ScrollbarMargin, pad.Bottom - ScrollbarMargin);
-            canvas.DrawRoundRect(rect, ScrollbarThickness / 2, ScrollbarThickness / 2, paint);
-        }
+        if (Scrollbars.HorizontalThumb(el) is { } h)
+            canvas.DrawRoundRect(h, Scrollbars.Thickness / 2, Scrollbars.Thickness / 2, paint);
     }
 }

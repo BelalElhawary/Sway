@@ -7,14 +7,45 @@ namespace Sway.Core.Rendering;
 
 public enum OpKind { Box, Text, PushScroll, PopScroll, PushTransform, PopTransform, PushEffects, PopEffects, Scrollbars, Popup }
 
+public enum ScrollbarPart { None, Vertical, Horizontal }
+
 /// <summary>What a pointer is over, plus the scroll offset to add to a window point to get layout space.</summary>
-public readonly record struct HitResult(ElementNode Element, Affine Inverse)
+public readonly record struct HitResult(ElementNode Element, Affine Inverse, ScrollbarPart Scrollbar = ScrollbarPart.None)
 {
     /// <summary>Maps a window point into the element's layout space, undoing scrolling and transforms.</summary>
     public SKPoint ToLocal(float x, float y) => Inverse.Map(x, y);
 }
 
 public readonly record struct PaintOp(OpKind Kind, ElementNode? Element = null, TextNode? Text = null);
+
+/// <summary>
+/// Geometry for the overlay scrollbar thumbs, shared by painting and hit testing so a thumb is
+/// always draggable exactly where it is drawn.
+/// </summary>
+public static class Scrollbars
+{
+    public const float Thickness = 6, Margin = 2, MinThumb = 24;
+
+    public static SKRect? VerticalThumb(ElementNode el)
+    {
+        if (!el.ScrollsY || el.MaxScrollY <= 0) return null;
+        var pad = el.PaddingBox;
+        float track = pad.Height;
+        float thumb = Math.Max(MinThumb, track * track / (track + el.MaxScrollY));
+        float top = pad.Top + (track - thumb) * (el.ScrollY / el.MaxScrollY);
+        return new SKRect(pad.Right - Thickness - Margin, top + Margin, pad.Right - Margin, top + thumb - Margin);
+    }
+
+    public static SKRect? HorizontalThumb(ElementNode el)
+    {
+        if (!el.ScrollsX || el.MaxScrollX <= 0) return null;
+        var pad = el.PaddingBox;
+        float track = pad.Width;
+        float thumb = Math.Max(MinThumb, track * track / (track + el.MaxScrollX));
+        float left = pad.Left + (track - thumb) * (el.ScrollX / el.MaxScrollX);
+        return new SKRect(left + Margin, pad.Bottom - Thickness - Margin, left + thumb - Margin, pad.Bottom - Margin);
+    }
+}
 
 /// <summary>
 /// Flattens the tree into paint order following CSS stacking contexts. Both painting and hit
@@ -215,6 +246,7 @@ public static class DisplayListBuilder
         var stack = new Stack<(Affine current, Affine inverse, bool clipped)>();
         ElementNode? hit = null;
         var hitInverse = Affine.Identity;
+        var hitScrollbar = ScrollbarPart.None;
 
         foreach (var op in ops)
         {
@@ -263,6 +295,26 @@ public static class DisplayListBuilder
                     {
                         hit = el;
                         hitInverse = inverse;
+                        hitScrollbar = ScrollbarPart.None;
+                    }
+                    break;
+                }
+                case OpKind.Scrollbars when clippedOut == 0:
+                {
+                    // Drawn last, so a thumb wins over whatever content it overlaps underneath.
+                    var el = op.Element!;
+                    var local = inverse.Map(x, y);
+                    if (Scrollbars.VerticalThumb(el) is { } v && v.Contains(local.X, local.Y))
+                    {
+                        hit = el;
+                        hitInverse = inverse;
+                        hitScrollbar = ScrollbarPart.Vertical;
+                    }
+                    else if (Scrollbars.HorizontalThumb(el) is { } h && h.Contains(local.X, local.Y))
+                    {
+                        hit = el;
+                        hitInverse = inverse;
+                        hitScrollbar = ScrollbarPart.Horizontal;
                     }
                     break;
                 }
@@ -281,6 +333,7 @@ public static class DisplayListBuilder
                         {
                             hit = owner;
                             hitInverse = inverse;
+                            hitScrollbar = ScrollbarPart.None;
                             break;
                         }
                     }
@@ -288,6 +341,6 @@ public static class DisplayListBuilder
                 }
             }
         }
-        return new HitResult(hit ?? root, hitInverse);
+        return new HitResult(hit ?? root, hitInverse, hitScrollbar);
     }
 }

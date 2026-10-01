@@ -129,7 +129,7 @@ choosing the nearest registered weight and style, with later rules overriding ea
 
 ### Scrolling
 
-- **Scrollbars are overlay thumbs only**: not draggable, no track clicks, no arrow buttons **(Planned)**. `scrollbar-width` and `scrollbar-color` are ignored.
+- **Scrollbars are overlay thumbs**: draggable, but no track clicks or arrow buttons **(Planned)**. `scrollbar-width` and `scrollbar-color` are ignored.
 - Wheel scrolling uses a fixed 80 px per notch, with no smooth scrolling, momentum, `scroll-behavior`, `scroll-snap` or `overscroll-behavior`.
 - `overflow: clip` is treated as `hidden`. `overflow: overlay` is treated as `auto`.
 - No `onscroll` event is dispatched. No `scrollIntoView` API (Tab focus scrolls into view internally).
