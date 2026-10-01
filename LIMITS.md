@@ -148,7 +148,7 @@ choosing the nearest registered weight and style, with later rules overriding ea
 
 - `keydown` and `keyup` are dispatched. `keypress`, `beforeinput`, `compositionstart/update/end`, and clipboard events (`copy`, `cut`, `paste`) are not.
 - Printable `Key` values in `keydown`/`keyup` assume a **US layout**. Typed text itself uses the OS character events and is layout-correct.
-- `KeyboardEventArgs.Location` is not set. Numpad keys report as digits.
+- `KeyboardEventArgs.Location` is set (standard/left/right/numpad). Numpad keys still report `key` as plain digits (matching `code: "NumpadN"`), since Silk.NET does not expose NumLock state to tell a digit apart from a navigation keypad press.
 
 ### IME (**Unsupported on the current backend**)
 

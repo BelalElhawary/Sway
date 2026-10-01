@@ -825,7 +825,7 @@ public sealed class UiHost : IDisposable
 
     // ---- keyboard ----
 
-    public void KeyDown(string key, string code, bool repeat)
+    public void KeyDown(string key, string code, float location, bool repeat)
     {
         _forceFrame = true; // any input may change what is drawn
         var events = new List<PendingEvent>();
@@ -833,14 +833,14 @@ public sealed class UiHost : IDisposable
         {
             var target = _focused ?? Document.Root;
             var ids = CollectHandlers(target, "keydown", true, false, out bool prevented);
-            if (ids.Count > 0) events.Add(new PendingEvent(ids, Keyboard("keydown", key, code, repeat)));
+            if (ids.Count > 0) events.Add(new PendingEvent(ids, Keyboard("keydown", key, code, location, repeat)));
 
             if (!prevented) events.AddRange(DefaultKeyDown(key, repeat));
         }
         Fire(events);
     }
 
-    public void KeyUp(string key, string code)
+    public void KeyUp(string key, string code, float location)
     {
         _forceFrame = true; // any input may change what is drawn
         var events = new List<PendingEvent>();
@@ -848,7 +848,7 @@ public sealed class UiHost : IDisposable
         {
             var target = _focused ?? Document.Root;
             var ids = CollectHandlers(target, "keyup", true, false, out bool prevented);
-            if (ids.Count > 0) events.Add(new PendingEvent(ids, Keyboard("keyup", key, code, false)));
+            if (ids.Count > 0) events.Add(new PendingEvent(ids, Keyboard("keyup", key, code, location, false)));
 
             // Space activates buttons, checkboxes and radios on release.
             if (!prevented && key == " " && _focused is { } f && IsSpaceActivated(f))
@@ -1358,9 +1358,9 @@ public sealed class UiHost : IDisposable
         CtrlKey = Ctrl, ShiftKey = Shift, AltKey = Alt, MetaKey = Meta
     };
 
-    KeyboardEventArgs Keyboard(string type, string key, string code, bool repeat) => new()
+    KeyboardEventArgs Keyboard(string type, string key, string code, float location, bool repeat) => new()
     {
-        Type = type, Key = key, Code = code, Repeat = repeat,
+        Type = type, Key = key, Code = code, Location = location, Repeat = repeat,
         CtrlKey = Ctrl, ShiftKey = Shift, AltKey = Alt, MetaKey = Meta
     };
 

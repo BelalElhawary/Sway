@@ -97,17 +97,17 @@ public sealed class App
                 keyboard.KeyDown += (k, key, _) =>
                 {
                     SyncModifiers(k);
-                    var (name, code) = KeyMap.Translate(key, host.Shift);
+                    var (name, code, location) = KeyMap.Translate(key, host.Shift);
                     // Holding a key makes GLFW report repeats as further KeyDown events.
                     bool repeat = !heldKeys.Add(key);
-                    host.KeyDown(name, code, repeat);
+                    host.KeyDown(name, code, location, repeat);
                 };
                 keyboard.KeyUp += (k, key, _) =>
                 {
                     SyncModifiers(k);
                     heldKeys.Remove(key);
-                    var (name, code) = KeyMap.Translate(key, host.Shift);
-                    host.KeyUp(name, code);
+                    var (name, code, location) = KeyMap.Translate(key, host.Shift);
+                    host.KeyUp(name, code, location);
                 };
             }
 

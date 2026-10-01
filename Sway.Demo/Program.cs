@@ -53,8 +53,8 @@ for (int i = 0; i < args.Length; i++)
             {
                 h.Ctrl = mods.Contains("ctrl");
                 h.Shift = mods.Contains("shift");
-                h.KeyDown(key, key, false);
-                h.KeyUp(key, key);
+                h.KeyDown(key, key, 0, false);
+                h.KeyUp(key, key, 0);
                 h.Ctrl = h.Shift = false;
             });
             break;

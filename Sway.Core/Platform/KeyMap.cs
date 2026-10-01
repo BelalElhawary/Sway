@@ -10,7 +10,7 @@ static class KeyMap
 {
     static readonly Dictionary<Key, string> Named = new()
     {
-        [Key.Enter] = "Enter", [Key.KeypadEnter] = "Enter", [Key.Escape] = "Escape", [Key.Tab] = "Tab",
+        [Key.Enter] = "Enter", [Key.Escape] = "Escape", [Key.Tab] = "Tab",
         [Key.Backspace] = "Backspace", [Key.Delete] = "Delete", [Key.Insert] = "Insert",
         [Key.Left] = "ArrowLeft", [Key.Right] = "ArrowRight", [Key.Up] = "ArrowUp", [Key.Down] = "ArrowDown",
         [Key.Home] = "Home", [Key.End] = "End", [Key.PageUp] = "PageUp", [Key.PageDown] = "PageDown",
@@ -31,33 +31,44 @@ static class KeyMap
 
     const string ShiftedDigits = ")!@#$%^&*(";
 
-    public static (string key, string code) Translate(Key key, bool shift)
+    // DOM KeyboardEvent.location values.
+    const float Standard = 0, Left = 1, Right = 2, Numpad = 3;
+
+    static readonly HashSet<Key> LeftKeys = new() { Key.ShiftLeft, Key.ControlLeft, Key.AltLeft, Key.SuperLeft };
+    static readonly HashSet<Key> RightKeys = new() { Key.ShiftRight, Key.ControlRight, Key.AltRight, Key.SuperRight };
+
+    public static (string key, string code, float location) Translate(Key key, bool shift)
     {
+        if (key == Key.KeypadEnter) return ("Enter", "NumpadEnter", Numpad);
+
         if (Named.TryGetValue(key, out var named))
-            return (named, key == Key.Space ? "Space" : key.ToString());
+        {
+            float location = LeftKeys.Contains(key) ? Left : RightKeys.Contains(key) ? Right : Standard;
+            return (named, key == Key.Space ? "Space" : key.ToString(), location);
+        }
 
         if (key >= Key.A && key <= Key.Z)
         {
             string letter = ((char)('a' + (key - Key.A))).ToString();
-            return (shift ? letter.ToUpperInvariant() : letter, "Key" + letter.ToUpperInvariant());
+            return (shift ? letter.ToUpperInvariant() : letter, "Key" + letter.ToUpperInvariant(), Standard);
         }
 
         if (key >= Key.Number0 && key <= Key.Number9)
         {
             int digit = key - Key.Number0;
-            return (shift ? ShiftedDigits[digit].ToString() : digit.ToString(), "Digit" + digit);
+            return (shift ? ShiftedDigits[digit].ToString() : digit.ToString(), "Digit" + digit, Standard);
         }
 
         if (key >= Key.Keypad0 && key <= Key.Keypad9)
-            return ((key - Key.Keypad0).ToString(), "Numpad" + (key - Key.Keypad0));
+            return ((key - Key.Keypad0).ToString(), "Numpad" + (key - Key.Keypad0), Numpad);
 
         if (key >= Key.F1 && key <= Key.F12)
-            return (key.ToString(), key.ToString());
+            return (key.ToString(), key.ToString(), Standard);
 
         if (Punctuation.TryGetValue(key, out var p))
-            return (shift ? p.shifted : p.plain, p.code);
+            return (shift ? p.shifted : p.plain, p.code, Standard);
 
-        return (key.ToString(), key.ToString());
+        return (key.ToString(), key.ToString(), Standard);
     }
 
     /// <summary>Maps a CSS cursor keyword to the closest cursor the windowing layer offers.</summary>
