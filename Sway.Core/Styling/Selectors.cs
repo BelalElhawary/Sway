@@ -146,7 +146,7 @@ public static class SelectorParser
 
             switch (name)
             {
-                case "hover" or "active" or "focus" or "focus-visible" or "disabled" or "enabled" or "checked"
+                case "hover" or "active" or "focus" or "focus-visible" or "disabled" or "enabled" or "checked" or "indeterminate"
                     or "first-child" or "last-child" or "only-child" or "root" or "empty":
                     b++;
                     compound.Pseudos.Add(new PseudoClass { Name = name });
@@ -339,6 +339,7 @@ public static class SelectorMatcher
             case "disabled": return element.IsDisabled;
             case "enabled": return !element.IsDisabled;
             case "checked": return element.Attributes.ContainsKey("checked");
+            case "indeterminate": return element.Attributes.ContainsKey("indeterminate");
             case "root": return element.Parent is null;
             case "empty": return element.PhysicalChildren.Count == 0;
             case "first-child": return element.ElementPosition().index == 1;

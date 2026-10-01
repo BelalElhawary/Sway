@@ -175,7 +175,7 @@ Static text (paragraphs, labels) cannot be selected or copied. Selection exists 
 - **Number input** accepts any of `0-9 + - . e E` while typing (including incomplete values like `1e`), with no locale handling.
 - **Validation:** `required`, `pattern`, `min/max` (beyond stepping), `:valid`, `:invalid` and the constraint validation API are not implemented. `reset` buttons do nothing.
 - **Select:** single selection only. No `multiple`, `size` list boxes, `optgroup` headings or `datalist`. The dropdown is capped at 10 visible rows and always uses a light theme.
-- **Checkbox:** no indeterminate state. Radio groups are matched by `name` within the same `form`.
+- **Checkbox:** an `indeterminate` attribute paints the dash state and matches `:indeterminate`. Radio groups are matched by `name` within the same `form`.
 - **`label`:** the activated control is the one named by `for` or the first labelable descendant.
 - **Form submit:** the `submit` event is dispatched. There is no navigation or form-data collection.
 - **Binding race:** two-way binding relies on handlers updating state synchronously. A handler that awaits before assigning can briefly overwrite fast typing, because the renderer does not use event field info to reconcile.

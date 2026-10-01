@@ -107,12 +107,14 @@ public static class ControlPainter
 
         var st = el.Style;
         bool isChecked = el.Attributes.ContainsKey("checked");
+        bool isIndeterminate = !Controls.IsRadio(el) && el.Attributes.ContainsKey("indeterminate");
         bool disabled = el.IsDisabled;
         var accent = disabled ? DisabledGray : st.AccentColor ?? DefaultAccent;
         var edge = disabled ? DisabledGray : ControlBorder;
+        bool filled = (isChecked || isIndeterminate) && !Controls.IsRadio(el);
 
-        using var fill = new SKPaint { IsAntialias = true, Color = isChecked && !Controls.IsRadio(el) ? accent : SKColors.White };
-        using var stroke = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 1, Color = isChecked && !Controls.IsRadio(el) ? accent : edge };
+        using var fill = new SKPaint { IsAntialias = true, Color = filled ? accent : SKColors.White };
+        using var stroke = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 1, Color = filled ? accent : edge };
 
         if (Controls.IsRadio(el))
         {
@@ -134,7 +136,17 @@ public static class ControlPainter
         canvas.DrawRoundRect(box, 2.5f, 2.5f, fill);
         canvas.DrawRoundRect(box, 2.5f, 2.5f, stroke);
 
-        if (isChecked)
+        if (isIndeterminate)
+        {
+            using var mark = new SKPaint
+            {
+                IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 1.8f, Color = SKColors.White,
+                StrokeCap = SKStrokeCap.Round
+            };
+            float w = rect.Width, h = rect.Height;
+            canvas.DrawLine(rect.Left + w * 0.22f, rect.MidY, rect.Left + w * 0.78f, rect.MidY, mark);
+        }
+        else if (isChecked)
         {
             using var mark = new SKPaint
             {
