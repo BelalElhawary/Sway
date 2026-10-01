@@ -108,7 +108,6 @@ choosing the nearest registered weight and style, with later rules overriding ea
 - `align-items: baseline` behaves as `flex-start` **(Approximation)**.
 - `flex-wrap: wrap-reverse` behaves as `wrap` **(Approximation)**.
 - `gap` accepts pixel-resolved lengths only (no `%`).
-- `place-items`, `place-content`, `place-self` shorthands are not parsed.
 - The automatic minimum size is zero for scroll containers and content-based otherwise, which matches the spec for the common cases.
 
 ### Grid

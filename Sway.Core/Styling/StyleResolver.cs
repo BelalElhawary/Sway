@@ -490,6 +490,28 @@ public sealed class StyleResolver : IStyleInvalidation
             case "justify-items": s.JustifyItems = ParseAlign(value, s.JustifyItems); break;
             case "justify-self": s.JustifySelf = ParseAlign(value, s.JustifySelf); break;
 
+            case "place-content":
+            {
+                var (a, j) = SplitPlaceValue(value);
+                s.AlignContent = ParseAlign(a, s.AlignContent);
+                s.JustifyContent = ParseAlign(j, s.JustifyContent);
+                break;
+            }
+            case "place-items":
+            {
+                var (a, j) = SplitPlaceValue(value);
+                s.AlignItems = ParseAlign(a, s.AlignItems);
+                s.JustifyItems = ParseAlign(j, s.JustifyItems);
+                break;
+            }
+            case "place-self":
+            {
+                var (a, j) = SplitPlaceValue(value);
+                s.AlignSelf = ParseAlign(a, s.AlignSelf);
+                s.JustifySelf = ParseAlign(j, s.JustifySelf);
+                break;
+            }
+
             case "gap" or "grid-gap":
             {
                 var tokens = CssValues.SplitTokens(value);
@@ -826,6 +848,20 @@ public sealed class StyleResolver : IStyleInvalidation
             "space-evenly" => Align.SpaceEvenly,
             _ => current
         };
+    }
+
+    /// <summary>Splits a `place-*` shorthand into its align and justify halves, keeping a "safe"/"unsafe" prefix with its keyword.</summary>
+    static (string align, string justify) SplitPlaceValue(string value)
+    {
+        var raw = CssValues.SplitTokens(value.ToLowerInvariant());
+        var parts = new List<string>();
+        for (int i = 0; i < raw.Count; i++)
+        {
+            if (raw[i] is "safe" or "unsafe" && i + 1 < raw.Count) parts.Add(raw[i] + " " + raw[++i]);
+            else parts.Add(raw[i]);
+        }
+        if (parts.Count == 0) return ("", "");
+        return parts.Count >= 2 ? (parts[0], parts[1]) : (parts[0], parts[0]);
     }
 
     void ApplyFlexShorthand(ComputedStyle s, string value, float fontSize)
