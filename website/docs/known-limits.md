@@ -1,21 +1,24 @@
-# Sway known limits
+---
+sidebar_position: 7
+---
 
-Everything below is a gap or approximation as of the end of step 6 (effects, motion and performance). It is kept in
-one place so nothing is discovered by surprise. Update it when a limit is fixed or a new one is found.
+# Known limits
+
+Everything below is a gap or approximation, kept in one place so nothing is discovered by surprise. This mirrors
+[`LIMITS.md`](https://github.com/BelalElhawary/Sway/blob/master/LIMITS.md) in the repository root — update that
+file when a limit is fixed or a new one is found, and this page along with it.
 
 Tags used:
 
-- **Planned**: intended work, with the step where it is expected.
+- **Planned**: intended work.
 - **Approximation**: implemented, but deliberately simpler than the spec.
 - **Unsupported**: not implemented and not currently scheduled.
-
----
 
 ## 1. Verification and platform
 
 | Limit | Notes |
 | --- | --- |
-| No automated tests | **Unsupported.** Behaviour was checked by rendering headless PNGs (`--screenshot`) and reading them. Two self-checks exist: `--verify` compares the incremental layout and restyle against a from-scratch one after scripted interactions, and `--bench` reports per-phase frame cost. Neither is a test suite. Selector matching, the flex/grid algorithms, `TextEditState` and the animation maths are pure logic and good candidates for unit tests. |
+| No automated tests | **Unsupported.** Behaviour is checked by rendering headless PNGs (`--screenshot`) and reading them. Two self-checks exist: `--verify` compares the incremental layout and restyle against a from-scratch one after scripted interactions, and `--bench` reports per-phase frame cost. Neither is a test suite. Selector matching, the flex/grid algorithms, `TextEditState` and the animation maths are pure logic and good candidates for unit tests. |
 | Only tested on Windows | The font fallback assumes Segoe UI, Times New Roman and Consolas. Other platforms need a font mapping table. |
 | Live window only lightly exercised | The window was launched, captured from the screen once to confirm it draws, and its idle CPU use measured (about 1.6% of one core). Real mouse, keyboard, clipboard, cursor and multi-monitor DPI behaviour through Silk.NET have not been exercised by hand. |
 | OpenGL 3.3 core required | Skia renders through a GL context from the window. There is no software fallback for the live window (the headless path is raster). |
@@ -24,9 +27,8 @@ Tags used:
 
 ## 2. Rendering and performance
 
-Measured on a 12,000-element page (1,500 rows in a scroller), Release build. Before step 6 a hover cost 253 ms,
-a scroll step 157 ms, and a text change 209 ms. Now they cost about 2 to 4 ms (CPU raster) and the idle window
-renders nothing.
+Measured on a 12,000-element page (1,500 rows in a scroller), Release build. A hover, scroll step or text change
+costs about 2 to 4 ms (CPU raster); the idle window renders nothing.
 
 | Limit | Notes |
 | --- | --- |
@@ -44,6 +46,8 @@ renders nothing.
 | Text uses plain Skia metrics | **Planned.** No HarfBuzz shaping, so kerning, ligatures, complex scripts and bidi (Arabic, Hebrew) are approximate. Caret x positions are measured on string prefixes. |
 
 ## 3. CSS
+
+See [CSS support](./css-support) for the condensed, by-topic version of this section.
 
 ### Parsing and cascade
 
@@ -137,6 +141,8 @@ choosing the nearest registered weight and style, with later rules overriding ea
 
 ## 4. Input and events
 
+See [Input, events and form controls](./form-controls) for the condensed version of sections 4 and 5.
+
 ### Pointer
 
 - Only the **left button** is dispatched. Right and middle buttons, `contextmenu`, `auxclick`, `dblclick` (double-click is detected internally for text selection only) and touch are not dispatched.
@@ -182,6 +188,8 @@ Static text (paragraphs, labels) cannot be selected or copied. Selection exists 
 
 ## 6. Blazor hosting
 
+See [Blazor hosting](./blazor-hosting) for this section on its own.
+
 | Limit | Notes |
 | --- | --- |
 | No JS interop | `IJSRuntime` is not registered. Components that inject it fail. This rules out `Virtualize`, `InputFile`, `FocusAsync`, and most third-party component libraries. |
@@ -192,18 +200,4 @@ Static text (paragraphs, labels) cannot be selected or copied. Selection exists 
 | Hot reload | Untested. |
 | Service provider | Only logging is registered. Add services by extending `UiHost`. |
 
----
-
-## Where to look in the code
-
-| Area | Files |
-| --- | --- |
-| CSS parsing and cascade | `Styling/CssParser.cs`, `Selectors.cs`, `StyleResolver.cs`, `CssValues.cs` |
-| Effects values (shadows, gradients, transforms, filters) | `Styling/EffectValues.cs`, `EffectTypes.cs`, `Rendering/GradientShader.cs`, `Rendering/Affine.cs` |
-| Transitions and animations | `Styling/Animator.cs`, `AnimatedProperties.cs`, `Easing.cs` |
-| Block, inline, flex, grid layout | `Layout/LayoutEngine.cs`, `FlexLayout.cs`, `GridLayout.cs`, `PositionedLayout.cs` |
-| Paint order, culling and hit testing | `Rendering/DisplayList.cs`, `Painter.cs` |
-| Incremental invalidation and layout cache | `Dom/Nodes.cs` (`Document`, dirty flags), `Styling/StyleResolver.cs`, `Layout/LayoutEngine.cs` |
-| Profiling and self-checks | `Platform/FrameStats.cs`, `UiHost.VerifyLayout` and `VerifyStyles`, `App.Benchmark` |
-| Form controls | `Dom/TextEditState.cs`, `Dom/Controls.cs`, `Layout/TextControls.cs`, `Rendering/ControlPainter.cs` |
-| Input routing | `Platform/UiHost.cs`, `Platform/KeyMap.cs`, `Platform/App.cs` |
+For where each of these areas lives in the source, see [Architecture](./architecture#where-to-look-in-the-code).

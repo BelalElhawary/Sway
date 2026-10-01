@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "Sway.Core": {
+    "Sway.Demo": {
       "commandName": "Project",
       "commandLineArgs": "--layout2"
     }

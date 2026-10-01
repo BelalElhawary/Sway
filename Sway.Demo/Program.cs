@@ -1,30 +1,11 @@
 using Sway.Core.Platform;
-using Sway.Core.Sample;
+using Sway.Demo.Sample;
 
 var app = App.Create().AddStylesheet("app.css");
 
-// `--bench [frames]` measures frame cost on the stress page and prints per-phase timings.
-int bench = Array.IndexOf(args, "--bench");
-if (bench >= 0)
-{
-    int frames = bench + 1 < args.Length && int.TryParse(args[bench + 1], out var n) ? n : 60;
-    bool gpu = args.Contains("--gpu"); // render on a real GPU surface instead of the CPU raster one
-    // `--page effects|motion|forms|menu` benchmarks another page (the hover/scroll/click scenarios assume the stress layout).
-    int pageArg = Array.IndexOf(args, "--page");
-    string benchPage = pageArg >= 0 && pageArg + 1 < args.Length ? args[pageArg + 1] : "stress";
-    switch (benchPage)
-    {
-        case "effects": app.Benchmark<EffectsDemo>(800, 620, frames, gpu); break;
-        case "motion": app.Benchmark<MotionDemo>(800, 420, frames, gpu); break;
-        case "forms": app.Benchmark<FormsDemo>(760, 640, frames, gpu); break;
-        default: app.Benchmark<StressDemo>(1000, 700, frames, gpu); break;
-    }
-    return;
-}
-
 // `--screenshot out.png` renders headlessly, which is handy for checking layout and input.
 // Scripted steps run in order before the capture:
-//   --move x,y   --click x,y   --wheel x,y,notches   --key Name   --bench [frames] [--gpu] [--page name]   --verify   --css file   --advance ms   --type text   --key [ctrl+][shift+]Name   (and --page menu|counter|layout|layout2|interaction|forms)
+//   --move x,y   --click x,y   --wheel x,y,notches   --key Name   --verify   --css file   --advance ms   --type text   --key [ctrl+][shift+]Name   (and --page menu|counter|layout|layout2|interaction|forms)
 int shot = Array.IndexOf(args, "--screenshot");
 if (shot < 0 || shot + 1 >= args.Length)
 {

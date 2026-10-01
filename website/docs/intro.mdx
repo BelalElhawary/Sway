@@ -1,0 +1,63 @@
+---
+sidebar_position: 1
+---
+
+# Introduction
+
+Sway is a .NET library that renders [Blazor](https://learn.microsoft.com/aspnet/core/blazor/) components to a native
+desktop window — no browser, no WebView, no Electron. It hosts the standard Blazor component model and reimplements
+the pieces a browser would normally provide: an HTML/CSS parser, a style cascade, flex and grid layout, a Skia-backed
+painter, and OpenGL window with mouse/keyboard/IME input, all in C#.
+
+```csharp
+App.Create()
+   .AddStylesheet("app.css")
+   .Run<MainWindow>("My App", 1024, 768);
+```
+
+A component in Sway looks exactly like a Blazor component, because it is one:
+
+```razor
+<div class="card">
+    <h2>Count: @count</h2>
+    <button @onclick="() => count++">Increment</button>
+</div>
+
+@code {
+    int count;
+}
+```
+
+## Why Sway exists
+
+Blazor's component model (`@code`, data binding, event handlers, dependency injection) is a productive way to build
+UI, but it normally needs either a browser (WebAssembly) or a WebView (Blazor Hybrid). Sway instead lays out and
+paints that same component tree itself, so a Blazor UI can run as a self-contained native window with its own
+renderer — useful for desktop tools, kiosks, games and embedded UI where shipping a browser engine isn't desirable.
+
+## What's implemented
+
+- A CSS parser and cascade covering selectors, specificity, `@media`, `@keyframes` and `@font-face`.
+- Block, inline, flex and grid layout.
+- Transitions, keyframe animations, gradients, shadows, filters and 2D transforms, all rendered through
+  [SkiaSharp](https://github.com/mono/SkiaSharp).
+- A real OpenGL window (via [Silk.NET](https://github.com/dotnet/Silk.NET)) with mouse, keyboard, scroll and IME
+  text input, plus a headless mode that renders straight to PNG for screenshot-based testing.
+- The built-in form controls (`input`, `textarea`, `select`, checkboxes, radios) with their own text editing and hit
+  testing, since they draw themselves rather than laying out children.
+
+None of this depends on a browser, WebAssembly or a WebView — see [Architecture](./architecture) for how the pieces
+fit together.
+
+## What's not (yet)
+
+Sway is not a browser engine, and the gaps are tracked deliberately rather than discovered by surprise — see
+[Known limits](./known-limits) for the full list. The short version: no JS interop (so no `Virtualize`, `InputFile`,
+or most third-party Blazor component libraries), no routing, no accessibility tree, and a deliberately pared-down
+subset of CSS (no tables, no floats, no `::before`/`::after`, approximate line boxes).
+
+## Next steps
+
+- [Getting started](./getting-started) — run the sample app and the headless CLI.
+- [Architecture](./architecture) — how a Razor component becomes pixels.
+- [CSS support](./css-support) — what's implemented and what to avoid relying on.
