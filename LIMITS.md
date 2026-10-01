@@ -62,7 +62,7 @@ renders nothing.
 
 - **No margin collapsing**: adjacent vertical margins add.
 - **Inline elements have no box of their own**: a `<span>` cannot have a background, border or padding that wraps its text. They are hit-testable through their text.
-- **`<br>` does not break lines.** It is parsed but has no layout behaviour. `<hr>` has no UA style.
+- **`<br>` does not break lines.** It is parsed but has no layout behaviour.
 - **Not implemented:** `float`, `white-space` (so no `pre`/`nowrap`), `vertical-align` (inline items are centred in the line), `text-align: justify`, `text-overflow`, `overflow-wrap`, `letter-spacing`, `word-spacing`, `text-transform`, `text-indent`, `line-clamp`, `columns`, `aspect-ratio`, `object-fit`.
 - **`border-style`** other than `none` draws solid (no dashed, dotted, double, groove or ridge).
 - **`box-sizing`, min/max sizes, `%` and viewport units** work. `%` heights resolve only against a definite parent height. `%` padding and margin resolve against the containing block width.
