@@ -133,6 +133,9 @@ public sealed partial class LayoutEngine
         el.CacheMarginHeight = result;
         el.CacheEpoch = _epoch;
         el.SubtreeLayoutDirty = false;
+        // This element just got a fresh size/position (not merely a translate of a cached one, which
+        // patches VisualBounds directly), so its visual bounds and any ancestor's scroll extents are stale.
+        el.ExtentsDirty = true;
         return result;
     }
 
