@@ -1,0 +1,35 @@
+<div class="shell">
+    <nav class="sidebar">
+        <div class="sidebar-title">Sway demos</div>
+        @foreach (var demo in Pages)
+        {
+            <button class="nav-item @(demo == current ? "active" : null)" @onclick="() => current = demo">
+                <span class="nav-name">@demo.Title</span>
+                <span class="nav-note">@demo.Note</span>
+            </button>
+        }
+    </nav>
+
+    <main class="content" @key="current">
+        <DynamicComponent Type="current.Type" />
+    </main>
+</div>
+
+@code {
+    // Add a line here for each new demo page.
+    record DemoPage(string Title, string Note, Type Type);
+
+    static readonly DemoPage[] Pages =
+    {
+        new("Components", "events, diffing, state", typeof(CounterDemo)),
+        new("Flex and grid", "flexbox, grid, gaps, spans", typeof(LayoutDemo)),
+        new("Alignment", "wrap, justify, auto margins", typeof(LayoutDemo2)),
+        new("Interaction", "scroll, stacking, focus, events", typeof(InteractionDemo)),
+        new("Forms", "inputs, select, checkbox, binding", typeof(FormsDemo)),
+        new("Effects", "shadows, gradients, transforms, filters", typeof(EffectsDemo)),
+        new("Motion", "transitions and keyframe animations", typeof(MotionDemo)),
+        new("Stress", "1500 rows, scroll and hover", typeof(StressDemo)),
+    };
+
+    DemoPage current = Pages[0];
+}

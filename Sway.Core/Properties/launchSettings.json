@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Sway.Core": {
+      "commandName": "Project",
+      "commandLineArgs": "--layout2"
+    }
+  }
+}

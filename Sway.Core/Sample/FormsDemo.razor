@@ -1,0 +1,95 @@
+<div class="forms">
+    <h2>Form controls</h2>
+
+    <form class="panel" @onsubmit="OnSubmit">
+        <div class="field-row">
+            <label for="name">Name</label>
+            <input id="name" type="text" placeholder="Your name" @bind="name" @bind:event="oninput" />
+            <span class="echo">@name.Length chars</span>
+        </div>
+
+        <div class="field-row">
+            <label for="pw">Password</label>
+            <input id="pw" type="password" @bind="password" @bind:event="oninput" />
+            <span class="echo">@(new string('*', password.Length))</span>
+        </div>
+
+        <div class="field-row">
+            <label for="age">Age</label>
+            <input id="age" type="number" min="0" max="120" @bind="age" @bind:event="oninput" />
+            <span class="echo">next year: @(age + 1)</span>
+        </div>
+
+        <div class="field-row">
+            <label for="short">Max 8</label>
+            <input id="short" maxlength="8" placeholder="8 chars max" @bind="shortText" @bind:event="oninput" />
+            <input readonly value="read-only" />
+            <input disabled value="disabled" />
+        </div>
+
+        <div class="field-row top">
+            <label for="bio">Bio</label>
+            <textarea id="bio" rows="4" cols="34" placeholder="A few lines about you" @bind="bio" @bind:event="oninput"></textarea>
+            <span class="echo">@bio.Split('\n').Length line(s)</span>
+        </div>
+
+        <div class="field-row">
+            <label for="color">Colour</label>
+            <select id="color" @bind="colour">
+                <option value="">Choose...</option>
+                <option value="red">Red</option>
+                <option value="green">Green</option>
+                <option value="blue">Blue</option>
+                <option value="amber" disabled>Amber (disabled)</option>
+                <option value="violet">Violet</option>
+            </select>
+            <span class="echo">value: "@colour"</span>
+        </div>
+
+        <div class="field-row">
+            <label class="check"><input type="checkbox" @bind="subscribe" /> Subscribe to updates</label>
+            <label class="check"><input type="checkbox" disabled checked /> Always on</label>
+            <span class="echo">@subscribe</span>
+        </div>
+
+        <div class="field-row">
+            <span class="group-label">Plan</span>
+            @foreach (var option in new[] { "free", "pro", "team" })
+            {
+                <label>
+                    <input type="radio" name="plan" value="@option" checked="@(plan == option)" @onchange="() => plan = option" />
+                    @option
+                </label>
+            }
+            <span class="echo">@plan</span>
+        </div>
+
+        <div class="field-row">
+            <button type="submit">Save</button>
+            <input type="button" value="input button" @onclick="() => clicks++" />
+            <input type="submit" value="Submit input" />
+            <span class="echo">clicks: @clicks, submits: @submits</span>
+        </div>
+    </form>
+
+    <p class="result">@lastSubmit</p>
+</div>
+
+@code {
+    string name = "";
+    string password = "";
+    int age = 30;
+    string shortText = "";
+    string bio = "";
+    string colour = "";
+    bool subscribe;
+    string plan = "free";
+    int clicks, submits;
+    string lastSubmit = "Nothing submitted yet.";
+
+    void OnSubmit()
+    {
+        submits++;
+        lastSubmit = $"Submitted: {name} / age {age} / {colour} / {plan} / subscribe={subscribe}";
+    }
+}
