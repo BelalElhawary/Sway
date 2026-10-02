@@ -1,0 +1,12 @@
+/* FormsDemo.razor: inputs, select, checkbox and binding. */
+.forms { padding: 16px 20px; max-width: 640px; }
+.forms h2 { margin: 0 0 12px; }
+.panel { background-color: var(--card); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 12px; padding: 16px 20px; }
+.field-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.field-row.top { align-items: flex-start; }
+.field-row > label:first-child, .group-label { width: 78px; color: var(--muted); font-size: 13px; }
+.field-row label { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+.field-row input[type=text], .field-row input[type=password], .field-row input[type=number], .field-row input:not([type]) { width: 200px; }
+.field-row > label.check { width: auto; color: var(--text); }
+.echo { color: var(--muted); font-size: 12px; }
+.result { color: var(--muted); font-size: 13px; }

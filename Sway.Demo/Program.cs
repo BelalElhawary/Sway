@@ -1,7 +1,10 @@
 using Sway.Core.Platform;
 using Sway.Demo.Sample;
 
-var app = App.Create().AddStylesheet("app.css");
+var app = App.Create();
+// One stylesheet per demo page, loaded in the same order app.css used to define them.
+foreach (var sheet in new[] { "theme", "layout", "layout2", "interaction", "shell", "forms", "effects", "motion", "stress", "testing" })
+    app.AddStylesheet(Path.Combine("styles", $"{sheet}.css"));
 
 // `--screenshot out.png` renders headlessly, which is handy for checking layout and input.
 // Scripted steps run in order before the capture:

@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="app.css" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="styles\*.css" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

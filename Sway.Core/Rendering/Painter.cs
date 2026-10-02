@@ -272,21 +272,60 @@ public sealed class Painter
         if (w[0] <= 0 && w[1] <= 0 && w[2] <= 0 && w[3] <= 0) return;
 
         bool uniform = w[0] == w[1] && w[1] == w[2] && w[2] == w[3]
-            && Enumerable.Range(1, 3).All(i => st.BorderColorOf(i) == st.BorderColorOf(0));
+            && Enumerable.Range(1, 3).All(i => st.BorderColorOf(i) == st.BorderColorOf(0))
+            && Enumerable.Range(1, 3).All(i => st.BorderStyle[i] == st.BorderStyle[0]);
 
         if (uniform)
         {
+            if (st.BorderStyle[0] == BorderLineStyle.Double)
+            {
+                PaintDoubleBorder(canvas, st, rect, radii, w[0]);
+                return;
+            }
+
             // Stroke along the centre line of the border so the outer edge matches the box.
             using var paint = new SKPaint
             {
                 Color = st.BorderColorOf(0), IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = w[0]
             };
+            ApplyBorderDash(paint, st.BorderStyle[0], w[0]);
             using var centre = RoundRect(rect, radii, inset: w[0] / 2);
             canvas.DrawRoundRect(centre, paint);
             return;
         }
 
         PaintMixedBorders(canvas, st, rect, radii);
+    }
+
+    // Dashed uses evenly spaced segments; dotted abuses a zero-length dash with a round cap so each "dash" is a dot.
+    static void ApplyBorderDash(SKPaint paint, BorderLineStyle style, float width)
+    {
+        switch (style)
+        {
+            case BorderLineStyle.Dashed:
+                float dash = Math.Max(width * 2.5f, 3);
+                paint.PathEffect = SKPathEffect.CreateDash(new[] { dash, dash }, 0);
+                break;
+            case BorderLineStyle.Dotted:
+                paint.StrokeCap = SKStrokeCap.Round;
+                float gap = Math.Max(width * 2, 2);
+                paint.PathEffect = SKPathEffect.CreateDash(new[] { 0.01f, gap }, 0);
+                break;
+        }
+    }
+
+    // Two thin strokes with a gap between them, each a third of the total width, matching the CSS approximation.
+    static void PaintDoubleBorder(SKCanvas canvas, ComputedStyle st, SKRect rect, float[] radii, float width)
+    {
+        float third = width / 3f;
+        using var paint = new SKPaint
+        {
+            Color = st.BorderColorOf(0), IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = third
+        };
+        using var outer = RoundRect(rect, radii, inset: third / 2);
+        canvas.DrawRoundRect(outer, paint);
+        using var inner = RoundRect(rect, radii, inset: width - third / 2);
+        canvas.DrawRoundRect(inner, paint);
     }
 
     // Borders whose sides differ: clip to the rounded ring, then fill four mitred wedges, one per side.

@@ -1,0 +1,23 @@
+/* MotionDemo.razor: transitions and keyframe animations. */
+.motion { padding: 16px 20px; }
+.motion h2 { margin: 0 0 14px; }
+.m-row { display: flex; gap: 18px; align-items: center; margin-bottom: 26px; flex-wrap: wrap; }
+.m-card { width: 120px; height: 72px; padding: 10px; box-sizing: border-box; border-radius: 10px; background-color: var(--card); font-size: 12px; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+.m-card:hover { background-color: #4f46e5; color: #fff; transform: translateY(-8px) rotate(-3deg); box-shadow: 0 14px 24px rgba(79,70,229,.4); }
+.m-card.ease { transition: all .4s ease; }
+.m-card.linear { transition: all .4s linear; }
+.m-card.steps { transition: all .4s steps(4); }
+.m-card.slow { transition: background-color 1s, color 1s, transform 1s, box-shadow 1s; transition-delay: .2s; }
+.m-bar { width: 80px; height: 16px; border-radius: 8px; background-color: #4f46e5; transition: width .5s cubic-bezier(.4, 0, .2, 1); }
+.m-bar.wide { width: 360px; }
+.spinner { width: 44px; height: 44px; border: 5px solid #e0e7ff; border-top-color: #4f46e5; border-radius: 50%; animation: spin 1s linear infinite; }
+.pulse { width: 44px; height: 44px; border-radius: 12px; background-color: #ec4899; animation: pulse 2s ease-in-out infinite; }
+.slide { padding: 10px 14px; border-radius: 8px; background-color: #dbeafe; animation: slide-in .8s ease-out both; }
+.bounce { width: 30px; height: 30px; border-radius: 50%; background-color: #f59e0b; animation: bounce .6s cubic-bezier(.3, 0, .7, 1) infinite alternate; }
+.cycle { width: 60px; height: 44px; border-radius: 8px; animation: cycle 3s linear infinite; }
+.paused { width: 44px; height: 44px; border-radius: 8px; background-color: #10b981; animation: spin 2s linear infinite; animation-play-state: paused; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.3); opacity: .45; } }
+@keyframes slide-in { from { transform: translateX(-60px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes bounce { 0% { transform: translateY(0); } 100% { transform: translateY(-26px); } }
+@keyframes cycle { 0% { background-color: #ef4444; } 33% { background-color: #22c55e; } 66% { background-color: #3b82f6; } 100% { background-color: #ef4444; } }

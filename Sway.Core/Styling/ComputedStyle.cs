@@ -6,6 +6,8 @@ public enum Display { Inline, Block, InlineBlock, Flex, InlineFlex, Grid, Inline
 public enum FlexDirection { Row, RowReverse, Column, ColumnReverse }
 public enum Position { Static, Relative, Absolute, Fixed, Sticky }
 public enum Overflow { Visible, Hidden, Scroll, Auto }
+public enum BorderLineStyle { Solid, Dashed, Dotted, Double }
+public enum TextTransform { None, Uppercase, Lowercase, Capitalize }
 public enum AnimationDirection { Normal, Reverse, Alternate, AlternateReverse }
 public enum AnimationFill { None, Forwards, Backwards, Both }
 
@@ -111,6 +113,7 @@ public sealed class ComputedStyle
     public string Cursor = "auto";
     public List<Shadow> TextShadows = NoShadows;
     public TextDecoration TextDecoration;
+    public TextTransform TextTransform;
     /// <summary>Tint for checkboxes and radios; null uses the default blue.</summary>
     public SKColor? AccentColor;
     public bool VisibilityHidden;
@@ -128,6 +131,7 @@ public sealed class ComputedStyle
     public float[] BorderWidth = new float[4];
     /// <summary>Null means currentColor.</summary>
     public SKColor?[] BorderColor = new SKColor?[4];
+    public BorderLineStyle[] BorderStyle = { BorderLineStyle.Solid, BorderLineStyle.Solid, BorderLineStyle.Solid, BorderLineStyle.Solid };
     /// <summary>Corner radii in px: top-left, top-right, bottom-right, bottom-left.</summary>
     public float[] Radii = new float[4];
 
@@ -244,6 +248,7 @@ public sealed class ComputedStyle
         copy.Inset = (Length[])Inset.Clone();
         copy.BorderWidth = (float[])BorderWidth.Clone();
         copy.BorderColor = (SKColor?[])BorderColor.Clone();
+        copy.BorderStyle = (BorderLineStyle[])BorderStyle.Clone();
         copy.Radii = (float[])Radii.Clone();
         copy.RadiiPercent = (float[])RadiiPercent.Clone();
         return copy;
@@ -288,6 +293,7 @@ public sealed class ComputedStyle
         Cursor = parent.Cursor,
         TextShadows = parent.TextShadows,
         TextDecoration = parent.TextDecoration,
+        TextTransform = parent.TextTransform,
         AccentColor = parent.AccentColor,
         VisibilityHidden = parent.VisibilityHidden,
         PointerEventsNone = parent.PointerEventsNone,

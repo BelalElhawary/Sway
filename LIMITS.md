@@ -54,7 +54,7 @@ renders nothing.
 - **Media queries:** `min/max-width`, `min/max-height`, `prefers-color-scheme`, `screen`, `all`, `and`, and comma lists only. No `not`, `only`, range syntax, `orientation`, `resolution`, `hover`.
 - **Keywords:** `inherit` works for a subset of properties. `initial`, `unset`, `revert` are not supported.
 - **Values:** `calc()` works for absolute lengths and numbers only (no `%`). `min()`, `max()`, `clamp()` and `env()` are not supported.
-- **Colors:** hex, `rgb()/rgba()`, `hsl()/hsla()`, `currentColor`, `transparent` and about 50 named colors. No `color()`, `lab()`, `oklch()`, `color-mix()` or the full CSS named-color list.
+- **Colors:** hex, `rgb()/rgba()`, `hsl()/hsla()`, `currentColor`, `transparent` and the full CSS named-color list. No `color()`, `lab()`, `oklch()` or `color-mix()`.
 - **Scoped CSS** (`.razor.css`) is not supported. Use global stylesheets or `style` attributes.
 - **`!important`** works at declaration level.
 
@@ -62,9 +62,9 @@ renders nothing.
 
 - **No margin collapsing**: adjacent vertical margins add.
 - **Inline elements have no box of their own**: a `<span>` cannot have a background, border or padding that wraps its text. They are hit-testable through their text.
-- **`<br>` does not break lines.** It is parsed but has no layout behaviour.
-- **Not implemented:** `float`, `white-space` (so no `pre`/`nowrap`), `vertical-align` (inline items are centred in the line), `text-align: justify`, `text-overflow`, `overflow-wrap`, `letter-spacing`, `word-spacing`, `text-transform`, `text-indent`, `line-clamp`, `columns`, `aspect-ratio`, `object-fit`.
-- **`border-style`** other than `none` draws solid (no dashed, dotted, double, groove or ridge).
+- **Not implemented:** `float`, `white-space` (so no `pre`/`nowrap`), `vertical-align` (inline items are centred in the line), `text-align: justify`, `text-overflow`, `overflow-wrap`, `letter-spacing`, `word-spacing`, `text-indent`, `line-clamp`, `columns`, `aspect-ratio`, `object-fit`.
+- **`text-transform`** (`uppercase`, `lowercase`, `capitalize`) is supported. `capitalize` uppercases the first letter of each whitespace-separated word, a slightly coarser boundary than the Unicode word-break the spec calls for.
+- **`border-style`**: `solid`, `dashed`, `dotted` and `double` are supported when a side's width, color and style all match its neighbours (the common case: a `border` shorthand, or a uniform `border-style`/`border-width`/`border-color`). `groove`, `ridge`, `inset` and `outset` still draw solid **(Approximation)**. A border whose sides differ in width, color or style falls back to the mitred solid-wedge renderer, so dashed or dotted mixed with per-side differences still draws solid.
 - **`box-sizing`, min/max sizes, `%` and viewport units** work. `%` heights resolve only against a definite parent height. `%` padding and margin resolve against the containing block width.
 - **Elements not laid out as designed:** `table` (tables, rows and cells have no table layout), `ul/ol/li` (no bullets or numbering), `img`, `svg`, `canvas`, `video`, `iframe`. Unknown tags default to inline.
 

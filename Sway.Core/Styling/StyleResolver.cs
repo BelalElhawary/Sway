@@ -433,6 +433,15 @@ public sealed class StyleResolver : IStyleInvalidation
                 s.TextDecoration = deco;
                 break;
             }
+            case "text-transform":
+                s.TextTransform = value.ToLowerInvariant() switch
+                {
+                    "uppercase" => TextTransform.Uppercase,
+                    "lowercase" => TextTransform.Lowercase,
+                    "capitalize" => TextTransform.Capitalize,
+                    _ => TextTransform.None,
+                };
+                break;
             case "accent-color":
                 if (CssValues.TryColor(value, s.Color, out var accent)) s.AccentColor = accent;
                 break;
@@ -560,9 +569,24 @@ public sealed class StyleResolver : IStyleInvalidation
                 break;
             }
             case "border-style":
-                if (value.Equals("none", StringComparison.OrdinalIgnoreCase) || value.Equals("hidden", StringComparison.OrdinalIgnoreCase))
-                    Array.Clear(s.BorderWidth);
+            {
+                var tokens = CssValues.SplitTokens(value);
+                for (int i = 0; i < 4; i++)
+                {
+                    string t = BoxToken(tokens, i).ToLowerInvariant();
+                    if (t is "none" or "hidden") s.BorderWidth[i] = 0;
+                    else if (TryBorderLineStyle(t, out var lineStyle)) s.BorderStyle[i] = lineStyle;
+                }
                 break;
+            }
+            case "border-top-style" or "border-right-style" or "border-bottom-style" or "border-left-style":
+            {
+                int side = d.Name switch { "border-top-style" => 0, "border-right-style" => 1, "border-bottom-style" => 2, _ => 3 };
+                string t = value.Trim().ToLowerInvariant();
+                if (t is "none" or "hidden") s.BorderWidth[side] = 0;
+                else if (TryBorderLineStyle(t, out var sideLineStyle)) s.BorderStyle[side] = sideLineStyle;
+                break;
+            }
             case "border-radius":
             {
                 // "a b c d" maps to top-left, top-right, bottom-right, bottom-left; elliptical "/" radii are not supported.
@@ -627,6 +651,19 @@ public sealed class StyleResolver : IStyleInvalidation
         void SetLength(string text, float fontSize, Action<Length> assign)
         {
             if (CssValues.TryLength(text, fontSize, ctx, out var len)) assign(len);
+        }
+    }
+
+    static bool TryBorderLineStyle(string token, out BorderLineStyle style)
+    {
+        switch (token)
+        {
+            case "dashed": style = BorderLineStyle.Dashed; return true;
+            case "dotted": style = BorderLineStyle.Dotted; return true;
+            case "double": style = BorderLineStyle.Double; return true;
+            // groove, ridge, inset and outset are approximated as solid.
+            case "solid" or "groove" or "ridge" or "inset" or "outset": style = BorderLineStyle.Solid; return true;
+            default: style = BorderLineStyle.Solid; return false;
         }
     }
 
@@ -924,12 +961,13 @@ public sealed class StyleResolver : IStyleInvalidation
         float width = 3; // "medium"
         SKColor? color = null;
         bool none = false;
+        var lineStyle = BorderLineStyle.Solid;
 
         foreach (var token in CssValues.SplitTokens(value))
         {
             string t = token.ToLowerInvariant();
             if (t is "none" or "hidden") none = true;
-            else if (t is "solid" or "dashed" or "dotted" or "double" or "groove" or "ridge" or "inset" or "outset") { }
+            else if (TryBorderLineStyle(t, out var parsedStyle)) lineStyle = parsedStyle;
             else if (t is "thin") width = 1;
             else if (t is "medium") width = 3;
             else if (t is "thick") width = 5;
@@ -943,6 +981,7 @@ public sealed class StyleResolver : IStyleInvalidation
             if (!all && i != side) continue;
             s.BorderWidth[i] = width;
             s.BorderColor[i] = color;
+            s.BorderStyle[i] = lineStyle;
         }
     }
 
@@ -957,6 +996,7 @@ public sealed class StyleResolver : IStyleInvalidation
             case "font-style": s.Italic = parent.Italic; break;
             case "line-height": s.LineHeight = parent.LineHeight; s.LineHeightIsMultiplier = parent.LineHeightIsMultiplier; break;
             case "text-align": s.TextAlign = parent.TextAlign; break;
+            case "text-transform": s.TextTransform = parent.TextTransform; break;
             case "background-color": s.BackgroundColor = parent.BackgroundColor; break;
             case "opacity": s.Opacity = parent.Opacity; break;
             case "display": s.Display = parent.Display; break;

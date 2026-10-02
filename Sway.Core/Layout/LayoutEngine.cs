@@ -213,6 +213,7 @@ public sealed partial class LayoutEngine
         public float Width;     // advance width (text) or margin-box width (atom)
         public float Height;    // line-box contribution
         public float Ascent;    // text only: baseline offset from the top of the item's box
+        public bool ForceBreak; // a <br>: ends the line unconditionally, contributing only its height
     }
 
     float _inlineOriginX, _inlineOriginY;
@@ -237,6 +238,16 @@ public sealed partial class LayoutEngine
         foreach (var item in items)
         {
             if (item.IsSpace && line.Items.Count == 0) continue; // no space at the start of a line
+
+            if (item.ForceBreak)
+            {
+                TrimTrailingSpace(line);
+                line.Items.Add(item);
+                line.Xs.Add(line.Width);
+                lines.Add(line);
+                line = new Line();
+                continue;
+            }
 
             if (!item.IsSpace && line.Width + item.Width > width && line.Items.Count > 0)
             {
@@ -329,6 +340,11 @@ public sealed partial class LayoutEngine
                 CollectText(text, text.ParentElement!.Style, items, ref previousWasSpace);
                 break;
 
+            case ElementNode { Tag: "br", Style.Display: not Display.None } br:
+                items.Add(new InlineItem { ForceBreak = true, Style = br.Style, Height = FontCache.LineHeight(br.Style) });
+                previousWasSpace = false;
+                break;
+
             case ElementNode { Style.Display: Display.Inline } inline:
                 inline.BorderRect = default;
                 inline.ContentRect = default;
@@ -393,7 +409,7 @@ public sealed partial class LayoutEngine
 
             int wordStart = i;
             while (i < text.Length && !char.IsWhiteSpace(text[i])) i++;
-            string word = text[wordStart..i];
+            string word = ApplyTextTransform(text[wordStart..i], style.TextTransform);
             previousWasSpace = false;
             items.Add(new InlineItem
             {
@@ -401,6 +417,22 @@ public sealed partial class LayoutEngine
                 Width = FontCache.Measure(word, style), Height = lineHeight, Ascent = -metrics.Ascent,
             });
         }
+    }
+
+    static string ApplyTextTransform(string word, TextTransform transform) => transform switch
+    {
+        TextTransform.Uppercase => word.ToUpperInvariant(),
+        TextTransform.Lowercase => word.ToLowerInvariant(),
+        TextTransform.Capitalize => CapitalizeFirstLetter(word),
+        _ => word,
+    };
+
+    static string CapitalizeFirstLetter(string word)
+    {
+        for (int i = 0; i < word.Length; i++)
+            if (char.IsLetter(word[i]))
+                return word[..i] + char.ToUpperInvariant(word[i]) + word[(i + 1)..];
+        return word;
     }
 
     // ---- intrinsic sizing ----
@@ -433,16 +465,24 @@ public sealed partial class LayoutEngine
                     var style = t.ParentElement!.Style;
                     foreach (var piece in SplitCollapsed(t.Text, ref previousWasSpace))
                     {
-                        if (!min) { run += FontCache.Measure(piece, style); continue; }
+                        if (piece == " ")
+                        {
+                            if (min) FlushRun(); else run += FontCache.Measure(piece, style);
+                            continue;
+                        }
+                        string transformed = ApplyTextTransform(piece, style.TextTransform);
+                        if (!min) { run += FontCache.Measure(transformed, style); continue; }
                         // Min-content breaks at every space, so only the widest word counts.
-                        if (piece == " ") FlushRun();
-                        else widest = Math.Max(widest, FontCache.Measure(piece, style));
+                        widest = Math.Max(widest, FontCache.Measure(transformed, style));
                     }
                     break;
                 }
                 case ElementNode { Style.Display: Display.None }:
                     break;
                 case ElementNode { Style.IsOutOfFlow: true }:
+                    break;
+                case ElementNode { Tag: "br" }:
+                    FlushRun();
                     break;
                 case ElementNode { Style.Display: Display.Inline } inline:
                     foreach (var child in inline.PhysicalChildren) Walk(child);
