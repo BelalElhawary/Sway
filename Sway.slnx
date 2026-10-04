@@ -1,4 +1,6 @@
 <Solution>
   <Project Path="Sway.Core/Sway.Core.csproj" />
   <Project Path="Sway.Demo/Sway.Demo.csproj" />
+  <Project Path="Sway.Widgets/Sway.Widgets.csproj" />
+  <Project Path="Sway.Widgets.Demo/Sway.Widgets.Demo.csproj" />
 </Solution>
