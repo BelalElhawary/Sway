@@ -51,6 +51,40 @@ public readonly record struct BoxShadow(SKColor Color, Offset Offset = default, 
 
 public enum BoxShape { Rectangle, Circle }
 
+/// <summary>Blends two colour ramps that may have different numbers of stops by sampling both at the union of their stop positions.</summary>
+static class GradientMath
+{
+    static float[] Positions(int count, IReadOnlyList<float>? stops)
+    {
+        if (stops is not null && stops.Count == count) return stops.ToArray();
+        var even = new float[count];
+        for (int i = 0; i < count; i++) even[i] = count == 1 ? 0 : i / (float)(count - 1);
+        return even;
+    }
+
+    static SKColor ColorAt(IReadOnlyList<SKColor> colors, float[] positions, float p)
+    {
+        if (p <= positions[0]) return colors[0];
+        for (int i = 1; i < positions.Length; i++)
+        {
+            if (p > positions[i]) continue;
+            float span = positions[i] - positions[i - 1];
+            return span <= 0 ? colors[i] : Lerps.Color(colors[i - 1], colors[i], (p - positions[i - 1]) / span);
+        }
+        return colors[^1];
+    }
+
+    public static (List<SKColor> colors, List<float> stops) Blend(IReadOnlyList<SKColor> a, IReadOnlyList<float>? stopsA,
+        IReadOnlyList<SKColor> b, IReadOnlyList<float>? stopsB, float t)
+    {
+        var pa = Positions(a.Count, stopsA);
+        var pb = Positions(b.Count, stopsB);
+        var union = pa.Concat(pb).Distinct().OrderBy(p => p).ToList();
+        var colors = union.Select(p => Lerps.Color(ColorAt(a, pa, p), ColorAt(b, pb, p), t)).ToList();
+        return (colors, union);
+    }
+}
+
 public abstract class Gradient
 {
     public abstract SKShader CreateShader(Rect rect, TextDirection direction);
@@ -66,13 +100,14 @@ public sealed class LinearGradient(IReadOnlyList<SKColor> colors, IAlignment? be
     public IAlignment? End { get; } = end;
     public IReadOnlyList<float>? Stops { get; } = stops;
 
-    internal bool CanLerp(LinearGradient o) => ColorList.Count == o.ColorList.Count && Stops is null && o.Stops is null;
+    internal bool CanLerp(LinearGradient o) => ColorList.Count > 0 && o.ColorList.Count > 0;
 
     internal LinearGradient Lerp(LinearGradient o, float t)
     {
         var b = Lerps.Alignment((Begin ?? Alignment.CenterLeft).Resolve(TextDirection.Ltr), (o.Begin ?? Alignment.CenterLeft).Resolve(TextDirection.Ltr), t);
         var e = Lerps.Alignment((End ?? Alignment.CenterRight).Resolve(TextDirection.Ltr), (o.End ?? Alignment.CenterRight).Resolve(TextDirection.Ltr), t);
-        return new LinearGradient(ColorList.Select((c, i) => Lerps.Color(c, o.ColorList[i], t)).ToList(), b, e);
+        var (colors, stops) = GradientMath.Blend(ColorList, Stops, o.ColorList, o.Stops, t);
+        return new LinearGradient(colors, b, e, stops);
     }
 
     public override SKShader CreateShader(Rect rect, TextDirection direction)
@@ -90,12 +125,15 @@ public sealed class RadialGradient(IReadOnlyList<SKColor> colors, IAlignment? ce
     public float Radius { get; } = radius;
     public IReadOnlyList<float>? Stops { get; } = stops;
 
-    internal bool CanLerp(RadialGradient o) => ColorList.Count == o.ColorList.Count && Stops is null && o.Stops is null;
+    internal bool CanLerp(RadialGradient o) => ColorList.Count > 0 && o.ColorList.Count > 0;
 
-    internal RadialGradient Lerp(RadialGradient o, float t) => new(
-        ColorList.Select((c, i) => Lerps.Color(c, o.ColorList[i], t)).ToList(),
-        Lerps.Alignment((Center ?? Alignment.Center).Resolve(TextDirection.Ltr), (o.Center ?? Alignment.Center).Resolve(TextDirection.Ltr), t),
-        Lerps.Float(Radius, o.Radius, t));
+    internal RadialGradient Lerp(RadialGradient o, float t)
+    {
+        var (colors, stops) = GradientMath.Blend(ColorList, Stops, o.ColorList, o.Stops, t);
+        return new RadialGradient(colors,
+            Lerps.Alignment((Center ?? Alignment.Center).Resolve(TextDirection.Ltr), (o.Center ?? Alignment.Center).Resolve(TextDirection.Ltr), t),
+            Lerps.Float(Radius, o.Radius, t), stops);
+    }
 
     public override SKShader CreateShader(Rect rect, TextDirection direction)
     {
@@ -107,6 +145,19 @@ public sealed class RadialGradient(IReadOnlyList<SKColor> colors, IAlignment? ce
 
 public sealed class SweepGradient(IReadOnlyList<SKColor> colors, IAlignment? center = null, IReadOnlyList<float>? stops = null) : Gradient
 {
+    public IReadOnlyList<SKColor> ColorList { get; } = colors;
+    public IAlignment? Center { get; } = center;
+    public IReadOnlyList<float>? Stops { get; } = stops;
+
+    internal bool CanLerp(SweepGradient o) => ColorList.Count > 0 && o.ColorList.Count > 0;
+
+    internal SweepGradient Lerp(SweepGradient o, float t)
+    {
+        var (blended, blendedStops) = GradientMath.Blend(ColorList, Stops, o.ColorList, o.Stops, t);
+        return new SweepGradient(blended,
+            Lerps.Alignment((Center ?? Alignment.Center).Resolve(TextDirection.Ltr), (o.Center ?? Alignment.Center).Resolve(TextDirection.Ltr), t), blendedStops);
+    }
+
     public override SKShader CreateShader(Rect rect, TextDirection direction)
     {
         var c = (center ?? Alignment.Center).Resolve(direction);

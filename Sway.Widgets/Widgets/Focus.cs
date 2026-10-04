@@ -16,6 +16,12 @@ public sealed class FocusNode
     public bool SkipTraversal { get; set; }
     public string? DebugLabel { get; set; }
 
+    /// <summary>While focus is inside this node, Tab and Shift+Tab cycle only through its descendants (modal dialogs, menus).</summary>
+    public bool TrapsFocus { get; set; }
+
+    /// <summary>Explicit Tab position: lower comes first, ties and unset nodes (0) fall back to tree order. See <see cref="FocusTraversalOrder"/>.</summary>
+    public float Order { get; set; }
+
     /// <summary>Called for key events while this node or a descendant has focus; return true to consume.</summary>
     public Func<KeyEvent, bool>? OnKey { get; set; }
 
@@ -80,7 +86,27 @@ public sealed class FocusManager
         var after = Chain(node);
         foreach (var n in before.Except(after)) n.NotifyChanged();
         foreach (var n in after.Except(before)) n.NotifyChanged();
+        if (viaKeyboard && node is not null) ScrollIntoView(node);
         WidgetsBinding.Instance.RequestFrame();
+    }
+
+    /// <summary>Scrolls every enclosing scrollable just far enough that the focused widget is visible.</summary>
+    static void ScrollIntoView(FocusNode node)
+    {
+        if (node.Element?.FindRenderObject() is not RenderBox box || box.SizeOrNull is not { } size) return;
+        for (RenderObject? o = box.Parent; o is not null; o = o.Parent)
+        {
+            if (o is not IScrollViewport viewport || o is not RenderBox view || view.SizeOrNull is not { } viewSize) continue;
+            var local = box.LocalToGlobal(Offset.Zero) - view.LocalToGlobal(Offset.Zero) + viewport.PaintShift;
+            bool vertical = viewport.ScrollAxis == Axis.Vertical;
+            float start = vertical ? local.Dy : local.Dx;
+            float extent = vertical ? size.Height : size.Width;
+            float visible = vertical ? viewSize.Height : viewSize.Width;
+            if (start < 0) viewport.Position.JumpTo(viewport.Position.Pixels + start);
+            else if (start + extent > visible) viewport.Position.JumpTo(viewport.Position.Pixels + start + extent - visible);
+            // The next layout moves the child; later ancestors need its new place, so stop after the nearest scrollable.
+            return;
+        }
     }
 
     static List<FocusNode> Chain(FocusNode? n)
@@ -112,12 +138,21 @@ public sealed class FocusManager
 
     public void Traverse(int direction)
     {
-        var order = _nodes.Where(n => n.CanRequestFocus && !n.SkipTraversal && n.Element is { Mounted: true })
-            .OrderBy(n => TreeOrder(n.Element!), Comparer<long[]>.Create(CompareKeys)).ToList();
+        var trap = ActiveTrap();
+        var order = _nodes.Where(n => n.CanRequestFocus && !n.SkipTraversal && n.Element is { Mounted: true } && (trap is null || IsAncestor(trap, n)))
+            .OrderBy(n => n.Order).ThenBy(n => TreeOrder(n.Element!), Comparer<long[]>.Create(CompareKeys)).ToList();
         if (order.Count == 0) return;
         int i = _primary is null ? -1 : order.IndexOf(_primary);
         int next = i < 0 ? (direction > 0 ? 0 : order.Count - 1) : (i + direction + order.Count) % order.Count;
         Focus(order[next], viaKeyboard: true);
+    }
+
+    // The innermost focus-trapping ancestor of the primary focus, or (with nothing focused) the most recently opened trap.
+    FocusNode? ActiveTrap()
+    {
+        for (var n = _primary; n is not null; n = n.Parent)
+            if (n.TrapsFocus) return n;
+        return _primary is null ? _nodes.LastOrDefault(n => n.TrapsFocus && n.Element is { Mounted: true }) : null;
     }
 
     // Depth-first position of an element: the child index at each level from the root.
@@ -144,7 +179,7 @@ public sealed class FocusManager
 
 /// <summary>Makes a subtree focusable and exposes its <see cref="FocusNode"/> to descendants.</summary>
 public sealed class Focus(Widget child, FocusNode? focusNode = null, bool autofocus = false, Func<KeyEvent, bool>? onKey = null,
-    Action<bool>? onFocusChange = null, bool canRequestFocus = true, bool skipTraversal = false, Key? key = null) : StatefulWidget(key)
+    Action<bool>? onFocusChange = null, bool canRequestFocus = true, bool skipTraversal = false, bool trapFocus = false, Key? key = null) : StatefulWidget(key)
 {
     internal Widget Child => child;
     internal FocusNode? Node => focusNode;
@@ -153,6 +188,7 @@ public sealed class Focus(Widget child, FocusNode? focusNode = null, bool autofo
     internal Action<bool>? OnFocusChange => onFocusChange;
     internal bool CanRequestFocus => canRequestFocus;
     internal bool SkipTraversal => skipTraversal;
+    internal bool TrapFocus => trapFocus;
 
     public override State CreateState() => new FocusState();
 
@@ -189,6 +225,8 @@ sealed class FocusState : State<Focus>
         _node.Element = (Element?)Context;
         _node.CanRequestFocus = Widget.CanRequestFocus;
         _node.SkipTraversal = Widget.SkipTraversal;
+        _node.TrapsFocus = Widget.TrapFocus;
+        _node.Order = FocusTraversalOrder.Of(Context);
         _node.Parent = Focus.MaybeOf(Context);
         _node.Changed += OnChanged;
         WidgetsBinding.Instance.Focus.Register(_node);
@@ -223,6 +261,8 @@ sealed class FocusState : State<Focus>
         {
             _node.CanRequestFocus = Widget.CanRequestFocus;
             _node.SkipTraversal = Widget.SkipTraversal;
+            _node.TrapsFocus = Widget.TrapFocus;
+            _node.Order = FocusTraversalOrder.Of(Context);
             if (Widget.OnKey is not null) _node.OnKey = Widget.OnKey;
         }
     }
@@ -231,4 +271,12 @@ sealed class FocusState : State<Focus>
 
     public override Widget Build(BuildContext context) =>
         new FocusScopeMarker(_node, _node.HasFocus, Widget.Child);
+}
+
+/// <summary>Sets the Tab position of the focusable widgets below it: lower numbers are visited first, others (0) follow tree order.</summary>
+public sealed class FocusTraversalOrder(float order, Widget child, Key? key = null) : InheritedWidget(child, key)
+{
+    public float Order => order;
+    public override bool UpdateShouldNotify(InheritedWidget old) => ((FocusTraversalOrder)old).Order != Order;
+    internal static float Of(BuildContext context) => context.Get<FocusTraversalOrder>()?.Order ?? 0;
 }

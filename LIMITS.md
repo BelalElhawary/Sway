@@ -16,8 +16,8 @@ Tags used:
 
 | Limit | Notes |
 | --- | --- |
-| No automated tests | **Unsupported.** Behaviour is checked by rendering headless PNGs (`--screenshot`) and reading them, plus the `--bench` frame-cost report. Constraint layout (`RenderFlex`, `RenderGrid`, `RenderWrap`), `TextEditState`, `Lerps`, `Curves` and the gesture arena are pure logic and good candidates for unit tests. |
-| Only tested on Windows | The font fallback list assumes Roboto or Segoe UI. Other platforms need a font mapping. The OS dark-mode probe is Windows-only. |
+| Limited automated tests | **Planned.** `Sway.Widgets.Tests` (xunit, `dotnet test`) drives a headless app on a manual clock and covers curves, lerps, physics, text editing, flex layout, gestures, scrolling, lists and grids, animation, focus and dialogs, menus, sheets, the date picker, themes and the backdrop filter. Rendering is still checked by headless PNGs (`--screenshot`) and the `--bench` report. `RenderGrid`, `RenderWrap`, text wrapping and bidi have no direct tests yet. |
+| Only tested on Windows | The font fallback list assumes Roboto or Segoe UI, so other platforms need a font mapping. The macOS and Linux (GNOME) dark-mode probes, which run a helper process every 5 seconds, are written but untested. |
 | Live window lightly exercised | The windowed host (Silk.NET input, clipboard, cursors, high-DPI scaling) was verified headlessly and by a few launches, not by sustained hands-on use. |
 | OpenGL 3.3 core required | Skia renders through a GL context. There is no software fallback for the live window (the headless path is CPU raster). |
 | Single window | One window per process. |
@@ -30,11 +30,11 @@ Tags used:
 
 | Limit | Notes |
 | --- | --- |
-| `ListView.Builder` needs equal-height items | **Planned.** Pass `itemExtent`, or the first item's size is used for all. Variable heights need a sliver system (`CustomScrollView`, `SliverList`). |
-| `Grid` is not lazy | **Planned.** It lays out every child. Tracks support px, fr and auto only: no `minmax`, `fit-content`, named lines or areas, and no dense auto-flow. Spanning items grow auto tracks evenly. |
+| `ListView.Builder` estimates variable heights | **Approximation.** Pass `itemExtent` for equal-height items (exact and fastest). Otherwise items are measured as they scroll into view and unmeasured ones are estimated from the average, so the scrollbar thumb and `MaxScrollExtent` shift as measurements arrive; visible content is re-anchored so it does not jump. Jumping to the very end can take a few frames to settle. There is no sliver system (`CustomScrollView`, `SliverList`), so a list cannot mix with other scrolling children. |
+| `Grid` is not lazy | **Approximation.** `Grid` lays out every child; use `GridView.Builder` (equal cells, fixed column count or minimum column width, no spans) for large collections. `Grid` tracks support px, fr and auto only: no `minmax`, `fit-content`, named lines or areas, and no dense auto-flow. Spanning items grow auto tracks evenly. |
 | `Wrap` has no intrinsic height | It cannot be used inside `IntrinsicHeight` with wrapping content. |
-| No `LayoutBuilder`, `OverflowBox` or `CustomMultiChildLayout` | **Planned.** Build-during-layout exists only inside the lazy list. |
-| No overflow indicators | A `Row` or `Column` whose children are larger than the available space simply overflows (clipped only by an ancestor clip). |
+| `LayoutBuilder` has no intrinsic size | It builds its child during layout, so it cannot be measured ahead of layout and reports 0 to `IntrinsicWidth`/`IntrinsicHeight`. `CustomMultiChildLayout` delegates cannot supply intrinsic sizes either. |
+| Overflow indicators are debug-only | **Approximation.** A `Row` or `Column` whose children exceed its size reports `RenderFlex.OverflowExtent` and, in debug builds, paints a yellow and black band on the overflowing edge (`RenderFlex.PaintOverflowIndicators`). There is no text label, and `Stack`, `Wrap` and `Grid` do not report overflow. |
 | Transforms do not affect layout | `Transform` paints and hit-tests correctly but its box keeps the untransformed size. |
 | `AnimatedSize` drives layout from frame callbacks | A size animation relays out its subtree every frame. |
 
@@ -46,25 +46,25 @@ Tags used:
 | Bidi runs use a simplified algorithm | Direction runs are found with a simple strong-direction scan, not the full Unicode Bidirectional Algorithm (no embeddings, isolates or mirrored brackets). |
 | No emoji or per-character font fallback | **Unsupported.** A glyph missing from the chosen font draws as a box. |
 | No IME or dead-key composition | **Unsupported.** Text arrives as plain characters. |
-| Text is not selectable outside fields | There is no `SelectableText`. |
+| Selectable text is a read-only field | `SelectableText` wraps a read-only editor, so it selects with mouse and keyboard but has no rich spans and no selection across separate widgets. |
 | No accessibility tree | **Unsupported.** |
-| Gestures: no long-press, double-tap, scale or multi-pointer | **Planned.** Tap and drag (vertical, horizontal, pan) compete in a gesture arena. Only the left mouse button is dispatched; there is no touch or pen input. |
-| Scrollbars are indicators only | **Planned.** They fade after scrolling and cannot be dragged or clicked. Wheel scrolling is a fixed 100 px per notch with no smooth scrolling or overscroll. |
-| Tab traversal follows tree order | There is no `FocusTraversalGroup` or custom ordering, and focus does not scroll into view. |
+| Gestures: no scale or multi-pointer | **Planned.** Tap, double-tap, long-press and drag (vertical, horizontal, pan) compete in a gesture arena. A single tap waits 300 ms when a double-tap handler is present. Only the left mouse button is dispatched; there is no touch or pen input, so scale and multi-pointer gestures have no input to work from. |
+| No overscroll | **Approximation.** Scrollbars fade after scrolling, grow when hovered, and can be dragged or clicked to page. The wheel scrolls 100 px per notch with a short eased animation. There is no overscroll bounce or glow, and the scrollbar gutter (14 px) is not hit-testable for the content under it. |
+| Tab traversal has no groups or policies | Tab follows tree order unless `FocusTraversalOrder` sets a position. `Focus(trapFocus: true)` confines Tab to a subtree, and keyboard focus scrolls enclosing scrollables to reveal the widget. There is no `FocusTraversalGroup` or directional (arrow key) traversal. |
 | Floating label is single-line | Multi-line fields keep the label at the top-left; the notch is sized from the unwrapped label width. |
 
 ## 4. Animation
 
 | Limit | Notes |
 | --- | --- |
-| No physics simulations | **Planned.** `SpringSimulation`, `FrictionSimulation` and `AnimationController.Fling` are absent. Scroll fling uses its own exponential decay. |
-| Animations keep ticking while offscreen | **Unsupported.** There is no `TickerMode` or muting, so a hidden repeating animation still requests a frame every tick and keeps the window awake. |
+| Physics are 1-D only | **Approximation.** `SpringSimulation`, `FrictionSimulation`, `AnimationController.Fling` and `AnimationController.AnimateWith` exist. There is no `GravitySimulation`, `BouncingScrollSimulation` or clamped composite simulation. |
+| Offscreen animations are only paused on request | **Approximation.** Wrap hidden content in `Offstage` or `TickerMode(false, ...)` and its animations pause and stop requesting frames. Nothing detects scrolled-out or covered content automatically. |
 | No route, `Hero` or shared-element transitions | **Unsupported.** There is no `Navigator`; use `AnimatedSwitcher` for page changes. |
-| Implicit alignment is physical | `AnimatedContainer` and `AnimatedAlign` take `Alignment`, not `AlignmentDirectional`. Resolve start/end yourself in RTL layouts. |
+| Implicit scale/rotation origins are physical | `AnimatedAlign`, `AnimatedContainer` and `AnimatedPositionedDirectional` resolve start/end from the text direction, but the `alignment` origin of `AnimatedScale` and `AnimatedRotation` is still a physical `Alignment`. |
 | Missing-to-present properties jump | **Approximation.** An `AnimatedContainer` property that goes from `null` to a value (or back) changes immediately instead of animating in. Colours and shadows inside a decoration do fade in. |
-| Gradients | Blend only between gradients of the same kind with equal stop counts and no explicit stops; otherwise they switch at the halfway point. |
-| `TweenAnimationBuilder` evaluation | It reuses your tween instance to blend, temporarily setting its `Begin` and `End`. Do not share one tween object between two builders. |
-| No `AnimatedList`, `AnimatedPhysicalModel`, `AnimatedFractionallySizedBox` | **Planned** as needed. |
+| Gradients | Linear, radial and sweep gradients blend with each other's kind, resampling ramps of different lengths onto shared stops. Gradients of different kinds switch at the halfway point. |
+| `TweenAnimationBuilder` evaluation | It only uses your tween's blend function, so one tween object can back several builders. |
+| No `AnimatedPhysicalModel` shadow shape animation | **Approximation.** `AnimatedList`, `AnimatedPhysicalModel`, `AnimatedFractionallySizedBox` and `SizeTransition` exist. Fractional elevations blend between the two neighbouring Material levels. |
 
 ## 5. Theming and Material 3
 
@@ -72,13 +72,13 @@ Tags used:
 | --- | --- |
 | `ColorScheme.FromSeed` approximates HCT | **Approximation.** Tonal palettes are generated in CIE L\*C\*h, not CAM16, so seeded colours are close to but not identical to Flutter's. The default light and dark schemes use the exact published M3 baseline values. |
 | No ripple or ink splash | **Unsupported.** Interaction uses M3 state layers (hover, focus, press tints) only. |
-| System light/dark is read once | **Planned.** The host reads the Windows `AppsUseLightTheme` setting at start-up and does not follow later changes. Other platforms report light. Set `WidgetsBinding.PlatformBrightness` to override. |
+| System light/dark is polled | **Approximation.** The host re-reads the Windows `AppsUseLightTheme` setting about once a second and when the window regains focus. Other platforms report light. Set `WidgetsBinding.PlatformBrightness` to override. |
 | Roboto is not bundled | Text uses Roboto if installed and falls back to Segoe UI, so metrics differ slightly from the M3 spec. |
-| Icons are a small built-in set | **Planned.** About twenty Material icons as path data (`Icons`); there is no icon font. Any SVG path on a 24x24 grid works through `IconData`. |
-| Missing M3 components | `Slider`, `TabBar`, `Drawer`, `BottomSheet`, `Tooltip`, `DatePicker`, `SearchBar`, `SegmentedButton`, `Badge`, `NavigationDrawer`, and menus (`MenuAnchor`, `PopupMenuButton`) are not implemented. |
-| Dialogs and snack bars are overlay-based | There is no `Navigator`, so dialogs do not trap focus, Escape does not close them, and snack bars are not queued. |
-| `BackdropFilter` | **Unsupported.** `ImageFiltered` blurs the child itself, not what is behind it. |
-| No dynamic colour or `ThemeExtension`s | **Unsupported.** Component themes (`ButtonTheme`, `CardTheme`, ...) are not separate objects; restyle by wrapping or composing widgets. |
+| Icons are a built-in set | **Approximation.** About 95 Material icons as path data (`Icons`); there is no icon font. Any SVG path on a 24x24 grid works through `IconData`. |
+| Missing M3 components | `RangeSlider`, `Stepper`, `ExpansionPanel`, `DataTable`, a time picker and a date-range picker are not implemented. `Slider`, `TabBar`, `Tooltip`, `Badge`, `SegmentedButton`, `SearchBar` (no suggestions view), menus (`PopupMenuButton`, `Menus.Show`), navigation drawer, bottom sheet and date picker exist. |
+| Dialogs and snack bars are overlay-based | There is no `Navigator`. Dialogs trap focus, close on Escape and restore focus, and snack bars queue one at a time, but dialogs do not take part in a back stack. |
+| `BackdropFilter` blurs a rectangle | `BackdropFilter` blurs or recolours what is behind its bounds; it cannot clip to a rounded shape unless wrapped in a clip. |
+| No component theme objects | **Approximation.** `ThemeExtension` supports app-defined theme data and `ThemeData.FromSystemAccent` seeds from the Windows accent colour (other platforms use the default). Component themes (`ButtonTheme`, `CardTheme`, ...) are not separate objects; restyle by wrapping or composing widgets. |
 
 ---
 

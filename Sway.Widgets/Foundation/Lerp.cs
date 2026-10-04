@@ -73,7 +73,7 @@ public static class Lerps
         return result;
     }
 
-    /// <summary>Gradients of the same kind and stop count blend; otherwise the gradient switches halfway.</summary>
+    /// <summary>Gradients of the same kind blend (ramps of different lengths are resampled onto shared stops); different kinds switch halfway.</summary>
     public static Gradient? Gradient(Gradient? a, Gradient? b, float t)
     {
         if (a is null && b is null) return null;
@@ -81,6 +81,8 @@ public static class Lerps
             return la.Lerp(lb, t);
         if (a is RadialGradient ra && b is RadialGradient rb && ra.CanLerp(rb))
             return ra.Lerp(rb, t);
+        if (a is SweepGradient sa && b is SweepGradient sb && sa.CanLerp(sb))
+            return sa.Lerp(sb, t);
         return t < 0.5f ? a : b;
     }
 

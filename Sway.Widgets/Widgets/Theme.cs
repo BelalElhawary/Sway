@@ -91,7 +91,7 @@ sealed class IconPainter(IconData icon, SKColor color) : CustomPainter
 }
 
 /// <summary>A small set of Material icons (Apache 2.0, Google) as path data.</summary>
-public static class Icons
+public static partial class Icons
 {
     public static readonly IconData Add = new("M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z");
     public static readonly IconData Close = new("M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z");
@@ -508,25 +508,41 @@ public static class Dialogs
 {
     /// <summary>
     /// Shows <paramref name="builder"/> above the app with a dimming scrim. The builder receives a function that closes the dialog.
-    /// Returns that same function so callers can also close it.
+    /// Returns that same function so callers can also close it. Focus is trapped inside while it is open, Escape closes it (when
+    /// <paramref name="barrierDismissible"/>), and focus returns to where it was when it closes.
     /// </summary>
     public static Action Show(BuildContext context, Func<BuildContext, Action, Widget> builder, bool barrierDismissible = true)
     {
         var overlay = Overlay.Of(context);
+        var previousFocus = WidgetsBinding.Instance.Focus.Primary;
         OverlayEntry? entry = null;
-        void Close() { entry?.Remove(); entry = null; }
+        void Close()
+        {
+            if (entry is null) return;
+            entry.Remove();
+            entry = null;
+            if (previousFocus is { Element.Mounted: true }) previousFocus.RequestFocus();
+        }
         entry = new OverlayEntry(ctx =>
         {
             var s = Theme.Of(context).ColorScheme;
-            return Wrap(context, new TweenAnimationBuilder<float>(new FloatTween(0, 1), TimeSpan.FromMilliseconds(180),
-                (_, t, __) => new Stack([
-                    Positioned.Fill(new GestureDetector(onTap: barrierDismissible ? Close : null, behavior: HitTestBehavior.Opaque,
-                        child: new ColoredBox(s.Scrim.WithOpacity(0.32f * t)))),
-                    new Center(new Opacity(t, Transform.Scale(0.92f + 0.08f * t, builder(ctx, Close)))),
-                ], fit: StackFit.Expand, clip: false), curve: Curves.EaseOutCubic));
+            return Wrap(context, new Focus(autofocus: true, trapFocus: true, skipTraversal: true,
+                onKey: e => e.IsDown && e.Key == "Escape" && barrierDismissible && CloseAndConsume(Close),
+                child: new TweenAnimationBuilder<float>(new FloatTween(0, 1), TimeSpan.FromMilliseconds(180),
+                    (_, t, __) => new Stack([
+                        Positioned.Fill(new GestureDetector(onTap: barrierDismissible ? Close : null, behavior: HitTestBehavior.Opaque,
+                            child: new ColoredBox(s.Scrim.WithOpacity(0.32f * t)))),
+                        new Center(new Opacity(t, Transform.Scale(0.92f + 0.08f * t, builder(ctx, Close)))),
+                    ], fit: StackFit.Expand, clip: false), curve: Curves.EaseOutCubic)));
         });
         overlay.Insert(entry);
         return Close;
+    }
+
+    static bool CloseAndConsume(Action close)
+    {
+        close();
+        return true;
     }
 
     // Overlay entries sit outside the app's theme/text scope, so re-establish them from the opening context.
@@ -537,12 +553,55 @@ public static class Dialogs
             new DefaultTextStyle(theme.TextTheme.BodyMedium, new Directionality(Directionality.Of(origin), child))));
     }
 
+    // Snack bars show one at a time; the rest wait their turn.
+    static readonly Queue<Func<Action>> PendingSnackBars = new();
+    static bool _snackBarShowing;
+
+    /// <summary>Shows a snack bar, or queues it if one is already visible. Returns a function that dismisses (or cancels) this one.</summary>
     public static Action ShowSnackBar(BuildContext context, string message, string? actionLabel = null, Action? onAction = null, TimeSpan? duration = null)
+    {
+        bool cancelled = false;
+        Action? closeVisible = null;
+
+        void Present()
+        {
+            _snackBarShowing = true;
+            closeVisible = PresentSnackBar(context, message, actionLabel, onAction, duration, () =>
+            {
+                _snackBarShowing = false;
+                // A cancelled entry presents nothing, so keep going until one is actually shown.
+                while (!_snackBarShowing && PendingSnackBars.TryDequeue(out var next)) next();
+            });
+        }
+
+        if (_snackBarShowing)
+            PendingSnackBars.Enqueue(() =>
+            {
+                if (!cancelled) Present();
+                return () => { };
+            });
+        else Present();
+
+        return () =>
+        {
+            cancelled = true;
+            closeVisible?.Invoke();
+        };
+    }
+
+    static Action PresentSnackBar(BuildContext context, string message, string? actionLabel, Action? onAction, TimeSpan? duration, Action onClosed)
     {
         var overlay = Overlay.Of(context);
         OverlayEntry? entry = null;
         Action timer = null!;
-        void Close() { WidgetsBinding.Instance.CancelTimer(timer); entry?.Remove(); entry = null; }
+        void Close()
+        {
+            if (entry is null) return;
+            WidgetsBinding.Instance.CancelTimer(timer);
+            entry.Remove();
+            entry = null;
+            onClosed();
+        }
         timer = Close;
         entry = new OverlayEntry(ctx =>
         {

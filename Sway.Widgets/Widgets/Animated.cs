@@ -123,6 +123,12 @@ public abstract class ImplicitlyAnimatedWidgetState<TWidget> : TickerProviderSta
     {
         _controller.Duration = Widget.Duration;
         _curved.Curve = Widget.Curve;
+        RetargetTweens();
+    }
+
+    /// <summary>Re-reads the animated properties and animates from the current values toward any that changed.</summary>
+    protected void RetargetTweens()
+    {
         var visitor = new UpdateVisitor(_curved);
         ForEachTween(visitor);
         if (visitor.Changed)
@@ -130,6 +136,13 @@ public abstract class ImplicitlyAnimatedWidgetState<TWidget> : TickerProviderSta
             _controller.SetValue(0);
             _controller.Forward();
         }
+    }
+
+    // Properties that depend on inherited widgets (text direction) are re-resolved when those change.
+    public override void DidChangeDependencies()
+    {
+        base.DidChangeDependencies();
+        RetargetTweens();
     }
 
     public override void Dispose()
@@ -188,13 +201,13 @@ public abstract class ImplicitlyAnimatedWidgetState<TWidget> : TickerProviderSta
     }
 }
 
-public sealed class AnimatedContainer(TimeSpan duration, Widget? child = null, Alignment? alignment = null, EdgeInsets? padding = null,
+public sealed class AnimatedContainer(TimeSpan duration, Widget? child = null, IAlignment? alignment = null, EdgeInsets? padding = null,
     SKColor? color = null, BoxDecoration? decoration = null, BoxDecoration? foregroundDecoration = null, float? width = null,
     float? height = null, BoxConstraints? constraints = null, EdgeInsets? margin = null, SKMatrix? transform = null,
     Curve? curve = null, Action? onEnd = null, Key? key = null) : ImplicitlyAnimatedWidget(duration, curve, onEnd, key)
 {
     internal Widget? Child => child;
-    internal Alignment? Alignment => alignment;
+    internal IAlignment? Alignment => alignment;
     internal EdgeInsets? Padding => padding;
     internal BoxDecoration? Decoration => decoration ?? (color is { } c ? new BoxDecoration(Color: c) : null);
     internal BoxDecoration? Foreground => foregroundDecoration;
@@ -217,7 +230,7 @@ sealed class AnimatedContainerState : ImplicitlyAnimatedWidgetState<AnimatedCont
 
     protected override void ForEachTween(ITweenVisitor v)
     {
-        _alignment = v.VisitValue(_alignment, Widget.Alignment, a => new AlignmentTween(a, a));
+        _alignment = v.VisitValue(_alignment, Widget.Alignment?.Resolve(Directionality.Of(Context)), a => new AlignmentTween(a, a));
         _padding = v.VisitValue(_padding, Widget.Padding, a => new EdgeInsetsTween(a, a));
         _decoration = v.Visit(_decoration, Widget.Decoration, a => new DecorationTween(a, a));
         _foreground = v.Visit(_foreground, Widget.Foreground, a => new DecorationTween(a, a));
@@ -267,10 +280,10 @@ sealed class AnimatedPaddingState : ImplicitlyAnimatedWidgetState<AnimatedPaddin
     public override Widget Build(BuildContext context) => new Padding(_padding!.Evaluate(Animation), Widget.Child);
 }
 
-public sealed class AnimatedAlign(Alignment alignment, TimeSpan duration, Widget? child = null, Curve? curve = null, Action? onEnd = null, Key? key = null)
+public sealed class AnimatedAlign(IAlignment alignment, TimeSpan duration, Widget? child = null, Curve? curve = null, Action? onEnd = null, Key? key = null)
     : ImplicitlyAnimatedWidget(duration, curve, onEnd, key)
 {
-    internal Alignment Target => alignment;
+    internal IAlignment Target => alignment;
     internal Widget? Child => child;
     public override State CreateState() => new AnimatedAlignState();
 }
@@ -278,8 +291,20 @@ public sealed class AnimatedAlign(Alignment alignment, TimeSpan duration, Widget
 sealed class AnimatedAlignState : ImplicitlyAnimatedWidgetState<AnimatedAlign>
 {
     Tween<Alignment>? _alignment;
-    protected override void ForEachTween(ITweenVisitor v) => _alignment = v.VisitValue(_alignment, Widget.Target, a => new AlignmentTween(a, a));
+    protected override void ForEachTween(ITweenVisitor v) =>
+        _alignment = v.VisitValue(_alignment, (Alignment?)Widget.Target.Resolve(Directionality.Of(Context)), a => new AlignmentTween(a, a));
     public override Widget Build(BuildContext context) => new Align(_alignment!.Evaluate(Animation), Widget.Child);
+}
+
+/// <summary>An <see cref="AnimatedPositioned"/> whose horizontal edges are start/end, so they swap sides in right-to-left text.</summary>
+public sealed class AnimatedPositionedDirectional(Widget child, TimeSpan duration, float? start = null, float? top = null, float? end = null,
+    float? bottom = null, float? width = null, float? height = null, Curve? curve = null, Action? onEnd = null, Key? key = null) : StatelessWidget(key)
+{
+    public override Widget Build(BuildContext context)
+    {
+        bool rtl = Directionality.Of(context) == TextDirection.Rtl;
+        return new AnimatedPositioned(child, duration, rtl ? end : start, top, rtl ? start : end, bottom, width, height, curve, onEnd);
+    }
 }
 
 /// <summary>A <see cref="Positioned"/> that animates its edges; use inside a <see cref="Stack"/>.</summary>
@@ -421,18 +446,8 @@ sealed class TweenAnimationBuilderState<T> : TickerProviderState<TweenAnimationB
         _controller.Forward();
     }
 
-    // The user's tween supplies the blend function; point it at (_from, _to) for the evaluation.
-    T Evaluate(float t)
-    {
-        var tween = Widget.Tween;
-        var (begin, end) = (tween.Begin, tween.End);
-        tween.Begin = _from;
-        tween.End = _to;
-        var value = tween.Transform(t);
-        tween.Begin = begin;
-        tween.End = end;
-        return value;
-    }
+    // The user's tween supplies only the blend function, so one tween object can safely back several builders.
+    T Evaluate(float t) => Widget.Tween.Interpolate(_from, _to, t);
 
     public override void Dispose()
     {

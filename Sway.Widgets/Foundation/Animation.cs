@@ -14,13 +14,27 @@ public interface IListenable
 public sealed class Ticker(Action<TimeSpan> onTick)
 {
     TimeSpan _start;
-    int _generation;
+    bool _scheduled, _muted;
 
     public bool IsActive { get; private set; }
 
+    /// <summary>
+    /// While muted the ticker keeps its place in time but stops calling back and stops asking for frames, so a hidden animation
+    /// does not keep the window awake. Unmuting resumes it where the clock now is.
+    /// </summary>
+    public bool Muted
+    {
+        get => _muted;
+        set
+        {
+            if (_muted == value) return;
+            _muted = value;
+            if (!value && IsActive) Schedule();
+        }
+    }
+
     public void Start()
     {
-        _generation++;
         IsActive = true;
         _start = WidgetsBinding.Instance.Now;
         Schedule();
@@ -28,20 +42,32 @@ public sealed class Ticker(Action<TimeSpan> onTick)
 
     public void Stop()
     {
-        _generation++;
         IsActive = false;
     }
 
     void Schedule()
     {
-        int gen = _generation;
+        if (_scheduled || _muted) return;
+        _scheduled = true;
+        // At most one callback is ever pending, so a stop/start before it fires simply reuses it.
         WidgetsBinding.Instance.ScheduleFrameCallback(now =>
         {
-            if (!IsActive || gen != _generation) return;
+            _scheduled = false;
+            if (!IsActive || _muted) return;
             onTick(now - _start);
-            if (IsActive && gen == _generation) Schedule();
+            if (IsActive) Schedule();
         });
     }
+}
+
+/// <summary>Turns the tickers below it on or off. A disabled subtree's animations are paused and cost no frames.</summary>
+public sealed class TickerMode(bool enabled, Widget child, Key? key = null) : InheritedWidget(child, key)
+{
+    public bool Enabled => enabled;
+    public override bool UpdateShouldNotify(InheritedWidget old) => ((TickerMode)old).Enabled != Enabled;
+
+    /// <summary>Whether tickers under <paramref name="context"/> should run; rebuilds the caller when that changes.</summary>
+    public static bool Of(BuildContext context) => context.DependOn<TickerMode>()?.Enabled ?? true;
 }
 
 public interface ITickerProvider
@@ -56,9 +82,15 @@ public abstract class TickerProviderState<T> : State<T>, ITickerProvider where T
 
     public Ticker CreateTicker(Action<TimeSpan> onTick)
     {
-        var t = new Ticker(onTick);
+        var t = new Ticker(onTick) { Muted = !TickerMode.Of(Context) };
         _tickers.Add(t);
         return t;
+    }
+
+    public override void DidChangeDependencies()
+    {
+        bool enabled = TickerMode.Of(Context);
+        foreach (var t in _tickers) t.Muted = !enabled;
     }
 
     public override void Dispose()
@@ -114,6 +146,7 @@ public sealed class AnimationController : Animation<float>, IDisposable
     bool _repeating, _repeatReverse;
     float _repeatMin, _repeatMax;
     TimeSpan _repeatPeriod;
+    Simulation? _simulation;
     bool _disposed;
 
     public AnimationController(ITickerProvider vsync, TimeSpan? duration = null, TimeSpan? reverseDuration = null,
@@ -181,9 +214,36 @@ public sealed class AnimationController : Animation<float>, IDisposable
         StartRun(_repeatMax, ScaledDuration(_repeatPeriod, start, _repeatMax, _repeatMax - _repeatMin), Curves.Linear, AnimationStatus.Forward);
     }
 
+    /// <summary>
+    /// Flings toward the upper bound (or the lower one if <paramref name="velocity"/> is negative) on a spring.
+    /// The velocity is in fractions of the bound-to-bound range per second.
+    /// </summary>
+    public void Fling(float velocity = 1, SpringDescription? spring = null)
+    {
+        var description = spring ?? SpringDescription.WithDampingRatio(1, 500);
+        float target = velocity < 0 ? LowerBound : UpperBound;
+        // The spring settles into its target within a thousandth of the range.
+        var simulation = new SpringSimulation(description, _value, target, velocity * Range)
+            { Tolerance = new Tolerance(Range * 1e-3f, Range * 1e-3f) };
+        AnimateWith(simulation, velocity < 0 ? AnimationStatus.Reverse : AnimationStatus.Forward);
+    }
+
+    /// <summary>Drives the value with a physics simulation; the value is kept inside the bounds.</summary>
+    public void AnimateWith(Simulation simulation) =>
+        AnimateWith(simulation, simulation.Dx(0) < 0 ? AnimationStatus.Reverse : AnimationStatus.Forward);
+
+    void AnimateWith(Simulation simulation, AnimationStatus direction)
+    {
+        _repeating = false;
+        _simulation = simulation;
+        SetStatus(direction);
+        _ticker.Start();
+    }
+
     public void Stop()
     {
         _repeating = false;
+        _simulation = null;
         _ticker.Stop();
     }
 
@@ -208,6 +268,7 @@ public sealed class AnimationController : Animation<float>, IDisposable
 
     void StartRun(float target, TimeSpan duration, Curve curve, AnimationStatus direction)
     {
+        _simulation = null;
         _from = _value;
         _to = target;
         _runDuration = duration;
@@ -219,6 +280,20 @@ public sealed class AnimationController : Animation<float>, IDisposable
     void OnTick(TimeSpan elapsed)
     {
         if (_disposed) return;
+        if (_simulation is { } sim)
+        {
+            float seconds = (float)elapsed.TotalSeconds;
+            float v = Math.Clamp(sim.X(seconds), LowerBound, UpperBound);
+            bool finished = sim.IsDone(seconds) || (v == LowerBound && sim.Dx(seconds) < 0) || (v == UpperBound && sim.Dx(seconds) > 0);
+            Set(v);
+            if (!finished) return;
+
+            _simulation = null;
+            _ticker.Stop();
+            SetStatus(_status == AnimationStatus.Forward ? AnimationStatus.Completed : AnimationStatus.Dismissed);
+            return;
+        }
+
         float t = _runDuration <= TimeSpan.Zero ? 1 : Math.Clamp((float)(elapsed / _runDuration), 0, 1);
         Set(_from + (_to - _from) * _runCurve.Transform(t));
         if (t < 1) return;
@@ -344,6 +419,9 @@ public class Tween<T>(T begin, T end, Func<T, T, float, T> lerp) : Animatable<T>
     public T End { get; set; } = end;
 
     public override T Transform(float t) => t == 0 ? Begin : t == 1 ? End : lerp(Begin, End, t);
+
+    /// <summary>Blends between arbitrary endpoints using this tween's interpolation, without touching its own Begin and End.</summary>
+    public T Interpolate(T from, T to, float t) => t == 0 ? from : t == 1 ? to : lerp(from, to, t);
 }
 
 public sealed class FloatTween(float begin, float end) : Tween<float>(begin, end, Lerps.Float);

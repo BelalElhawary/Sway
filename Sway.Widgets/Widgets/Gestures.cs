@@ -227,10 +227,15 @@ public sealed class TapGestureRecognizer : GestureRecognizer
 {
     const float Slop = 18;
 
+    static readonly TimeSpan DoubleTapWindow = TimeSpan.FromMilliseconds(300);
+
     public Action<DragDetails>? OnTapDown, OnTapUp;
-    public Action? OnTap, OnTapCancel;
+    public Action? OnTap, OnTapCancel, OnDoubleTap;
 
     int _pointer = -1;
+    Action? _deferredTap;
+    TimeSpan _firstTapAt;
+    Offset _firstTapPosition;
     Offset _start;
     bool _won, _sawUp, _tapDownFired;
     PointerEvent? _up;
@@ -281,8 +286,38 @@ public sealed class TapGestureRecognizer : GestureRecognizer
     {
         var up = _up!;
         OnTapUp?.Invoke(new DragDetails(up.Position, up.LocalPosition, default));
-        OnTap?.Invoke();
         Reset();
+        RegisterTap(up.Position);
+    }
+
+    // With a double-tap handler the single tap waits out the double-tap window, like Flutter's GestureDetector.
+    void RegisterTap(Offset position)
+    {
+        if (OnDoubleTap is null)
+        {
+            OnTap?.Invoke();
+            return;
+        }
+
+        var binding = WidgetsBinding.Instance;
+        if (_deferredTap is not null && binding.Now - _firstTapAt <= DoubleTapWindow
+            && (position - _firstTapPosition).Distance <= Slop * 2)
+        {
+            binding.CancelTimer(_deferredTap);
+            _deferredTap = null;
+            OnDoubleTap.Invoke();
+            return;
+        }
+
+        if (_deferredTap is not null) binding.CancelTimer(_deferredTap);
+        _firstTapAt = binding.Now;
+        _firstTapPosition = position;
+        _deferredTap = () =>
+        {
+            _deferredTap = null;
+            OnTap?.Invoke();
+        };
+        binding.ScheduleTimer(DoubleTapWindow, _deferredTap);
     }
 
     void Reset()
@@ -290,6 +325,94 @@ public sealed class TapGestureRecognizer : GestureRecognizer
         if (_pointer >= 0) Gestures.Router.RemoveRoute(_pointer, Handle);
         _pointer = -1;
         _won = _sawUp = _tapDownFired = false;
+    }
+}
+
+/// <summary>Fires once the pointer has been held in place for <see cref="Delay"/>.</summary>
+public sealed class LongPressGestureRecognizer : GestureRecognizer
+{
+    const float Slop = 18;
+    public static readonly TimeSpan Delay = TimeSpan.FromMilliseconds(500);
+
+    public Action<DragDetails>? OnLongPressStart, OnLongPressEnd;
+    public Action? OnLongPress;
+
+    readonly Action _onTimer;
+    int _pointer = -1;
+    Offset _start;
+    PointerEvent? _down;
+    // The arena can be won before the delay passes (lone recognizer); the press only fires once both have happened.
+    bool _won, _deadline, _fired;
+
+    public LongPressGestureRecognizer() => _onTimer = OnTimer;
+
+    public override void AddPointer(PointerEvent down)
+    {
+        if (_pointer >= 0) return;
+        _pointer = down.Pointer;
+        _start = down.Position;
+        _down = down;
+        _won = _deadline = _fired = false;
+        Gestures.Router.AddRoute(_pointer, Handle);
+        Gestures.Arena.Add(_pointer, this);
+        WidgetsBinding.Instance.ScheduleTimer(Delay, _onTimer);
+    }
+
+    void OnTimer()
+    {
+        if (_pointer < 0) return;
+        _deadline = true;
+        if (_won) Fire();
+        else Gestures.Arena.Resolve(_pointer, this, true);
+    }
+
+    void Fire()
+    {
+        _fired = true;
+        OnLongPressStart?.Invoke(new DragDetails(_down!.Position, _down.LocalPosition, default));
+        OnLongPress?.Invoke();
+    }
+
+    void Handle(PointerEvent e)
+    {
+        switch (e.Kind)
+        {
+            case PointerEventKind.Move:
+                if (!_fired && (e.Position - _start).Distance > Slop) Abandon();
+                break;
+            case PointerEventKind.Up:
+            case PointerEventKind.Cancel:
+                if (_fired && e.Kind == PointerEventKind.Up) OnLongPressEnd?.Invoke(new DragDetails(e.Position, e.LocalPosition, default));
+                if (_fired) Reset();
+                else Abandon();
+                break;
+        }
+    }
+
+    void Abandon()
+    {
+        if (_won) Reset();
+        else Gestures.Arena.Resolve(_pointer, this, false);
+    }
+
+    public override void AcceptGesture(int pointer)
+    {
+        _won = true;
+        if (_deadline) Fire();
+    }
+
+    public override void RejectGesture(int pointer)
+    {
+        if (!_fired) Reset();
+    }
+
+    void Reset()
+    {
+        if (_pointer >= 0) Gestures.Router.RemoveRoute(_pointer, Handle);
+        WidgetsBinding.Instance.CancelTimer(_onTimer);
+        _pointer = -1;
+        _won = _deadline = _fired = false;
+        _down = null;
     }
 }
 
@@ -433,6 +556,7 @@ public sealed class GestureDetector(Widget? child = null, Action? onTap = null, 
     Action<DragDetails>? onPanStart = null, Action<DragDetails>? onPanUpdate = null, Action<DragDetails>? onPanEnd = null,
     Action<DragDetails>? onVerticalDragStart = null, Action<DragDetails>? onVerticalDragUpdate = null, Action<DragDetails>? onVerticalDragEnd = null,
     Action<DragDetails>? onHorizontalDragStart = null, Action<DragDetails>? onHorizontalDragUpdate = null, Action<DragDetails>? onHorizontalDragEnd = null,
+    Action? onDoubleTap = null, Action? onLongPress = null, Action<DragDetails>? onLongPressStart = null, Action<DragDetails>? onLongPressEnd = null,
     HitTestBehavior? behavior = null, Key? key = null) : StatefulWidget(key)
 {
     internal Widget? Child => child;
@@ -440,6 +564,8 @@ public sealed class GestureDetector(Widget? child = null, Action? onTap = null, 
     internal Action<DragDetails>? OnTapDown => onTapDown;
     internal Action<DragDetails>? OnTapUp => onTapUp;
     internal Action? OnTapCancel => onTapCancel;
+    internal Action? OnDoubleTap => onDoubleTap;
+    internal (Action? press, Action<DragDetails>? start, Action<DragDetails>? end) LongPress => (onLongPress, onLongPressStart, onLongPressEnd);
     internal (Action<DragDetails>? start, Action<DragDetails>? update, Action<DragDetails>? end) Pan => (onPanStart, onPanUpdate, onPanEnd);
     internal (Action<DragDetails>? start, Action<DragDetails>? update, Action<DragDetails>? end) Vertical => (onVerticalDragStart, onVerticalDragUpdate, onVerticalDragEnd);
     internal (Action<DragDetails>? start, Action<DragDetails>? update, Action<DragDetails>? end) Horizontal => (onHorizontalDragStart, onHorizontalDragUpdate, onHorizontalDragEnd);
@@ -451,6 +577,7 @@ public sealed class GestureDetector(Widget? child = null, Action? onTap = null, 
 sealed class GestureDetectorState : State<GestureDetector>
 {
     TapGestureRecognizer? _tap;
+    LongPressGestureRecognizer? _longPress;
     DragGestureRecognizer? _pan, _vertical, _horizontal;
 
     public override void InitState() => Sync();
@@ -459,9 +586,17 @@ sealed class GestureDetectorState : State<GestureDetector>
     void Sync()
     {
         var w = Widget;
-        if (w.OnTap is not null || w.OnTapDown is not null || w.OnTapUp is not null || w.OnTapCancel is not null)
+        if (w.OnTap is not null || w.OnTapDown is not null || w.OnTapUp is not null || w.OnTapCancel is not null || w.OnDoubleTap is not null)
             (_tap ??= new TapGestureRecognizer()).Apply(w);
         else _tap = null;
+
+        var lp = w.LongPress;
+        if (lp.press is not null || lp.start is not null || lp.end is not null)
+        {
+            _longPress ??= new LongPressGestureRecognizer();
+            _longPress.OnLongPress = lp.press; _longPress.OnLongPressStart = lp.start; _longPress.OnLongPressEnd = lp.end;
+        }
+        else _longPress = null;
         _pan = SyncDrag(_pan, DragAxis.Both, w.Pan);
         _vertical = SyncDrag(_vertical, DragAxis.Vertical, w.Vertical);
         _horizontal = SyncDrag(_horizontal, DragAxis.Horizontal, w.Horizontal);
@@ -479,6 +614,7 @@ sealed class GestureDetectorState : State<GestureDetector>
     void OnPointerDown(PointerEvent e)
     {
         _tap?.AddPointer(e);
+        _longPress?.AddPointer(e);
         _pan?.AddPointer(e);
         _vertical?.AddPointer(e);
         _horizontal?.AddPointer(e);
@@ -493,6 +629,6 @@ static class TapRecognizerExt
 {
     public static void Apply(this TapGestureRecognizer r, GestureDetector w)
     {
-        r.OnTap = w.OnTap; r.OnTapDown = w.OnTapDown; r.OnTapUp = w.OnTapUp; r.OnTapCancel = w.OnTapCancel;
+        r.OnDoubleTap = w.OnDoubleTap; r.OnTap = w.OnTap; r.OnTapDown = w.OnTapDown; r.OnTapUp = w.OnTapUp; r.OnTapCancel = w.OnTapCancel;
     }
 }

@@ -38,6 +38,9 @@ public sealed class RenderParagraph : RenderBox
         if (layout) MarkNeedsLayout();
     }
 
+    /// <summary>The paragraph's text without styling.</summary>
+    public string PlainText => _text.ToPlainText();
+
     public override void VisitChildren(Action<RenderObject> visitor) { }
 
     // --- text flattening and line breaking ---

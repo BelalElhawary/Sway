@@ -33,6 +33,15 @@ public static class App
         var mice = new List<IMouse>();
         var heldKeys = new HashSet<Silk.NET.Input.Key>();
         var appliedCursor = MouseCursor.Default;
+        var themeClock = System.Diagnostics.Stopwatch.StartNew();
+
+        // The OS preference can change while the app runs; there is no portable change event, so re-read it
+        // about once a second and whenever the window regains focus.
+        void SyncBrightness()
+        {
+            themeClock.Restart();
+            binding.PlatformBrightness = DetectBrightness();
+        }
 
         window.Load += () =>
         {
@@ -94,6 +103,7 @@ public static class App
 
         window.Render += _ =>
         {
+            if (themeClock.Elapsed >= SystemTheme.PollInterval) SyncBrightness();
             var framebuffer = window.FramebufferSize;
             if (framebuffer.X <= 0 || framebuffer.Y <= 0 || grContext is null) return;
 
@@ -130,7 +140,11 @@ public static class App
         };
 
         window.StateChanged += _ => binding.RequestFrame();
-        window.FocusChanged += _ => binding.RequestFrame();
+        window.FocusChanged += focused =>
+        {
+            if (focused) SyncBrightness();
+            binding.RequestFrame();
+        };
         window.FramebufferResize += _ => binding.RequestFrame();
 
         window.Closing += () =>
@@ -143,18 +157,7 @@ public static class App
         window.Run();
     }
 
-    /// <summary>Reads the OS light/dark preference (Windows only for now; other platforms report light).</summary>
-    static Brightness DetectBrightness()
-    {
-        if (!OperatingSystem.IsWindows()) return Brightness.Light;
-        try
-        {
-            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            if (key?.GetValue("AppsUseLightTheme") is int v) return v == 0 ? Brightness.Dark : Brightness.Light;
-        }
-        catch { }
-        return Brightness.Light;
-    }
+    static Brightness DetectBrightness() => SystemTheme.Brightness();
 
     static StandardCursor ToStandardCursor(MouseCursor c) => c switch
     {

@@ -134,6 +134,7 @@ public sealed class RenderFlex : RenderBoxContainer
         float actualMain = Main(Size);
         crossSize = Cross(Size);
 
+        OverflowExtent = Math.Max(0, allocated - actualMain);
         float remaining = Math.Max(0, actualMain - allocated);
         int count = children.Count;
         float leading = 0, between = _spacing;
@@ -166,9 +167,40 @@ public sealed class RenderFlex : RenderBoxContainer
         }
     }
 
+    /// <summary>How far the children extend past this box along the main axis, in pixels (0 when they fit).</summary>
+    public float OverflowExtent { get; private set; }
+
+    /// <summary>Whether overflowing flexes paint a hazard stripe at their far edge. On in debug builds, like Flutter.</summary>
+    public static bool PaintOverflowIndicators { get; set; } =
+#if DEBUG
+        true;
+#else
+        false;
+#endif
+
     public override void Paint(PaintingContext context, Offset offset)
     {
         foreach (var c in Children) context.PaintChild(c, offset + OffsetOf(c));
+        if (PaintOverflowIndicators && OverflowExtent > 0.5f) PaintOverflow(context.Canvas, offset);
+    }
+
+    // A yellow and black diagonal band along the edge the content spills past, so the problem is visible during development.
+    void PaintOverflow(SkiaSharp.SKCanvas canvas, Offset offset)
+    {
+        const float band = 8;
+        bool atStart = FlipMainAxis;
+        var r = Horizontal
+            ? new SkiaSharp.SKRect(offset.Dx + (atStart ? 0 : Size.Width - band), offset.Dy, offset.Dx + (atStart ? band : Size.Width), offset.Dy + Size.Height)
+            : new SkiaSharp.SKRect(offset.Dx, offset.Dy + (atStart ? 0 : Size.Height - band), offset.Dx + Size.Width, offset.Dy + (atStart ? band : Size.Height));
+        canvas.Save();
+        canvas.ClipRect(r);
+        using var yellow = new SkiaSharp.SKPaint { Color = new SkiaSharp.SKColor(0xFF, 0xD6, 0x00) };
+        canvas.DrawRect(r, yellow);
+        using var black = new SkiaSharp.SKPaint { Color = SkiaSharp.SKColors.Black, StrokeWidth = 4, IsAntialias = true };
+        float reach = Math.Max(r.Width, r.Height) + band * 2;
+        for (float d = -band * 2; d < reach; d += band)
+            canvas.DrawLine(r.Left + d, r.Top, r.Left + d + band, r.Top + band, black);
+        canvas.Restore();
     }
 
     protected override bool HitTestChildren(HitTestResult result, Offset position)

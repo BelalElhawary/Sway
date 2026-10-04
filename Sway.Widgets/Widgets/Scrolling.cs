@@ -5,14 +5,21 @@ namespace Sway.Widgets;
 /// <summary>Scroll offset and extents for one scrollable, plus fling and animated scrolling.</summary>
 public sealed class ScrollPosition
 {
-    float _velocity;
+    static readonly TimeSpan WheelDuration = TimeSpan.FromMilliseconds(180);
+    static readonly float FlingDrag = MathF.Exp(-3.2f);
+
     int _activity; // bumps on every new activity so stale frame callbacks stop
+    float _wheelTarget;
+    int _wheelActivity = -1;
 
     public float Pixels { get; private set; }
     public float MaxScrollExtent { get; private set; }
     public float ViewportExtent { get; private set; }
     public bool CanScroll => MaxScrollExtent > 0;
     public TimeSpan LastChange { get; private set; } = TimeSpan.FromHours(-1);
+
+    /// <summary>True while the scrollbar owns the pointer, so the drag recognizer underneath ignores it.</summary>
+    public bool ScrollbarActive { get; set; }
 
     public event Action? Changed;
 
@@ -37,23 +44,44 @@ public sealed class ScrollPosition
 
     public void StopActivity() => _activity++;
 
+    /// <summary>Adjusts the offset during layout (variable-height lists re-anchor as items are measured) without notifying.</summary>
+    internal void CorrectTo(float value) => Pixels = Math.Clamp(value, 0, MaxScrollExtent);
+
+    /// <summary>
+    /// Scrolls by a wheel notch with a short eased animation. Notches arriving mid-animation accumulate onto the
+    /// pending target. Returns false if the scrollable is already at that edge, so an outer one can take over.
+    /// </summary>
+    public bool ScrollBy(float delta)
+    {
+        float basis = _wheelActivity == _activity ? _wheelTarget : Pixels;
+        float target = Math.Clamp(basis + delta, 0, MaxScrollExtent);
+        if (target == basis) return false;
+        AnimateTo(target, WheelDuration, Curves.EaseOut);
+        _wheelTarget = target;
+        _wheelActivity = _activity;
+        return true;
+    }
+
     /// <summary>Continues scrolling at <paramref name="velocity"/> px/s, slowing with friction.</summary>
     public void Fling(float velocity)
     {
         StopActivity();
         if (Math.Abs(velocity) < 50) return;
-        _velocity = Math.Clamp(velocity, -8000, 8000);
         int id = _activity;
-        TimeSpan? last = null;
+        // Velocity halves roughly every 0.2s; the scroll stops once it falls below 25 px/s.
+        var simulation = new FrictionSimulation(FlingDrag, Pixels, Math.Clamp(velocity, -8000, 8000))
+            { Tolerance = new Tolerance(1, 25) };
+        TimeSpan? start = null;
 
         void Step(TimeSpan now)
         {
             if (id != _activity) return;
-            float dt = last is null ? 1 / 60f : Math.Clamp((float)(now - last.Value).TotalSeconds, 0.001f, 0.05f);
-            last = now;
-            float moved = JumpTo(Pixels + _velocity * dt);
-            _velocity *= MathF.Exp(-3.2f * dt);
-            if (Math.Abs(_velocity) < 25 || (moved == 0 && _velocity != 0)) return;
+            start ??= now;
+            float seconds = (float)(now - start.Value).TotalSeconds;
+            float wanted = simulation.X(seconds);
+            JumpTo(wanted);
+            bool hitEdge = wanted < 0 || wanted > MaxScrollExtent;
+            if (simulation.IsDone(seconds) || hitEdge) return;
             WidgetsBinding.Instance.ScheduleFrameCallback(Step);
         }
         WidgetsBinding.Instance.ScheduleFrameCallback(Step);
@@ -110,21 +138,37 @@ sealed class ScrollableState : State<Scrollable>
         float delta = Widget.Axis == Axis.Vertical
             ? (e.ScrollDelta.Dy != 0 ? e.ScrollDelta.Dy : e.ScrollDelta.Dx)
             : (e.ScrollDelta.Dx != 0 ? e.ScrollDelta.Dx : e.ScrollDelta.Dy);
-        Position.StopActivity();
-        // Only consume the wheel if this scrollable moved, so an outer one can take over at the edge.
-        if (Position.JumpTo(Position.Pixels + delta) != 0) PointerSignal.Consume();
+        // Only consume the wheel if this scrollable can move, so an outer one can take over at the edge.
+        if (Position.ScrollBy(delta)) PointerSignal.Consume();
     }
 
-    void DragStart(DragDetails _) => Position.StopActivity();
-    void DragUpdate(DragDetails d) =>
+    // The scrollbar can own the pointer while this drag recognizer (which may win the arena at pointer-down) is
+    // also tracking it; remember per drag so the scrollbar's own release cannot let the content fling.
+    bool _scrollbarDrag;
+
+    void DragStart(DragDetails _)
+    {
+        _scrollbarDrag = Position.ScrollbarActive;
+        if (!_scrollbarDrag) Position.StopActivity();
+    }
+
+    void DragUpdate(DragDetails d)
+    {
+        if (_scrollbarDrag) return;
         Position.JumpTo(Position.Pixels - (Widget.Axis == Axis.Vertical ? d.Delta.Dy : d.Delta.Dx));
-    void DragEnd(DragDetails d) =>
-        Position.Fling(-(Widget.Axis == Axis.Vertical ? d.Velocity.Dy : d.Velocity.Dx));
+    }
+
+    void DragEnd(DragDetails d)
+    {
+        bool ignore = _scrollbarDrag;
+        _scrollbarDrag = false;
+        if (!ignore) Position.Fling(-(Widget.Axis == Axis.Vertical ? d.Velocity.Dy : d.Velocity.Dx));
+    }
 
     public override Widget Build(BuildContext context)
     {
         bool v = Widget.Axis == Axis.Vertical;
-        return new Listener(onPointerScroll: OnWheel,
+        return new Listener(onPointerScroll: OnWheel, behavior: HitTestBehavior.Translucent,
             child: new GestureDetector(
                 onVerticalDragStart: v ? DragStart : null, onVerticalDragUpdate: v ? DragUpdate : null, onVerticalDragEnd: v ? DragEnd : null,
                 onHorizontalDragStart: v ? null : DragStart, onHorizontalDragUpdate: v ? null : DragUpdate, onHorizontalDragEnd: v ? null : DragEnd,
@@ -147,40 +191,116 @@ public sealed class Viewport(Axis axis, ScrollPosition position, Widget? child, 
     public override void UpdateRenderObject(BuildContext context, RenderObject ro) => ((RenderViewport)ro).Update(axis, position);
 }
 
-/// <summary>Shared scrollbar painting for scrollable render objects.</summary>
-static class ScrollbarPainter
+/// <summary>
+/// Scrollbar geometry, painting and pointer handling shared by scrollable render objects. The thumb can be dragged
+/// and the track clicked to page; it stays visible while the pointer is over the gutter or a drag is in progress.
+/// </summary>
+sealed class ScrollbarInteraction
 {
-    const float Thickness = 6, Margin = 2, Visible = 1.0f, Fade = 0.3f;
+    const float Thickness = 6, HoverThickness = 10, Margin = 2, Gutter = 14, Visible = 1.0f, Fade = 0.3f, MinThumb = 24;
 
-    public static void Paint(SKCanvas canvas, Size size, Axis axis, ScrollPosition p, Offset offset, Action requestRepaint)
+    bool _dragging;
+    float _grab;
+
+    static float Viewport(Size size, Axis axis) => axis == Axis.Vertical ? size.Height : size.Width;
+
+    static (float start, float length) Thumb(Size size, Axis axis, ScrollPosition p)
+    {
+        float viewport = Viewport(size, axis);
+        float total = viewport + p.MaxScrollExtent;
+        float length = Math.Min(viewport, Math.Max(MinThumb, viewport * viewport / total));
+        float travel = Math.Max(0, viewport - length - Margin * 2);
+        float start = Margin + (p.MaxScrollExtent <= 0 ? 0 : travel * p.Pixels / p.MaxScrollExtent);
+        return (start, length);
+    }
+
+    static bool InGutter(Size size, Axis axis, Offset local) => axis == Axis.Vertical
+        ? local.Dx >= size.Width - Gutter && local.Dx < size.Width
+        : local.Dy >= size.Height - Gutter && local.Dy < size.Height;
+
+    static float Main(Offset o, Axis axis) => axis == Axis.Vertical ? o.Dy : o.Dx;
+
+    /// <summary>The gutter swallows pointer input while the content can scroll.</summary>
+    public bool HitTest(Size size, Axis axis, ScrollPosition p, Offset local) => p.CanScroll && InGutter(size, axis, local);
+
+    public void Handle(PointerEvent e, Size size, Axis axis, ScrollPosition p)
+    {
+        float main = Main(e.LocalPosition, axis);
+        switch (e.Kind)
+        {
+            case PointerEventKind.Down:
+                p.ScrollbarActive = true;
+                p.StopActivity();
+                var (start, length) = Thumb(size, axis, p);
+                if (main >= start && main <= start + length)
+                {
+                    _dragging = true;
+                    _grab = main - start;
+                }
+                else
+                {
+                    // Clicking the track pages toward the click.
+                    float page = Viewport(size, axis) * 0.9f;
+                    p.AnimateTo(p.Pixels + (main < start ? -page : page), TimeSpan.FromMilliseconds(200));
+                }
+                break;
+            case PointerEventKind.Move when _dragging:
+                var (_, len) = Thumb(size, axis, p);
+                float travel = Math.Max(1, Viewport(size, axis) - len - Margin * 2);
+                p.StopActivity();
+                p.JumpTo((main - _grab - Margin) / travel * p.MaxScrollExtent);
+                break;
+            case PointerEventKind.Up or PointerEventKind.Cancel:
+                _dragging = false;
+                p.ScrollbarActive = false;
+                break;
+        }
+    }
+
+    public void Paint(SKCanvas canvas, Size size, Axis axis, ScrollPosition p, Offset offset, Action requestRepaint)
     {
         if (!p.CanScroll) return;
-        var now = WidgetsBinding.Instance.Now;
-        float age = (float)(now - p.LastChange).TotalSeconds;
-        if (age > Visible + Fade) return;
-        float alpha = age <= Visible ? 1 : 1 - (age - Visible) / Fade;
-        // Keep frames coming until the fade finishes.
-        WidgetsBinding.Instance.ScheduleFrameCallback(_ => requestRepaint());
+        var local = WidgetsBinding.Instance.Gestures.PointerPosition - offset;
+        bool hovered = size.ToRect().Contains(local) && InGutter(size, axis, local);
+        bool active = _dragging || hovered;
 
-        float viewport = axis == Axis.Vertical ? size.Height : size.Width;
-        float total = viewport + p.MaxScrollExtent;
-        float thumb = Math.Max(24, viewport * viewport / total);
-        float travel = viewport - thumb - Margin * 2;
-        float pos = Margin + (p.MaxScrollExtent <= 0 ? 0 : travel * p.Pixels / p.MaxScrollExtent);
+        float alpha = 1;
+        if (!active)
+        {
+            float age = (float)(WidgetsBinding.Instance.Now - p.LastChange).TotalSeconds;
+            if (age > Visible + Fade) return;
+            alpha = age <= Visible ? 1 : 1 - (age - Visible) / Fade;
+            // Keep frames coming until the fade finishes.
+            WidgetsBinding.Instance.ScheduleFrameCallback(_ => requestRepaint());
+        }
 
+        var (pos, length) = Thumb(size, axis, p);
+        float thickness = active ? HoverThickness : Thickness;
+        float near = Margin + (HoverThickness - thickness) / 2;
         var rect = axis == Axis.Vertical
-            ? new SKRect(offset.Dx + size.Width - Thickness - Margin, offset.Dy + pos, offset.Dx + size.Width - Margin, offset.Dy + pos + thumb)
-            : new SKRect(offset.Dx + pos, offset.Dy + size.Height - Thickness - Margin, offset.Dx + pos + thumb, offset.Dy + size.Height - Margin);
-        using var paint = new SKPaint { Color = new SKColor(0, 0, 0, (byte)(100 * alpha)), IsAntialias = true };
-        canvas.DrawRoundRect(rect, Thickness / 2, Thickness / 2, paint);
+            ? new SKRect(offset.Dx + size.Width - thickness - near, offset.Dy + pos, offset.Dx + size.Width - near, offset.Dy + pos + length)
+            : new SKRect(offset.Dx + pos, offset.Dy + size.Height - thickness - near, offset.Dx + pos + length, offset.Dy + size.Height - near);
+        using var paint = new SKPaint { Color = new SKColor(0, 0, 0, (byte)((active ? 150 : 100) * alpha)), IsAntialias = true };
+        canvas.DrawRoundRect(rect, thickness / 2, thickness / 2, paint);
     }
 }
 
+/// <summary>A render object that scrolls its content, exposed so focus can bring a widget into view.</summary>
+interface IScrollViewport
+{
+    Axis ScrollAxis { get; }
+    ScrollPosition Position { get; }
+
+    /// <summary>How far children are shifted at paint time beyond their layout offsets (zero when the offsets already include scrolling).</summary>
+    Offset PaintShift { get; }
+}
+
 /// <summary>Shows a window onto a larger child, shifted by the scroll position.</summary>
-public sealed class RenderViewport : RenderObjectWithChildBox
+public sealed class RenderViewport : RenderObjectWithChildBox, IScrollViewport
 {
     Axis _axis;
     ScrollPosition _position;
+    readonly ScrollbarInteraction _scrollbar = new();
 
     public RenderViewport(Axis axis, ScrollPosition position)
     {
@@ -199,6 +319,10 @@ public sealed class RenderViewport : RenderObjectWithChildBox
     }
 
     void OnScroll() => MarkNeedsPaint();
+
+    Axis IScrollViewport.ScrollAxis => _axis;
+    ScrollPosition IScrollViewport.Position => _position;
+    Offset IScrollViewport.PaintShift => ChildOffset;
 
     public override void Attach(PipelineOwner owner)
     {
@@ -247,8 +371,21 @@ public sealed class RenderViewport : RenderObjectWithChildBox
     {
         if (Child is not { } child) return;
         context.PushClipRect(offset, Size.ToRect(), (ctx, o) => ctx.PaintChild(child, o + ChildOffset));
-        ScrollbarPainter.Paint(context.Canvas, Size, _axis, _position, offset, MarkNeedsPaint);
+        _scrollbar.Paint(context.Canvas, Size, _axis, _position, offset, MarkNeedsPaint);
     }
+
+    public override bool HitTest(HitTestResult result, Offset position)
+    {
+        if (SizeOrNull is not { } size || !size.ToRect().Contains(position)) return false;
+        if (_scrollbar.HitTest(size, _axis, _position, position))
+        {
+            result.Add(this);
+            return true;
+        }
+        return base.HitTest(result, position);
+    }
+
+    public override void HandlePointerEvent(PointerEvent e, HitTestEntry entry) => _scrollbar.Handle(e, Size, _axis, _position);
 
     protected override bool HitTestChildren(HitTestResult result, Offset position) =>
         Child is { } c && result.AddWithPaintOffset(ChildOffset, position, c.HitTest);
@@ -283,8 +420,8 @@ public sealed class ListView : StatelessWidget
     }
 
     /// <summary>
-    /// Builds items on demand. Items must share one main-axis size: pass <paramref name="itemExtent"/>, or the first item's
-    /// size is used for all of them.
+    /// Builds items on demand. Pass <paramref name="itemExtent"/> when every item has the same main-axis size (fastest and exact); otherwise
+    /// items are measured as they scroll into view and unmeasured ones are estimated from the average.
     /// </summary>
     public static ListView Builder(int itemCount, Func<BuildContext, int, Widget> itemBuilder, float? itemExtent = null,
         Axis scrollDirection = Axis.Vertical, ScrollController? controller = null, EdgeInsets? padding = null, Key? key = null) =>
@@ -391,34 +528,50 @@ sealed class LazyViewportElement : RenderObjectElement
     }
 }
 
-/// <summary>Viewport that creates only the visible fixed-extent items, building them during layout.</summary>
-public sealed class RenderLazyViewport : RenderBoxContainer
+/// <summary>
+/// Viewport that creates only the visible items, building them during layout. Items share one extent when
+/// <c>itemExtent</c> is given; otherwise each is measured when first shown, unmeasured ones are estimated from the
+/// average, and the scroll offset is corrected as measurements arrive so visible content does not jump.
+/// </summary>
+public sealed class RenderLazyViewport : RenderBoxContainer, IScrollViewport
 {
+    const float InitialEstimate = 50;
+
     Axis _axis;
     ScrollPosition _position = new();
     int _itemCount;
     float? _itemExtent;
-    float _measuredExtent;
     EdgeInsets _padding;
+    readonly ScrollbarInteraction _scrollbar = new();
+
+    // Variable-extent bookkeeping: NaN marks an item that has not been measured yet.
+    float[] _extents = Array.Empty<float>();
+    float _knownSum;
+    int _knownCount;
+    float _extentsCross = -1;
+    int _anchorIndex;
+    float _anchorOffset;
 
     public Action<int, int>? BuildRange;
 
     public void Configure(Axis axis, ScrollPosition position, int itemCount, float? itemExtent, EdgeInsets padding)
     {
-        bool changed = _axis != axis || _itemCount != itemCount || _itemExtent != itemExtent || _padding != padding;
         if (!ReferenceEquals(_position, position))
         {
             if (Owner is not null) _position.Changed -= OnScroll;
             _position = position;
             if (Owner is not null) _position.Changed += OnScroll;
-            changed = true;
         }
+        if (_axis != axis) ResetExtents();
         _axis = axis; _itemCount = itemCount; _itemExtent = itemExtent; _padding = padding;
-        if (changed) _measuredExtent = 0;
         MarkNeedsLayout();
     }
 
     void OnScroll() => MarkNeedsLayout();
+
+    Axis IScrollViewport.ScrollAxis => _axis;
+    ScrollPosition IScrollViewport.Position => _position;
+    Offset IScrollViewport.PaintShift => Offset.Zero;
 
     public override void Attach(PipelineOwner owner)
     {
@@ -439,6 +592,56 @@ public sealed class RenderLazyViewport : RenderBoxContainer
 
     bool Vertical => _axis == Axis.Vertical;
 
+    void ResetExtents()
+    {
+        _extents = Array.Empty<float>();
+        _knownSum = 0;
+        _knownCount = 0;
+        _anchorIndex = 0;
+        _anchorOffset = 0;
+    }
+
+    void EnsureExtents(float cross)
+    {
+        // Item sizes depend on the width they wrap to, so a different cross size invalidates every measurement.
+        if (_extentsCross != cross)
+        {
+            ResetExtents();
+            _extentsCross = cross;
+        }
+        if (_extents.Length == _itemCount) return;
+
+        var resized = new float[_itemCount];
+        Array.Fill(resized, float.NaN);
+        int keep = Math.Min(_extents.Length, _itemCount);
+        Array.Copy(_extents, resized, keep);
+        _extents = resized;
+        _knownSum = 0;
+        _knownCount = 0;
+        for (int i = 0; i < keep; i++)
+            if (!float.IsNaN(resized[i])) { _knownSum += resized[i]; _knownCount++; }
+    }
+
+    float Estimate => _knownCount > 0 ? _knownSum / _knownCount : InitialEstimate;
+
+    float ExtentOf(int i) => float.IsNaN(_extents[i]) ? Estimate : _extents[i];
+
+    void Record(int i, float extent)
+    {
+        if (!float.IsNaN(_extents[i])) { _knownSum -= _extents[i]; _knownCount--; }
+        _extents[i] = extent;
+        _knownSum += extent;
+        _knownCount++;
+    }
+
+    /// <summary>Content offset of the start of item <paramref name="index"/>, counting padding and estimating unmeasured items.</summary>
+    float PrefixOffset(int index, float padStart)
+    {
+        float estimate = Estimate, offset = padStart;
+        for (int i = 0; i < index; i++) offset += float.IsNaN(_extents[i]) ? estimate : _extents[i];
+        return offset;
+    }
+
     protected override void PerformLayout()
     {
         var c = Constraints;
@@ -454,10 +657,6 @@ public sealed class RenderLazyViewport : RenderBoxContainer
         float crossStart = Vertical ? _padding.Left : _padding.Top;
         float innerCross = Math.Max(0, cross - crossPad);
 
-        BoxConstraints ItemConstraints(float extent) => Vertical
-            ? new BoxConstraints(innerCross, innerCross, extent, extent)
-            : new BoxConstraints(extent, extent, innerCross, innerCross);
-
         if (_itemCount == 0)
         {
             BuildRange?.Invoke(0, -1);
@@ -465,20 +664,24 @@ public sealed class RenderLazyViewport : RenderBoxContainer
             return;
         }
 
-        float extent = _itemExtent ?? _measuredExtent;
-        if (extent <= 0)
-        {
-            // Measure the first item to learn the shared item size.
-            BuildRange?.Invoke(0, 0);
-            if (Children.Count > 0)
-            {
-                Children[0].Layout(Vertical ? new BoxConstraints(innerCross, innerCross, 0, float.PositiveInfinity)
-                                            : new BoxConstraints(0, float.PositiveInfinity, innerCross, innerCross));
-                _measuredExtent = extent = Math.Max(1, Vertical ? Children[0].Size.Height : Children[0].Size.Width);
-            }
-            else extent = 1;
-        }
+        if (_itemExtent is { } fixedExtent && fixedExtent > 0)
+            LayoutFixed(fixedExtent, viewport, padStart, padEnd, crossStart, innerCross);
+        else
+            LayoutVariable(viewport, padStart, padEnd, crossStart, innerCross);
+    }
 
+    BoxConstraints ExactExtent(float extent, float innerCross) => Vertical
+        ? new BoxConstraints(innerCross, innerCross, extent, extent)
+        : new BoxConstraints(extent, extent, innerCross, innerCross);
+
+    BoxConstraints FreeExtent(float innerCross) => Vertical
+        ? new BoxConstraints(innerCross, innerCross, 0, float.PositiveInfinity)
+        : new BoxConstraints(0, float.PositiveInfinity, innerCross, innerCross);
+
+    Offset Place(float main, float crossStart) => Vertical ? new Offset(crossStart, main) : new Offset(main, crossStart);
+
+    void LayoutFixed(float extent, float viewport, float padStart, float padEnd, float crossStart, float innerCross)
+    {
         float total = padStart + extent * _itemCount + padEnd;
         _position.ApplyContentDimensions(viewport, total - viewport);
 
@@ -490,10 +693,71 @@ public sealed class RenderLazyViewport : RenderBoxContainer
         foreach (var child in Children)
         {
             var pd = (LazyListParentData)child.ParentData!;
-            child.Layout(ItemConstraints(extent));
-            float main = padStart + pd.Index * extent - scroll;
-            pd.Offset = Vertical ? new Offset(crossStart, main) : new Offset(main, crossStart);
+            child.Layout(ExactExtent(extent, innerCross));
+            pd.Offset = Place(padStart + pd.Index * extent - scroll, crossStart);
         }
+    }
+
+    void LayoutVariable(float viewport, float padStart, float padEnd, float crossStart, float innerCross)
+    {
+        EnsureExtents(innerCross);
+        if (_anchorIndex >= _itemCount) { _anchorIndex = 0; _anchorOffset = padStart; }
+
+        float scroll = _position.Pixels;
+        int first = 0;
+
+        // A pass picks the visible range from the current estimates and measures it. Measuring changes the estimates, so
+        // the anchor (the first item of the previous layout) is re-located and the scroll offset shifted to keep it still;
+        // a second pass then lays out the range around the corrected offset.
+        for (int pass = 0; pass < 4; pass++)
+        {
+            first = 0;
+            float firstOffset = padStart;
+            while (first < _itemCount - 1 && firstOffset + ExtentOf(first) <= scroll)
+            {
+                firstOffset += ExtentOf(first);
+                first++;
+            }
+
+            int last = Math.Min(_itemCount - 1, first + Math.Max(8, (int)MathF.Ceiling(viewport / Estimate) + 1));
+            while (true)
+            {
+                BuildRange?.Invoke(first, last);
+                foreach (var child in Children)
+                {
+                    int index = ((LazyListParentData)child.ParentData!).Index;
+                    child.Layout(FreeExtent(innerCross));
+                    Record(index, Math.Max(0, Vertical ? child.Size.Height : child.Size.Width));
+                }
+                float cursor = firstOffset;
+                for (int i = first; i <= last; i++) cursor += ExtentOf(i);
+                if (cursor >= scroll + viewport || last >= _itemCount - 1) break;
+                last = Math.Min(_itemCount - 1, last + Math.Max(8, last - first));
+            }
+
+            float anchorNow = PrefixOffset(_anchorIndex, padStart);
+            float delta = anchorNow - _anchorOffset;
+            if (MathF.Abs(delta) < 0.01f) break;
+            _anchorOffset = anchorNow;
+            scroll = Math.Max(0, scroll + delta);
+        }
+
+        float startOffset = PrefixOffset(first, padStart);
+        float total = padStart + _knownSum + (_itemCount - _knownCount) * Estimate + padEnd;
+        _position.ApplyContentDimensions(viewport, total - viewport);
+        _position.CorrectTo(scroll);
+        scroll = _position.Pixels;
+
+        foreach (var child in Children)
+        {
+            var pd = (LazyListParentData)child.ParentData!;
+            float itemMain = startOffset;
+            for (int i = first; i < pd.Index; i++) itemMain += ExtentOf(i);
+            pd.Offset = Place(itemMain - scroll, crossStart);
+        }
+
+        _anchorIndex = first;
+        _anchorOffset = startOffset;
     }
 
     public override void Paint(PaintingContext context, Offset offset)
@@ -502,8 +766,21 @@ public sealed class RenderLazyViewport : RenderBoxContainer
         {
             foreach (var c in Children) ctx.PaintChild(c, o + OffsetOf(c));
         });
-        ScrollbarPainter.Paint(context.Canvas, Size, _axis, _position, offset, MarkNeedsPaint);
+        _scrollbar.Paint(context.Canvas, Size, _axis, _position, offset, MarkNeedsPaint);
     }
+
+    public override bool HitTest(HitTestResult result, Offset position)
+    {
+        if (SizeOrNull is not { } size || !size.ToRect().Contains(position)) return false;
+        if (_scrollbar.HitTest(size, _axis, _position, position))
+        {
+            result.Add(this);
+            return true;
+        }
+        return base.HitTest(result, position);
+    }
+
+    public override void HandlePointerEvent(PointerEvent e, HitTestEntry entry) => _scrollbar.Handle(e, Size, _axis, _position);
 
     protected override bool HitTestChildren(HitTestResult result, Offset position)
     {
