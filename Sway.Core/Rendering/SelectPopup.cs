@@ -30,7 +30,8 @@ public static class SelectPopup
         if (top - offsetY + height > viewportHeight && select.BorderRect.Top - offsetY - height >= 0)
             top = select.BorderRect.Top - height;
 
-        var rect = new SKRect(select.BorderRect.Left, top, select.BorderRect.Left + width, top + height);
+        float left = style.Direction == Styling.Direction.Rtl ? select.BorderRect.Right - width : select.BorderRect.Left;
+        var rect = new SKRect(left, top, left + width, top + height);
         float maxScroll = Math.Max(0, options.Count * itemHeight - (height - Border * 2));
         return new PopupGeometry(rect, itemHeight, visible, maxScroll, options);
     }

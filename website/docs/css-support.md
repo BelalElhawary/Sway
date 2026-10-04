@@ -92,4 +92,36 @@ weight/style. **TTF, OTF and TTC only** — WOFF/WOFF2 are skipped (Skia can't d
 - Scrollbars are overlay thumbs only (not draggable, no track/arrow clicks). Wheel scrolling is a fixed 80px per
   notch — no smooth scrolling, momentum, `scroll-behavior`, or `scroll-snap`. No `onscroll` event.
 
+## RTL and bidirectional text
+
+Sway supports right-to-left (RTL) layout and Arabic / Hebrew text shaping via **HarfBuzz** (through `SkiaSharp.HarfBuzz`).
+
+**Supported:**
+
+- `direction: rtl | ltr` CSS property and `dir="rtl|ltr"` HTML attribute — inherited by all descendants.
+- `text-align: start | end` resolve to `left` / `right` according to the computed `direction`, so they work
+  correctly in both LTR and RTL contexts. `left`, `right`, and `center` still work as absolute values.
+- **Logical CSS properties:** `margin-inline-start`, `margin-inline-end`, `padding-inline-start`,
+  `padding-inline-end` map to the physical left/right sides according to `direction`.
+- **HarfBuzz text shaping** — Arabic ligatures, cursive joining, and correct glyph selection are applied
+  automatically whenever RTL characters are detected in a text run.
+- **RTL inline layout** — inline text runs are laid out right-to-left; items in an RTL line are placed starting
+  from the right edge.
+- **RTL flexbox** — `display: flex; direction: rtl` reverses the main axis so the first flex item appears at the
+  right edge. The `flex-direction: row-reverse` interaction is correctly accounted for.
+- **RTL grid** — column positions are mirrored; `justify-items`/`justify-self` alignment is direction-aware.
+- **RTL form controls** — text inside `<input>` and `<textarea>` with `direction: rtl` draws from the right;
+  caret position and text selection are mirrored. Placeholder text is right-aligned.
+- **RTL `<select>`** — the selected label is right-aligned and the chevron moves to the left edge; the popup
+  anchors to the right edge of the control.
+- **RTL keyboard navigation** — `ArrowLeft` moves the caret forward (toward the end of the string) and
+  `ArrowRight` moves it backward when the focused field has `direction: rtl`.
+
+**Not yet supported:**
+
+- `unicode-bidi` property (`embed`, `bidi-override`, `isolate`, etc.).
+- Full Unicode BiDi reordering of mixed-direction inline runs (e.g., embedded LTR words inside an RTL paragraph
+  are shaped correctly but may not be repositioned in visual order by the BiDi algorithm).
+- Vertical text (`writing-mode`).
+
 For the exact wording, caveats and the reasoning behind each approximation, see [Known limits](./known-limits).

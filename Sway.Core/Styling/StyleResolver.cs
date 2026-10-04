@@ -214,6 +214,12 @@ public sealed class StyleResolver : IStyleInvalidation
 
         var style = parent is null ? ComputedStyle.CreateRoot() : ComputedStyle.CreateRoot().InheritFrom(parent);
 
+        if (element.GetAttribute("dir") is { } dirAttr)
+        {
+            if (dirAttr.Equals("rtl", StringComparison.OrdinalIgnoreCase)) style.Direction = Direction.Rtl;
+            else if (dirAttr.Equals("ltr", StringComparison.OrdinalIgnoreCase)) style.Direction = Direction.Ltr;
+        }
+
         // Custom properties inherit by copy-on-write so siblings share the parent's dictionary.
         if (ordered.Any(d => d.Name.StartsWith("--", StringComparison.Ordinal)))
         {
@@ -364,8 +370,19 @@ public sealed class StyleResolver : IStyleInvalidation
                 else if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var mult)) { s.LineHeight = mult; s.LineHeightIsMultiplier = true; }
                 else if (CssValues.TryLength(value, fs, ctx, out var lh) && lh.Unit == LengthUnit.Px) { s.LineHeight = lh.Value; s.LineHeightIsMultiplier = false; }
                 break;
+            case "direction":
+                s.Direction = value.Equals("rtl", StringComparison.OrdinalIgnoreCase) ? Direction.Rtl : Direction.Ltr;
+                break;
             case "text-align":
-                s.TextAlign = value.ToLowerInvariant() switch { "center" => TextAlign.Center, "right" or "end" => TextAlign.Right, _ => TextAlign.Left };
+                s.TextAlign = value.ToLowerInvariant() switch
+                {
+                    "center" => TextAlign.Center,
+                    "right" => TextAlign.Right,
+                    "left" => TextAlign.Left,
+                    "end" => TextAlign.End,
+                    "start" => TextAlign.Start,
+                    _ => TextAlign.Start
+                };
                 break;
             case "box-sizing":
                 s.BorderBox = value.Equals("border-box", StringComparison.OrdinalIgnoreCase);
@@ -384,10 +401,22 @@ public sealed class StyleResolver : IStyleInvalidation
             case "margin-right": SetLength(value, fs, v => s.Margin[ComputedStyle.Right] = v); break;
             case "margin-bottom": SetLength(value, fs, v => s.Margin[ComputedStyle.Bottom] = v); break;
             case "margin-left": SetLength(value, fs, v => s.Margin[ComputedStyle.Left] = v); break;
+            case "margin-inline-start":
+                SetLength(value, fs, v => s.Margin[s.Direction == Direction.Rtl ? ComputedStyle.Right : ComputedStyle.Left] = v);
+                break;
+            case "margin-inline-end":
+                SetLength(value, fs, v => s.Margin[s.Direction == Direction.Rtl ? ComputedStyle.Left : ComputedStyle.Right] = v);
+                break;
             case "padding-top": SetLength(value, fs, v => s.Padding[ComputedStyle.Top] = v); break;
             case "padding-right": SetLength(value, fs, v => s.Padding[ComputedStyle.Right] = v); break;
             case "padding-bottom": SetLength(value, fs, v => s.Padding[ComputedStyle.Bottom] = v); break;
             case "padding-left": SetLength(value, fs, v => s.Padding[ComputedStyle.Left] = v); break;
+            case "padding-inline-start":
+                SetLength(value, fs, v => s.Padding[s.Direction == Direction.Rtl ? ComputedStyle.Right : ComputedStyle.Left] = v);
+                break;
+            case "padding-inline-end":
+                SetLength(value, fs, v => s.Padding[s.Direction == Direction.Rtl ? ComputedStyle.Left : ComputedStyle.Right] = v);
+                break;
 
             case "position":
                 s.Position = value.ToLowerInvariant() switch

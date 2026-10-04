@@ -101,5 +101,5 @@ public static class FontCache
         return font.Spacing;
     }
 
-    public static float Measure(string text, ComputedStyle style) => Get(style).MeasureText(text);
+    public static float Measure(string text, ComputedStyle style) => TextShaper.MeasureShaped(text, Get(style));
 }

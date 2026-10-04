@@ -979,8 +979,16 @@ public sealed class UiHost : IDisposable
             case "Backspace" when !readOnly: return EditText(el, e => e.DeleteBackward(command));
             case "Delete" when !readOnly: return EditText(el, e => e.DeleteForward(command));
 
-            case "ArrowLeft": return EditText(el, e => { e.MoveHorizontal(-1, command, Shift); return false; });
-            case "ArrowRight": return EditText(el, e => { e.MoveHorizontal(1, command, Shift); return false; });
+            case "ArrowLeft":
+            {
+                int dir = el.Style.Direction == Direction.Rtl ? 1 : -1;
+                return EditText(el, e => { e.MoveHorizontal(dir, command, Shift); return false; });
+            }
+            case "ArrowRight":
+            {
+                int dir = el.Style.Direction == Direction.Rtl ? -1 : 1;
+                return EditText(el, e => { e.MoveHorizontal(dir, command, Shift); return false; });
+            }
 
             case "ArrowUp" or "ArrowDown":
             {

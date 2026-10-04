@@ -75,7 +75,8 @@ public readonly record struct GridLine(bool IsSpan, int Value)
     public static readonly GridLine Auto = new(false, 0);
     public bool IsAuto => !IsSpan && Value == 0;
 }
-public enum TextAlign { Left, Center, Right }
+public enum Direction { Ltr, Rtl }
+public enum TextAlign { Start, Left, Center, Right, End }
 public enum LengthUnit { Px, Percent, Auto }
 
 public readonly record struct Length(float Value, LengthUnit Unit)
@@ -101,6 +102,7 @@ public sealed class ComputedStyle
     public const int Top = 0, Right = 1, Bottom = 2, Left = 3;
 
     // Inherited.
+    public Direction Direction = Direction.Ltr;
     public SKColor Color = SKColors.Black;
     public string FontFamily = "Segoe UI";
     public float FontSize = 16;
@@ -109,7 +111,13 @@ public sealed class ComputedStyle
     /// <summary>Multiplier when <see cref="LineHeightIsMultiplier"/>, otherwise pixels; null means "normal".</summary>
     public float? LineHeight;
     public bool LineHeightIsMultiplier = true;
-    public TextAlign TextAlign = TextAlign.Left;
+    public TextAlign TextAlign = TextAlign.Start;
+    public TextAlign EffectiveTextAlign => TextAlign switch
+    {
+        TextAlign.Start => Direction == Direction.Rtl ? TextAlign.Right : TextAlign.Left,
+        TextAlign.End => Direction == Direction.Rtl ? TextAlign.Left : TextAlign.Right,
+        _ => TextAlign
+    };
     public string Cursor = "auto";
     public List<Shadow> TextShadows = NoShadows;
     public TextDecoration TextDecoration;
@@ -218,7 +226,8 @@ public sealed class ComputedStyle
     /// paint-only, so a style change confined to them does not need a relayout.
     /// </summary>
     public bool LayoutEquals(ComputedStyle o) =>
-        Display == o.Display && Position == o.Position && OverflowX == o.OverflowX && OverflowY == o.OverflowY
+        Direction == o.Direction
+        && Display == o.Display && Position == o.Position && OverflowX == o.OverflowX && OverflowY == o.OverflowY
         && Width == o.Width && Height == o.Height && MinWidth == o.MinWidth && MinHeight == o.MinHeight
         && MaxWidth == o.MaxWidth && MaxHeight == o.MaxHeight && BorderBox == o.BorderBox
         && Same(Margin, o.Margin) && Same(Padding, o.Padding) && Same(Inset, o.Inset) && Same(BorderWidth, o.BorderWidth)
@@ -282,6 +291,7 @@ public sealed class ComputedStyle
     /// <summary>A fresh style that carries over only the inherited properties.</summary>
     public ComputedStyle InheritFrom(ComputedStyle parent) => new()
     {
+        Direction = parent.Direction,
         Color = parent.Color,
         FontFamily = parent.FontFamily,
         FontSize = parent.FontSize,

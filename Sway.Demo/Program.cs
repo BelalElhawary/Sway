@@ -3,7 +3,7 @@ using Sway.Demo.Sample;
 
 var app = App.Create();
 // One stylesheet per demo page, loaded in the same order app.css used to define them.
-foreach (var sheet in new[] { "theme", "layout", "layout2", "interaction", "shell", "forms", "effects", "motion", "stress", "testing" })
+foreach (var sheet in new[] { "theme", "layout", "layout2", "interaction", "shell", "forms", "effects", "motion", "stress", "testing", "rtl" })
     app.AddStylesheet(Path.Combine("styles", $"{sheet}.css"));
 
 // `--screenshot out.png` renders headlessly, which is handy for checking layout and input.
@@ -76,5 +76,6 @@ switch (page)
     case "effects": app.Screenshot<EffectsDemo>(path, 800, 620, steps); break;
     case "motion": app.Screenshot<MotionDemo>(path, 800, 420, steps); break;
     case "stress": app.Screenshot<StressDemo>(path, 1000, 700, steps); break;
+    case "rtl": app.Screenshot<RtlDemo>(path, 800, 700, steps); break;
     default: app.Screenshot<MainWindow>(path, 1000, 700, steps); break;
 }

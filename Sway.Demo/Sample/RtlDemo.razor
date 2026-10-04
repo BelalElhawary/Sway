@@ -1,0 +1,99 @@
+<div class="rtl-demo">
+    <h2>RTL &amp; Arabic Support</h2>
+
+    <!-- ── 1. Plain Arabic paragraph ─────────────────────────────── -->
+    <section class="demo-section">
+        <h3>Arabic paragraph (<code>dir="rtl"</code>)</h3>
+        <p dir="rtl" class="arabic-para">
+            مرحباً بكم في متصفح Sway. هذا النص مكتوب باللغة العربية ويتدفق من اليمين إلى اليسار
+            بشكل صحيح مع دعم كامل لنظام BiDi.
+        </p>
+    </section>
+
+    <!-- ── 2. Mixed BiDi paragraph ────────────────────────────────── -->
+    <section class="demo-section">
+        <h3>Mixed Arabic / Latin (BiDi)</h3>
+        <p dir="rtl" class="arabic-para">
+            يدعم المتصفح النصوص المختلطة مثل HTML و CSS و JavaScript داخل الجمل العربية بشكل صحيح.
+        </p>
+    </section>
+
+    <!-- ── 3. RTL flex row ────────────────────────────────────────── -->
+    <section class="demo-section">
+        <h3>RTL flex row</h3>
+        <div class="rtl-flex" dir="rtl">
+            <div class="flex-card">أول</div>
+            <div class="flex-card">ثاني</div>
+            <div class="flex-card">ثالث</div>
+            <div class="flex-card">رابع</div>
+        </div>
+    </section>
+
+    <!-- ── 4. RTL form inputs ─────────────────────────────────────── -->
+    <section class="demo-section">
+        <h3>RTL form controls</h3>
+        <div class="rtl-form" dir="rtl">
+            <div class="field-row">
+                <label>الاسم</label>
+                <input type="text" placeholder="أدخل اسمك" @bind="arabicName" @bind:event="oninput" />
+            </div>
+            <div class="field-row">
+                <label>البريد الإلكتروني</label>
+                <input type="text" placeholder="example@domain.com" @bind="email" @bind:event="oninput" />
+            </div>
+            <div class="field-row">
+                <label>اللغة</label>
+                <select @bind="language">
+                    <option value="">اختر...</option>
+                    <option value="ar">العربية</option>
+                    <option value="he">العبرية</option>
+                    <option value="fa">الفارسية</option>
+                    <option value="en">الإنجليزية</option>
+                </select>
+            </div>
+            <div class="field-row">
+                <label class="check"><input type="checkbox" @bind="agreed" /> أوافق على الشروط</label>
+            </div>
+            <div class="field-row">
+                <button @onclick="OnSubmit">إرسال</button>
+                <span class="echo">@status</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── 5. RTL multi-line textarea ────────────────────────────── -->
+    <section class="demo-section">
+        <h3>RTL textarea</h3>
+        <textarea dir="rtl" class="rtl-area" rows="3" placeholder="اكتب ملاحظاتك هنا...">
+        </textarea>
+    </section>
+
+    <!-- ── 6. Logical CSS properties ────────────────────────────── -->
+    <section class="demo-section">
+        <h3>Logical properties (<code>margin-inline-start</code> / <code>padding-inline-end</code>)</h3>
+        <div class="logical-demo" dir="rtl">
+            <div class="logical-box">مربع RTL — الحاشية تبدأ من اليمين</div>
+        </div>
+        <div class="logical-demo" dir="ltr">
+            <div class="logical-box">LTR box — margin starts from the left</div>
+        </div>
+    </section>
+</div>
+
+@code {
+    string arabicName = "";
+    string email      = "";
+    string language   = "";
+    bool   agreed;
+    string status     = "";
+
+    void OnSubmit()
+    {
+        if (!agreed)
+        {
+            status = "يرجى الموافقة على الشروط أولاً";
+            return;
+        }
+        status = $"تم الإرسال: {arabicName} / {language}";
+    }
+}

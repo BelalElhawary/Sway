@@ -25,12 +25,16 @@ public sealed partial class LayoutEngine
     float LayoutFlex(ElementNode el, float x, float y, float cw, float? definiteHeight)
     {
         var st = el.Style;
+        bool isRtl = st.Direction == Direction.Rtl;
         bool row = st.FlexDirection is FlexDirection.Row or FlexDirection.RowReverse;
-        bool reverse = st.FlexDirection is FlexDirection.RowReverse or FlexDirection.ColumnReverse;
+        bool reverse = row ? (isRtl ? st.FlexDirection == FlexDirection.Row : st.FlexDirection == FlexDirection.RowReverse)
+                           : st.FlexDirection == FlexDirection.ColumnReverse;
         float mainGap = row ? st.ColumnGap : st.RowGap;
         float crossGap = row ? st.RowGap : st.ColumnGap;
-        int mainStartSide = row ? L : T, mainEndSide = row ? R : B;
-        int crossStartSide = row ? T : L, crossEndSide = row ? B : R;
+        int mainStartSide = row ? (isRtl ? R : L) : T;
+        int mainEndSide = row ? (isRtl ? L : R) : B;
+        int crossStartSide = row ? T : (isRtl ? R : L);
+        int crossEndSide = row ? B : (isRtl ? L : R);
 
         var items = CollectItems(el, cw).Select(i => new FlexItem { Item = i }).ToList();
         if (items.Count == 0) return 0;
@@ -149,7 +153,13 @@ public sealed partial class LayoutEngine
                 // Auto margins absorb free space and take precedence over align-items.
                 float offset = autoStart || autoEnd
                     ? Math.Max(0, autoStart ? (autoEnd ? free / 2 : free) : 0)
-                    : f.Align switch { Align.End => free, Align.Center => free / 2, _ => 0 };
+                    : f.Align switch
+                    {
+                        Align.End => (!row && isRtl) ? 0 : free,
+                        Align.Start => (!row && isRtl) ? free : 0,
+                        Align.Center => free / 2,
+                        _ => (!row && isRtl && f.Align != Align.Stretch) ? free : 0
+                    };
 
                 f.CrossStart = lineOffset + offset + f.Item.Margin[crossStartSide];
             }

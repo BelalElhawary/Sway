@@ -264,7 +264,8 @@ public sealed partial class LayoutEngine
         if (line.Items.Count > 0) lines.Add(line);
 
         float cursorY = y;
-        var align = container.Style.TextAlign;
+        bool isRtl = container.Style.Direction == Direction.Rtl;
+        var align = container.Style.EffectiveTextAlign;
         foreach (var l in lines)
         {
             float lineHeight = l.Items.Max(it => it.Height);
@@ -279,14 +280,14 @@ public sealed partial class LayoutEngine
             for (int i = 0; i < l.Items.Count; i++)
             {
                 var item = l.Items[i];
-                float itemX = x + offset + l.Xs[i];
+                float itemX = x + offset + (isRtl ? (l.Width - l.Xs[i] - item.Width) : l.Xs[i]);
 
                 if (item.Atom is { } atom)
                 {
                     float top = cursorY + (lineHeight - item.Height) / 2;
                     // Atoms are measured at the origin first, so move them into place.
                     var margin = atom.Style.Margin;
-                    float ml = margin[ComputedStyle.Left].Resolve(width) ?? 0;
+                    float ml = margin[isRtl ? ComputedStyle.Right : ComputedStyle.Left].Resolve(width) ?? 0;
                     float mt = margin[ComputedStyle.Top].Resolve(width) ?? 0;
                     float dx = itemX + ml - (atom.BorderRect.Left - atom.RelativeOffset.X);
                     float dy = top + mt - (atom.BorderRect.Top - atom.RelativeOffset.Y);
@@ -297,7 +298,7 @@ public sealed partial class LayoutEngine
                     float contentArea = FontCache.Get(item.Style).Metrics.Descent - FontCache.Get(item.Style).Metrics.Ascent;
                     float top = cursorY + (lineHeight - item.Height) / 2;
                     float baseline = top + (item.Height - contentArea) / 2 + (-FontCache.Get(item.Style).Metrics.Ascent);
-                    AppendRun(text, item.Word, itemX, baseline, item.Width);
+                    AppendRun(text, item.Word, itemX, baseline, item.Width, isRtl);
                 }
             }
             cursorY += lineHeight;
@@ -306,11 +307,11 @@ public sealed partial class LayoutEngine
         return cursorY - y;
     }
 
-    static void AppendRun(TextNode node, string word, float x, float baseline, float width)
+    static void AppendRun(TextNode node, string word, float x, float baseline, float width, bool isRtl = false)
     {
         // Merge with the previous run when it is the same line and directly adjacent, to keep run counts low.
         var runs = node.Runs;
-        if (runs.Count > 0)
+        if (!isRtl && runs.Count > 0)
         {
             var last = runs[^1];
             if (Math.Abs(last.Baseline - baseline) < 0.01f && Math.Abs(last.X + last.Width - x) < 0.5f)

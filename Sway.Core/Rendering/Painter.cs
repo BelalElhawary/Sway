@@ -389,10 +389,10 @@ public sealed class Painter
                 var shadow = style.TextShadows[i];
                 using var shadowPaint = new SKPaint { Color = shadow.Color, IsAntialias = true };
                 if (shadow.Blur > 0) shadowPaint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, shadow.Blur / 2);
-                canvas.DrawText(run.Text, run.X + shadow.X, run.Baseline + shadow.Y, SKTextAlign.Left, font, shadowPaint);
+                TextShaper.DrawShapedText(canvas, run.Text, run.X + shadow.X, run.Baseline + shadow.Y, font, shadowPaint);
             }
 
-            canvas.DrawText(run.Text, run.X, run.Baseline, SKTextAlign.Left, font, paint);
+            TextShaper.DrawShapedText(canvas, run.Text, run.X, run.Baseline, font, paint);
             if (style.TextDecoration != TextDecoration.None) PaintDecoration(canvas, style, font, run, paint);
         }
     }

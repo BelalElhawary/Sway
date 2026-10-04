@@ -56,12 +56,15 @@ public sealed partial class LayoutEngine
             (rowStart, rowBetween) = Distribute(dh - rows.Sum() - rowGap * (rows.Length - 1), rows.Length, st.AlignContent);
         var rowY = TrackOffsets(rows, y + rowStart, rowGap + rowBetween);
 
+        bool isRtl = st.Direction == Direction.Rtl;
         foreach (var g in placed)
         {
             var it = g.Item;
-            float areaX = colX[g.Col], areaY = rowY[g.Row];
+            float rawAreaX = colX[g.Col];
             float areaW = SpanSize(cols, g.Col, g.ColSpan, colGap + colBetween);
             float areaH = SpanSize(rows, g.Row, g.RowSpan, rowGap + rowBetween);
+            float areaX = isRtl ? (x + cw - (rawAreaX - x) - areaW) : rawAreaX;
+            float areaY = rowY[g.Row];
 
             var justify = GridJustify(st, it);
             var align = it.Style.AlignSelf == Align.Auto ? st.AlignItems : it.Style.AlignSelf;
@@ -74,10 +77,16 @@ public sealed partial class LayoutEngine
 
             float freeX = areaW - it.Margin[L] - it.Margin[R] - width;
             float freeY = areaH - it.Margin[T] - it.Margin[B] - height;
-            float dx = justify switch { Align.End => freeX, Align.Center => freeX / 2, _ => 0 };
+            float dx = justify switch
+            {
+                Align.End => isRtl ? 0 : freeX,
+                Align.Center => freeX / 2,
+                Align.Start => isRtl ? freeX : 0,
+                _ => isRtl ? freeX : 0
+            };
             float dy = align switch { Align.End => freeY, Align.Center => freeY / 2, _ => 0 };
 
-            PlaceItem(it, areaX + dx + it.Margin[L], areaY + dy + it.Margin[T], width, height, cw);
+            PlaceItem(it, areaX + dx + (isRtl ? it.Margin[R] : it.Margin[L]), areaY + dy + it.Margin[T], width, height, cw);
         }
 
         return rows.Sum() + rowGap * Math.Max(0, rows.Length - 1);

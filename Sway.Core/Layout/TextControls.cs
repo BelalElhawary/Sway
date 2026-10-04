@@ -174,7 +174,9 @@ public static class TextControls
             float lh = LineHeight(el);
             lineIndex = Math.Clamp((int)Math.Floor((y - el.ContentRect.Top + edit.ScrollY) / lh), 0, edit.Lines.Count - 1);
         }
-        return IndexInLine(el, edit, lineIndex, x - TextOriginX(el, edit));
+        bool isRtl = el.Style.Direction == Direction.Rtl;
+        float localX = isRtl ? (el.ContentRect.Right + edit.ScrollX - x) : (x - TextOriginX(el, edit));
+        return IndexInLine(el, edit, lineIndex, localX);
     }
 
     /// <summary>Index in a line whose x (from the line start) is closest to <paramref name="localX"/>.</summary>
