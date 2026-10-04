@@ -9,9 +9,11 @@ namespace Sway.Widgets;
 public static class App
 {
     /// <summary>Opens a window and runs <paramref name="root"/> until it is closed.</summary>
-    public static void Run(Widget root, string title = "Sway", int width = 1024, int height = 768)
+    public static void Run(Widget root, string title = "Sway", int width = 1024, int height = 768, bool showFps = false)
     {
         var binding = new WidgetsBinding();
+        // Debug mode: pass showFps, set SWAY_DEBUG_FPS=1, or press F3 while running.
+        binding.ShowFps = showFps || Environment.GetEnvironmentVariable("SWAY_DEBUG_FPS") == "1";
         binding.PlatformBrightness = DetectBrightness();
         binding.AttachRoot(root);
 
@@ -89,6 +91,7 @@ public static class App
                     SyncModifiers(k);
                     var (name, code, _) = KeyMap.Translate(key, binding.Shift);
                     bool repeat = !heldKeys.Add(key); // GLFW reports key repeats as further KeyDown events
+                    if (key == Silk.NET.Input.Key.F3 && !repeat) binding.ShowFps = !binding.ShowFps;
                     binding.KeyDown(name, code, repeat);
                 };
                 keyboard.KeyUp += (k, key, _) =>

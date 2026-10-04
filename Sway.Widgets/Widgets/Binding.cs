@@ -159,7 +159,32 @@ public sealed class WidgetsBinding
         return _timers.Any(t => t.due <= now);
     }
 
+    /// <summary>Debug mode: draws the frame rate over the app. Toggle at runtime with F3 in a windowed host.</summary>
+    public bool ShowFps
+    {
+        get => _fps is not null;
+        set
+        {
+            if (value == ShowFps) return;
+            _fps = value ? new FpsOverlay() : null;
+            RequestFrame();
+        }
+    }
+
+    FpsOverlay? _fps;
+
     public void DrawFrame(SKCanvas canvas, float width, float height)
+    {
+        _fps?.BeginFrame();
+        DrawFrameCore(canvas, width, height);
+        if (_fps is null) return;
+        _fps.EndFrame();
+        canvas.Save();
+        _fps.Paint(canvas);
+        canvas.Restore();
+    }
+
+    void DrawFrameCore(SKCanvas canvas, float width, float height)
     {
         _frameRequested = false;
         RunScheduled();
