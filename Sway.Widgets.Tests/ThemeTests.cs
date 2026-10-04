@@ -66,32 +66,32 @@ public class ThemeTests
     [InlineData(null, Brightness.Light)]
     [InlineData("Light", Brightness.Light)]
     public void MacInterfaceStyle(string? output, Brightness expected) =>
-        Assert.Equal(expected, SystemTheme.ParseMacInterfaceStyle(output));
+        Assert.Equal(expected, MacThemeSource.ParseInterfaceStyle(output));
 
     [Theory]
     [InlineData("'prefer-dark'\n", Brightness.Dark)]
     [InlineData("'prefer-light'", Brightness.Light)]
     [InlineData("'default'", Brightness.Light)]
     public void GnomeColorScheme(string output, Brightness expected) =>
-        Assert.Equal(expected, SystemTheme.ParseGnomeColorScheme(output));
+        Assert.Equal(expected, LinuxThemeSource.ParseColorScheme(output));
 
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("garbage")]
-    public void GnomeColorSchemeIsNullWhenUnknown(string? output) => Assert.Null(SystemTheme.ParseGnomeColorScheme(output));
+    public void GnomeColorSchemeIsNullWhenUnknown(string? output) => Assert.Null(LinuxThemeSource.ParseColorScheme(output));
 
     [Theory]
     [InlineData("'Adwaita-dark'", Brightness.Dark)]
     [InlineData("'Yaru'", Brightness.Light)]
     public void GnomeThemeName(string output, Brightness expected) =>
-        Assert.Equal(expected, SystemTheme.ParseGnomeThemeName(output));
+        Assert.Equal(expected, LinuxThemeSource.ParseThemeName(output));
 
     [Fact]
     public void WindowsAccentColoursAreStoredBlueGreenRed()
     {
         // 0xFFD5 7B 3A as AABBGGRR is red 0x3A, green 0x7B, blue 0xD5.
-        var color = SystemTheme.FromAbgr(0xFFD57B3A);
+        var color = WindowsThemeSource.FromAbgr(0xFFD57B3A);
         Assert.Equal(new SKColor(0x3A, 0x7B, 0xD5), color);
     }
 
@@ -108,8 +108,9 @@ public class ThemeTests
     [Fact]
     public void BrightnessAlwaysResolves()
     {
-        Assert.True(SystemTheme.Brightness() is Brightness.Light or Brightness.Dark);
-        Assert.True(SystemTheme.PollInterval > TimeSpan.Zero);
+        var source = DesktopSystemTheme.ForCurrentOS();
+        Assert.True(source.Brightness() is Brightness.Light or Brightness.Dark);
+        Assert.True(source.PollInterval > TimeSpan.Zero);
     }
 
     // ---- following the platform ----

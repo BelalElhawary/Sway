@@ -16,7 +16,7 @@ RenderObject tree      constraints down, sizes up; paint; hit test
         ▼
 Skia canvas            SKCanvas on an OpenGL surface (or a CPU bitmap when headless)
         ▼
-Platform               Silk.NET window, input routing, clipboard, cursors
+Platform host           window, input routing, clipboard, cursors (Sway.Platform.Desktop today)
 ```
 
 ## Foundation
@@ -62,9 +62,20 @@ animated screenshots deterministic.
 
 ## Platform
 
-`Platform/App.cs` owns the Silk.NET window, the OpenGL/Skia surface and the input wiring, and exposes
-`App.Screenshot` for headless rendering. `KeyMap` translates Silk.NET keys to DOM-style key names (`"Enter"`,
-`"ArrowLeft"`), which is what `KeyEvent.Key` carries.
+Rendering and platform code live in separate projects. `Sway.Widgets` is platform-neutral: widgets, layout, painting
+and text on SkiaSharp and HarfBuzz, with no window, input or OS dependency. It talks to the host through a small
+surface: `WidgetsBinding` takes pointer, key and text events and draws a frame onto any `SKCanvas`, the clipboard and
+cursor are delegates, and `ISystemThemeSource` (installed through `SystemTheme.Source`) supplies the OS light/dark
+preference and accent colour. `Headless.Screenshot` renders to a PNG with no host at all.
+
+`Sway.Platform.Desktop` is the host for Windows, Linux and macOS. `App.Run` owns the Silk.NET window, the
+OpenGL/Skia surface and the input wiring; `KeyMap` translates Silk.NET keys to DOM-style key names (`"Enter"`,
+`"ArrowLeft"`), which is what `KeyEvent.Key` carries; `DesktopSystemTheme` picks the registry, `defaults` or
+`gsettings` theme source for the current OS. `App.Screenshot` wraps `Headless.Screenshot` with the desktop theme.
+
+A new platform (Android, say) is a new `Sway.Platform.*` project that creates a GPU surface, forwards touch, key and
+text input to `WidgetsBinding`, calls `DrawFrame` each frame it needs one, and provides an `ISystemThemeSource`.
+Nothing in `Sway.Widgets` changes.
 
 ## Where to look in the code
 
@@ -75,7 +86,7 @@ animated screenshots deterministic.
 | Render objects and layout | `Rendering/RenderObject.cs`, `RenderBox.cs`, `RenderShifted.cs`, `RenderFlex.cs`, `RenderLayouts.cs` |
 | Text | `Rendering/TextShaper.cs`, `Bidi.cs`, `FontCache.cs`, `RenderParagraph.cs`, `RenderEditable.cs` |
 | Frames, clock and gestures | `Widgets/Binding.cs`, `Widgets/Gestures.cs` |
-| Focus and keyboard | `Widgets/Focus.cs`, `Platform/KeyMap.cs` |
+| Focus and keyboard | `Widgets/Focus.cs`, `Sway.Platform.Desktop/KeyMap.cs` |
 | Scrolling | `Widgets/Scrolling.cs` |
 | Animation | `Foundation/Animation.cs`, `Curves.cs`, `Lerp.cs`, `Widgets/Animated.cs` |
 | Theme and Material 3 | `Foundation/ColorScheme.cs`, `Widgets/Theme.cs`, `Controls.cs`, `TextField.cs` |

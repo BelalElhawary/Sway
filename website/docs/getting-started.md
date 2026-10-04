@@ -16,12 +16,14 @@ sidebar_position: 2
 
 ```
 Sway.slnx
-Sway.Widgets/        # the library: Foundation, Rendering, Widgets, Platform
-Sway.Widgets.Demo/   # a Material 3 demo app that exercises the library
+Sway.Widgets/           # the platform-neutral library: Foundation, Rendering, Widgets
+Sway.Platform.Desktop/  # Windows/Linux/macOS host: window, input, OS theme (Silk.NET)
+Sway.Widgets.Demo/      # a Material 3 demo app that exercises the library
 ```
 
-`Sway.Widgets` is the library and has no dependency on the demo. It depends on SkiaSharp, SkiaSharp.HarfBuzz and
-Silk.NET. Reference it from your own project and add `using Sway.Widgets;`.
+`Sway.Widgets` is the library. It depends only on SkiaSharp and SkiaSharp.HarfBuzz, so it carries no windowing or OS
+code. `Sway.Platform.Desktop` adds the window and input host (Silk.NET); an app references both and calls `App.Run`.
+Add `using Sway.Widgets;`.
 
 ## Run the demo
 

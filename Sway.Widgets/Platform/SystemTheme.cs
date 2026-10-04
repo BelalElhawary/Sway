@@ -1,94 +1,39 @@
-using System.Diagnostics;
 using SkiaSharp;
 
 namespace Sway.Widgets;
 
-/// <summary>Reads the operating system's light/dark preference and accent colour.</summary>
-public static class SystemTheme
+/// <summary>
+/// Reads the operating system's appearance preferences. Each platform package supplies an implementation
+/// (desktop, Android, ...) and installs it through <see cref="SystemTheme.Source"/>.
+/// </summary>
+public interface ISystemThemeSource
 {
     /// <summary>How often a host should re-read <see cref="Brightness"/>: a registry read is cheap, a helper process is not.</summary>
-    public static TimeSpan PollInterval => OperatingSystem.IsWindows() ? TimeSpan.FromSeconds(1) : TimeSpan.FromSeconds(5);
+    TimeSpan PollInterval { get; }
 
-    /// <summary>The OS preference; light when it cannot be determined.</summary>
-    public static Brightness Brightness()
+    /// <summary>The OS light/dark preference; light when it cannot be determined.</summary>
+    Brightness Brightness();
+
+    /// <summary>The user's accent colour; null when the platform has none or it is unavailable.</summary>
+    SKColor? AccentColor();
+}
+
+/// <summary>The active <see cref="ISystemThemeSource"/>. Without a platform package it reports a light theme and no accent.</summary>
+public static class SystemTheme
+{
+    sealed class Fallback : ISystemThemeSource
     {
-        try
-        {
-            if (OperatingSystem.IsWindows()) return WindowsBrightness();
-            if (OperatingSystem.IsMacOS()) return ParseMacInterfaceStyle(Run("defaults", "read -g AppleInterfaceStyle"));
-            if (OperatingSystem.IsLinux())
-            {
-                var scheme = ParseGnomeColorScheme(Run("gsettings", "get org.gnome.desktop.interface color-scheme"));
-                if (scheme is { } s) return s;
-                return ParseGnomeThemeName(Run("gsettings", "get org.gnome.desktop.interface gtk-theme"));
-            }
-        }
-        catch
-        {
-            // Missing tools, sandboxing, a locked registry: keep the default.
-        }
-        return Widgets.Brightness.Light;
+        public TimeSpan PollInterval => TimeSpan.FromSeconds(5);
+        public Brightness Brightness() => Widgets.Brightness.Light;
+        public SKColor? AccentColor() => null;
     }
 
-    /// <summary>The user's accent colour on Windows; null elsewhere or when unavailable.</summary>
-    public static SKColor? AccentColor()
-    {
-        if (!OperatingSystem.IsWindows()) return null;
-        try
-        {
-            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\DWM");
-            return key?.GetValue("AccentColor") is int abgr ? FromAbgr(unchecked((uint)abgr)) : null;
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    /// <summary>Set by the platform host at startup.</summary>
+    public static ISystemThemeSource Source { get; set; } = new Fallback();
 
-    // Windows stores colours as 0xAABBGGRR.
-    internal static SKColor FromAbgr(uint abgr) => new((byte)abgr, (byte)(abgr >> 8), (byte)(abgr >> 16), 255);
+    public static TimeSpan PollInterval => Source.PollInterval;
 
-    static Brightness WindowsBrightness()
-    {
-        using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-        return key?.GetValue("AppsUseLightTheme") is int v && v == 0 ? Widgets.Brightness.Dark : Widgets.Brightness.Light;
-    }
+    public static Brightness Brightness() => Source.Brightness();
 
-    // `defaults read -g AppleInterfaceStyle` prints "Dark" in dark mode and fails (no output) in light mode.
-    internal static Brightness ParseMacInterfaceStyle(string? output) =>
-        output?.Trim().Equals("Dark", StringComparison.OrdinalIgnoreCase) == true ? Widgets.Brightness.Dark : Widgets.Brightness.Light;
-
-    // GNOME 42+: 'default', 'prefer-dark' or 'prefer-light'. Null when the key is missing so older setups can fall back.
-    internal static Brightness? ParseGnomeColorScheme(string? output)
-    {
-        var value = output?.Trim().Trim('\'', '"');
-        return value switch
-        {
-            "prefer-dark" => Widgets.Brightness.Dark,
-            "prefer-light" or "default" => Widgets.Brightness.Light,
-            _ => null,
-        };
-    }
-
-    internal static Brightness ParseGnomeThemeName(string? output) =>
-        output?.Contains("dark", StringComparison.OrdinalIgnoreCase) == true ? Widgets.Brightness.Dark : Widgets.Brightness.Light;
-
-    static string? Run(string file, string arguments)
-    {
-        using var process = Process.Start(new ProcessStartInfo(file, arguments)
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        });
-        if (process is null) return null;
-        string output = process.StandardOutput.ReadToEnd();
-        if (!process.WaitForExit(1000))
-        {
-            process.Kill();
-            return null;
-        }
-        return process.ExitCode == 0 ? output : null;
-    }
+    public static SKColor? AccentColor() => Source.AccentColor();
 }

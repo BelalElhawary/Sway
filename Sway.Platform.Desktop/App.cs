@@ -5,12 +5,13 @@ using SkiaSharp;
 
 namespace Sway.Widgets;
 
-/// <summary>Entry point: <c>App.Run(new MyApp(), "Title", 1024, 768)</c>.</summary>
+/// <summary>Desktop host (Windows, Linux, macOS) on Silk.NET/GLFW + OpenGL. Entry point: <c>App.Run(new MyApp(), "Title", 1024, 768)</c>.</summary>
 public static class App
 {
     /// <summary>Opens a window and runs <paramref name="root"/> until it is closed.</summary>
     public static void Run(Widget root, string title = "Sway", int width = 1024, int height = 768, bool showFps = false)
     {
+        SystemTheme.Source = DesktopSystemTheme.ForCurrentOS();
         var binding = new WidgetsBinding();
         // Debug mode: pass showFps, set SWAY_DEBUG_FPS=1, or press F3 while running.
         binding.ShowFps = showFps || Environment.GetEnvironmentVariable("SWAY_DEBUG_FPS") == "1";
@@ -172,30 +173,10 @@ public static class App
         _ => StandardCursor.Default,
     };
 
-    /// <summary>
-    /// Renders the widget to a PNG without opening a window. Each step simulates input against a freshly
-    /// laid-out frame, then a new screenshot overwrites the file.
-    /// </summary>
+    /// <summary>Renders the widget to a PNG without opening a window; see <see cref="Headless.Screenshot"/>.</summary>
     public static void Screenshot(Widget root, string pngPath, int width, int height, IEnumerable<Action<WidgetsBinding>>? steps = null)
     {
-        var binding = new WidgetsBinding();
-        binding.UseManualClock();
-        binding.AttachRoot(root);
-        SavePng(binding, pngPath, width, height);
-
-        foreach (var step in steps ?? Enumerable.Empty<Action<WidgetsBinding>>())
-        {
-            step(binding);
-            SavePng(binding, pngPath, width, height);
-        }
-    }
-
-    static void SavePng(WidgetsBinding binding, string path, int width, int height)
-    {
-        using var bitmap = binding.RenderToBitmap(width, height);
-        using var image = SKImage.FromBitmap(bitmap);
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        using var stream = File.Create(path);
-        data.SaveTo(stream);
+        SystemTheme.Source = DesktopSystemTheme.ForCurrentOS();
+        Headless.Screenshot(root, pngPath, width, height, steps);
     }
 }

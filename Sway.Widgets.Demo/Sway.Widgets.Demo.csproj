@@ -9,6 +9,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Sway.Widgets\Sway.Widgets.csproj" />
+    <ProjectReference Include="..\Sway.Media\Sway.Media.csproj" />
+    <ProjectReference Include="..\Sway.Platform.Desktop\Sway.Platform.Desktop.csproj" />
   </ItemGroup>
 
 </Project>

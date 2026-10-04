@@ -13,7 +13,8 @@ dotnet run --project Sway.Widgets.Demo                                   # the M
 dotnet run --project Sway.Widgets.Demo -- --screenshot out.png --page forms --dark   # headless PNG
 ```
 
-- `Sway.Widgets/`: the library (Foundation, Rendering, Widgets, Platform).
+- `Sway.Widgets/`: the platform-neutral library (Foundation, Rendering, Widgets).
+- `Sway.Platform.Desktop/`: the Windows/Linux/macOS host (window, input, OS theme). Android and others get their own `Sway.Platform.*` project.
 - `Sway.Widgets.Demo/`: demo pages for components, layout, forms, motion, effects, RTL and stress.
 - `website/`: documentation (Docusaurus). Known gaps are tracked in [LIMITS.md](LIMITS.md).
 

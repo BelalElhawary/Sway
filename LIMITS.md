@@ -20,6 +20,7 @@ Tags used:
 | Only tested on Windows | The font fallback list assumes Roboto or Segoe UI, so other platforms need a font mapping. The macOS and Linux (GNOME) dark-mode probes, which run a helper process every 5 seconds, are written but untested. |
 | Live window lightly exercised | The windowed host (Silk.NET input, clipboard, cursors, high-DPI scaling) was verified headlessly and by a few launches, not by sustained hands-on use. |
 | OpenGL 3.3 core required | Skia renders through a GL context. There is no software fallback for the live window (the headless path is CPU raster). |
+| Minimal audio and video | **Approximation.** `Sway.Media` (a separate project, so `Sway.Widgets` stays free of native binaries) wraps LibVLC: `MediaPlayerController` (open, play, pause, stop, seek, volume, mute) and the `VideoPlayer` and `MediaBuilder` widgets. Video frames are copied to a CPU bitmap and drawn each frame; there is no GPU texture path, no subtitle or audio-track selection, no fullscreen and no ready-made control bar. The Windows LibVLC binaries come from NuGet; macOS and Linux need a system VLC install and are untested. |
 | Single window | One window per process. |
 | The whole tree repaints every frame | Layout is incremental (only the dirty chain is re-laid-out and clean subtrees are cached), but painting walks the whole tree each frame. There are no repaint boundaries, layer caching or damage rectangles. Frames are only produced when something changed, a timer is due, or an animation is running. |
 | Cold start | The first frame of a 1500-row demo page takes about 150 ms. It has not been optimised. |
@@ -90,8 +91,8 @@ Tags used:
 | Constraints, geometry, decorations | `Foundation/Geometry.cs`, `Foundation/Painting.cs` |
 | Render objects and layout | `Rendering/RenderObject.cs`, `RenderBox.cs`, `RenderShifted.cs`, `RenderFlex.cs`, `RenderLayouts.cs` |
 | Text shaping, wrapping and editing | `Rendering/TextShaper.cs`, `Bidi.cs`, `FontCache.cs`, `RenderParagraph.cs`, `RenderEditable.cs`, `Foundation/TextEditState.cs` |
-| Frames, clock, timers, pointer routing | `Widgets/Binding.cs`, `Widgets/Gestures.cs`, `Platform/App.cs` |
-| Focus and keyboard | `Widgets/Focus.cs`, `Platform/KeyMap.cs` |
+| Frames, clock, timers, pointer routing | `Widgets/Binding.cs`, `Widgets/Gestures.cs`, `Sway.Platform.Desktop/App.cs` |
+| Focus and keyboard | `Widgets/Focus.cs`, `Sway.Platform.Desktop/KeyMap.cs` |
 | Scrolling and lazy lists | `Widgets/Scrolling.cs` |
 | Animation | `Foundation/Animation.cs`, `Curves.cs`, `Lerp.cs`, `Widgets/Animated.cs` |
 | Theme, colour scheme, M3 components | `Foundation/ColorScheme.cs`, `Widgets/Theme.cs`, `Widgets/Controls.cs`, `Widgets/TextField.cs` |

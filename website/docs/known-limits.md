@@ -92,8 +92,8 @@ Tags used:
 | Constraints, geometry, decorations | `Foundation/Geometry.cs`, `Foundation/Painting.cs` |
 | Render objects and layout | `Rendering/RenderObject.cs`, `RenderBox.cs`, `RenderShifted.cs`, `RenderFlex.cs`, `RenderLayouts.cs` |
 | Text shaping, wrapping and editing | `Rendering/TextShaper.cs`, `Bidi.cs`, `FontCache.cs`, `RenderParagraph.cs`, `RenderEditable.cs`, `Foundation/TextEditState.cs` |
-| Frames, clock, timers, pointer routing | `Widgets/Binding.cs`, `Widgets/Gestures.cs`, `Platform/App.cs` |
-| Focus and keyboard | `Widgets/Focus.cs`, `Platform/KeyMap.cs` |
+| Frames, clock, timers, pointer routing | `Widgets/Binding.cs`, `Widgets/Gestures.cs`, `Sway.Platform.Desktop/App.cs` |
+| Focus and keyboard | `Widgets/Focus.cs`, `Sway.Platform.Desktop/KeyMap.cs` |
 | Scrolling and lazy lists | `Widgets/Scrolling.cs` |
 | Animation | `Foundation/Animation.cs`, `Curves.cs`, `Lerp.cs`, `Widgets/Animated.cs` |
 | Theme, colour scheme, M3 components | `Foundation/ColorScheme.cs`, `Widgets/Theme.cs`, `Widgets/Controls.cs`, `Widgets/TextField.cs` |
