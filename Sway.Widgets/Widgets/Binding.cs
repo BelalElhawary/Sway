@@ -19,6 +19,14 @@ public sealed class WidgetsBinding
     public BuildOwner BuildOwner { get; } = new();
     public PipelineOwner PipelineOwner { get; } = new();
     public GestureBinding Gestures { get; }
+    public FocusManager Focus { get; } = new();
+
+    /// <summary>Clipboard access supplied by the host (the headless host keeps it in memory).</summary>
+    public Func<string?> GetClipboard { get; set; } = () => _memoryClipboard;
+    public Action<string> SetClipboard { get; set; } = text => _memoryClipboard = text;
+    static string? _memoryClipboard;
+
+    public bool Ctrl, Shift, Alt, Meta;
     public RenderView RenderView { get; private set; } = null!;
     Element? _root;
 
@@ -90,11 +98,29 @@ public sealed class WidgetsBinding
         }
     }
 
+    // ---- keyboard ----
+
+    public bool KeyDown(string key, string code, bool repeat = false) => HandleKey(key, code, true, repeat);
+    public bool KeyUp(string key, string code) => HandleKey(key, code, false, false);
+
+    bool HandleKey(string key, string code, bool down, bool repeat)
+    {
+        bool handled = Focus.HandleKey(new KeyEvent(key, code, down, Ctrl, Shift, Alt, Meta, repeat));
+        RequestFrame();
+        return handled;
+    }
+
+    public void TextInput(string text)
+    {
+        Focus.HandleText(text);
+        RequestFrame();
+    }
+
     // ---- app root ----
 
     public void AttachRoot(Widget app)
     {
-        var root = new RootWidget(new Directionality(TextDirection.Ltr, app)).CreateElement();
+        var root = new RootWidget(new Directionality(TextDirection.Ltr, new Overlay(app))).CreateElement();
         root.Owner = BuildOwner;
         root.Mount(null);
         _root = root;
@@ -103,7 +129,7 @@ public sealed class WidgetsBinding
     }
 
     /// <summary>Replaces the root widget (hot reload / headless re-render).</summary>
-    public void ReassembleRoot(Widget app) => _root?.Update(new RootWidget(new Directionality(TextDirection.Ltr, app)));
+    public void ReassembleRoot(Widget app) => _root?.Update(new RootWidget(new Directionality(TextDirection.Ltr, new Overlay(app))));
 
     // ---- frames ----
 

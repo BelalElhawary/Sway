@@ -72,7 +72,9 @@ public abstract class RenderBox : RenderObject
         if (!NeedsLayout && _size is not null && constraints == _constraints) return;
         _constraints = constraints;
         ClearNeedsLayout();
-        PerformLayout();
+        InLayout = true;
+        try { PerformLayout(); }
+        finally { InLayout = false; }
         if (_size is null) throw new InvalidOperationException($"{GetType().Name}.PerformLayout did not set a size.");
         _size = constraints.Constrain(_size.Value);
     }

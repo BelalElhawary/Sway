@@ -55,7 +55,7 @@ public sealed class RenderParagraph : RenderBox
         return Walk(_text, TextStyle.Fallback.Merge(_baseStyle));
     }
 
-    static float Measure(string text, TextStyle style, SKFont font)
+    internal static float Measure(string text, TextStyle style, SKFont font)
     {
         float w = TextShaper.MeasureShaped(text, font);
         if (style.LetterSpacing is { } ls) w += ls * text.Length;
@@ -174,7 +174,7 @@ public sealed class RenderParagraph : RenderBox
         Size = Constraints.Constrain(new Size(width, y));
     }
 
-    static (float height, float baseline) LineMetrics(TextStyle style, SKFontMetrics m)
+    internal static (float height, float baseline) LineMetrics(TextStyle style, SKFontMetrics m)
     {
         float ascent = -m.Ascent, descent = m.Descent;
         float natural = ascent + descent + m.Leading;
@@ -271,7 +271,7 @@ public sealed class RenderParagraph : RenderBox
         }
     }
 
-    static void DrawText(SKCanvas canvas, string text, float x, float baseline, SKFont font, SKPaint paint, float? letterSpacing, TextDirection direction)
+    internal static void DrawText(SKCanvas canvas, string text, float x, float baseline, SKFont font, SKPaint paint, float? letterSpacing, TextDirection direction)
     {
         if (!TextShaper.ContainsRtl(text))
         {

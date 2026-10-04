@@ -89,24 +89,31 @@ public abstract class RenderObject : IDisposable
 
     public abstract void VisitChildren(Action<RenderObject> visitor);
 
+    protected bool InLayout { get; set; }
+
     public void MarkNeedsLayout()
     {
+        // Children adopted or dropped while this object is mid-layout are laid out by the same pass.
+        if (InLayout) return;
         _needsLayout = true;
         MarkNeedsLayoutSelf();
     }
 
-    // Flags each ancestor; stops at one already flagged, because that one's own walk already reached the root.
+    // Flags each ancestor; stops at one already flagged (its own walk reached the root) or one mid-layout
+    // (it is about to lay this subtree out anyway).
     void MarkNeedsLayoutSelf()
     {
         for (var o = this; ; o = o.Parent!)
         {
-            if (o.Parent is null)
+            var p = o.Parent;
+            if (p is null)
             {
                 o.Owner?.RequestLayout(o);
                 return;
             }
-            if (o.Parent._needsLayout) { Owner?.RequestFrame(); return; }
-            o.Parent._needsLayout = true;
+            if (p.InLayout) return;
+            if (p._needsLayout) { Owner?.RequestFrame(); return; }
+            p._needsLayout = true;
         }
     }
 
@@ -122,6 +129,15 @@ public abstract class RenderObject : IDisposable
 
     /// <summary>Tests <paramref name="position"/> (local to this object) and records hits, deepest first.</summary>
     public virtual bool HitTest(HitTestResult result, Offset position) => false;
+
+    /// <summary>Converts a point in this object's coordinates to window coordinates (ignores transforms).</summary>
+    public Offset LocalToGlobal(Offset local)
+    {
+        var p = local;
+        for (var o = this; o.Parent is not null; o = o.Parent)
+            if (o.ParentData is BoxParentData bpd) p += bpd.Offset;
+        return p;
+    }
 
     public virtual void HandlePointerEvent(PointerEvent e, HitTestEntry entry) { }
 
