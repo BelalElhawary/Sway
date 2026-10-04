@@ -7,85 +7,110 @@ sidebar_position: 2
 ## Prerequisites
 
 - .NET 10 SDK.
-- Windows. Font fallback currently assumes Segoe UI, Times New Roman and Consolas are installed; other platforms
-  need their own font mapping (see [Known limits](./known-limits)).
-- A GPU/driver with OpenGL 3.3 core for the live window. The headless screenshot path renders on the CPU and needs
-  no GPU.
+- Windows is the tested platform. Text uses Roboto if installed and falls back to Segoe UI; other platforms need their
+  own font mapping (see [Known limits](./known-limits)).
+- A GPU and driver with OpenGL 3.3 core for the live window. The headless screenshot path renders on the CPU and
+  needs no GPU.
 
 ## Solution layout
 
 ```
 Sway.slnx
-Sway.Core/     # the rendering engine: Dom, Layout, Styling, Rendering, Platform
-Sway.Demo/     # a sample Blazor app that exercises Sway.Core
+Sway.Widgets/        # the library: Foundation, Rendering, Widgets, Platform
+Sway.Widgets.Demo/   # a Material 3 demo app that exercises the library
 ```
 
-`Sway.Core` is the library — it has no dependency on the sample. `Sway.Demo` references `Sway.Core` and contains the
-`.razor` pages used to exercise it, an `app.css` stylesheet, and the `Program.cs` entry point described below.
+`Sway.Widgets` is the library and has no dependency on the demo. It depends on SkiaSharp, SkiaSharp.HarfBuzz and
+Silk.NET. Reference it from your own project and add `using Sway.Widgets;`.
 
-## Run the sample app
+## Run the demo
 
 ```bash
-dotnet run --project Sway.Demo
+dotnet run --project Sway.Widgets.Demo
 ```
 
-This opens a real window and runs `MainWindow`, the demo's page-switching menu. `Program.cs` builds the app with:
+This opens a window with a navigation rail and pages for components, layout, forms, motion, effects, right-to-left
+and a stress test. The app bar has switches for light/dark mode, the seed colour and text direction.
+
+## Your first app
 
 ```csharp
-var app = App.Create().AddStylesheet("app.css");
-app.Run<MainWindow>("My App", 1024, 768);
-```
+using Sway.Widgets;
 
-`App.Create()` returns a builder; `AddStylesheet` queues a CSS file (resolved relative to the working directory or
-as an absolute path); `Run<TRoot>` opens the window and mounts `TRoot` as the root component. Any `IComponent`
-(i.e. any `.razor` component) can be the root.
+App.Run(new MaterialApp(home: new HelloPage()), "Hello", 640, 480);
 
-## Headless mode: screenshots, benchmarks, verification
-
-The demo's `Program.cs` also wires up a small CLI, built on `App.Screenshot<TRoot>` and `UiHost`, that renders
-without opening a window — useful for checking layout changes or scripting input without a display:
-
-```bash
-# Render a page to PNG without opening a window
-dotnet run --project Sway.Demo -- --screenshot out.png --page layout
-
-# Script pointer/keyboard input before capturing
-dotnet run --project Sway.Demo -- --screenshot out.png --page forms --click 100,200 --key Tab --type "hello"
-
-# Compare an incremental layout/restyle against a from-scratch one
-dotnet run --project Sway.Demo -- --screenshot out.png --verify
-
-# Measure per-phase frame cost (style, layout, paint) on the stress page
-dotnet run --project Sway.Demo -- --bench 120 --page stress
-dotnet run --project Sway.Demo -- --bench 120 --gpu   # render on a real GPU surface instead of CPU raster
-```
-
-Common `--screenshot` steps: `--move x,y`, `--click x,y`, `--wheel x,y,notches`, `--key [ctrl+][shift+]Name`,
-`--type text`, `--advance ms` (advances the manual animation clock), `--css file` (adds another stylesheet), and
-`--page name` to pick which demo page to mount. Steps run in order, and each one is captured as a separate frame
-of the output PNG sequence.
-
-This headless path is also how the project is checked without a browser-style test runner — see the note on testing
-in [Known limits](./known-limits).
-
-## Writing a component
-
-Sway hosts ordinary Razor components. Markup, `@code`, two-way binding (`@bind`) and event handlers (`@onclick`,
-`@oninput`, ...) all work the same way they do in Blazor:
-
-```razor
-<div class="card">
-    <h2>Count: @count</h2>
-    <p class="hint">Hover and press the buttons.</p>
-    <button @onclick="() => count++">Increment</button>
-    <button class="secondary" @onclick="() => count = 0" disabled="@(count == 0)">Reset</button>
-</div>
-
-@code {
-    int count;
+class HelloPage : StatelessWidget
+{
+    public override Widget Build(BuildContext context) => new Scaffold(
+        appBar: new AppBar(title: new Text("Hello")),
+        body: new Center(new FilledButton(new Text("Press me"),
+            () => Dialogs.ShowSnackBar(context, "Pressed"))));
 }
 ```
 
-Style it with a plain CSS file added via `AddStylesheet` — see [CSS support](./css-support) for what's implemented.
-Not every Blazor feature is available in this host (no JS interop, no routing); check
-[Blazor hosting](./blazor-hosting) before relying on a specific API.
+`App.Run(widget, title, width, height)` opens the window and mounts the widget. `MaterialApp` installs the theme,
+default text style and surface colour; without it widgets still work and use the default Material 3 light theme.
+
+### Stateful widgets
+
+```csharp
+class Counter : StatefulWidget
+{
+    public override State CreateState() => new CounterState();
+}
+
+class CounterState : State<Counter>
+{
+    int _count;
+
+    public override Widget Build(BuildContext context) =>
+        new FilledButton(new Text($"Clicked {_count} times"), () => SetState(() => _count++));
+}
+```
+
+Constructors use C# named arguments and collection expressions, which keeps trees close to Flutter's shape:
+
+```csharp
+new Column(
+    crossAxisAlignment: CrossAxisAlignment.Start,
+    spacing: 8,
+    children:
+    [
+        new Text("Title", style: Theme.Of(context).TextTheme.TitleLarge),
+        new Row(children: [new Icon(Icons.Info), new Text("Details")]),
+    ])
+```
+
+## Headless mode: screenshots and benchmarks
+
+The demo's `Program.cs` wires up a small CLI built on `App.Screenshot(widget, path, width, height, steps)`. It renders
+without opening a window, which is useful for checking layout changes or scripting input without a display:
+
+```bash
+# Render a page to PNG without opening a window
+dotnet run --project Sway.Widgets.Demo -- --screenshot out.png --page layout
+
+# Dark mode, right-to-left, custom size
+dotnet run --project Sway.Widgets.Demo -- --screenshot out.png --page rtl --dark --size 1100x900
+
+# Script pointer and keyboard input before capturing
+dotnet run --project Sway.Widgets.Demo -- --screenshot out.png --page forms --click 300,230 --type "hello" --key Tab
+
+# Per-frame cost for scrolling and hovering a page (CPU raster)
+dotnet run --project Sway.Widgets.Demo -- --bench --page stress
+```
+
+Pages: `components`, `layout`, `forms`, `motion`, `effects`, `rtl`, `stress`. Steps: `--move x,y`, `--click x,y`,
+`--wheel x,y,delta`, `--key [ctrl+][shift+]Name`, `--type text`, `--advance ms` (advances the manual animation
+clock). Steps run in order and each one re-renders the PNG, so the file ends up showing the final state.
+
+You can do the same in your own code:
+
+```csharp
+App.Screenshot(new MyPage(), "out.png", 800, 600, new Action<WidgetsBinding>[]
+{
+    b => b.Gestures.PointerDown(100, 100),
+    b => b.Gestures.PointerUp(100, 100),
+    b => b.AdvanceClock(TimeSpan.FromMilliseconds(300)),
+});
+```

@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Sway.Widgets</RootNamespace>
+    <NoWarn>$(NoWarn);CS9124</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

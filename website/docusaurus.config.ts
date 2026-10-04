@@ -6,7 +6,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'Sway',
-  tagline: 'A native Blazor renderer: CSS layout, styling and animation without a browser',
+  tagline: 'Flutter-style widgets for .NET, rendered natively with Skia and Material 3',
   favicon: 'img/favicon.ico',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
