@@ -59,13 +59,13 @@ public sealed class ScrollPosition
         WidgetsBinding.Instance.ScheduleFrameCallback(Step);
     }
 
-    public void AnimateTo(float target, TimeSpan duration, TimingFunction? curve = null)
+    public void AnimateTo(float target, TimeSpan duration, Curve? curve = null)
     {
         StopActivity();
         int id = _activity;
         float from = Pixels;
         target = Math.Clamp(target, 0, MaxScrollExtent);
-        curve ??= TimingFunction.EaseOut;
+        curve ??= Curves.EaseOut;
         TimeSpan? start = null;
 
         void Step(TimeSpan now)
@@ -73,7 +73,7 @@ public sealed class ScrollPosition
             if (id != _activity) return;
             start ??= now;
             float t = duration <= TimeSpan.Zero ? 1 : Math.Clamp((float)((now - start.Value) / duration), 0, 1);
-            JumpTo(from + (target - from) * curve.Evaluate(t));
+            JumpTo(from + (target - from) * curve.Transform(t));
             if (t < 1) WidgetsBinding.Instance.ScheduleFrameCallback(Step);
         }
         WidgetsBinding.Instance.ScheduleFrameCallback(Step);
@@ -87,7 +87,7 @@ public sealed class ScrollController
     public float MaxScrollExtent => Position.MaxScrollExtent;
 
     public void JumpTo(float offset) { Position.StopActivity(); Position.JumpTo(offset); }
-    public void AnimateTo(float offset, TimeSpan duration, TimingFunction? curve = null) => Position.AnimateTo(offset, duration, curve);
+    public void AnimateTo(float offset, TimeSpan duration, Curve? curve = null) => Position.AnimateTo(offset, duration, curve);
 }
 
 /// <summary>Handles wheel and drag input for a scrollable and builds its viewport.</summary>

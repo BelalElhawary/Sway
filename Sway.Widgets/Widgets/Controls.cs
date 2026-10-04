@@ -124,6 +124,8 @@ sealed class RenderIgnorePointer(bool ignoring) : RenderProxyBox
 
 public sealed class Checkbox(bool value, Action<bool>? onChanged = null, SKColor? activeColor = null, Key? key = null) : StatelessWidget(key)
 {
+    static readonly TimeSpan Quick = TimeSpan.FromMilliseconds(120);
+
     public override Widget Build(BuildContext context)
     {
         var active = activeColor ?? Palette.Primary;
@@ -132,7 +134,7 @@ public sealed class Checkbox(bool value, Action<bool>? onChanged = null, SKColor
         {
             var fill = value ? active : s.Hover ? Colors.FromRgb(0xF3F4F6) : Colors.White;
             var border = value ? active : onChanged is null ? Palette.Border : Colors.Grey;
-            Widget box = new Container(width: 20, height: 20,
+            Widget box = new AnimatedContainer(Quick, width: 20, height: 20,
                 decoration: new BoxDecoration(Color: onChanged is null && !value ? Palette.Disabled : fill, BorderRadius: radius, Border: Border.All(border, 2)),
                 child: value ? new CustomPaint(new CheckPainter(Colors.White), size: new Size(16, 16)) : null);
             return FocusRing.Around(s.FocusVisible, radius, box);
@@ -149,7 +151,7 @@ public sealed class Radio<T>(T value, T? groupValue, Action<T>? onChanged = null
         var active = activeColor ?? Palette.Primary;
         return new Interactive((ctx, s) =>
         {
-            Widget dot = new Container(width: 20, height: 20,
+            Widget dot = new AnimatedContainer(TimeSpan.FromMilliseconds(120), width: 20, height: 20,
                 decoration: new BoxDecoration(Color: s.Hover ? Colors.FromRgb(0xF3F4F6) : Colors.White, Shape: BoxShape.Circle,
                     Border: Border.All(selected ? active : Colors.Grey, 2)),
                 alignment: Alignment.Center,
@@ -167,12 +169,12 @@ public sealed class Switch(bool value, Action<bool>? onChanged = null, SKColor? 
         return new Interactive((ctx, s) =>
         {
             var track = value ? active : s.Hover ? Colors.FromRgb(0xB8BEC8) : Colors.FromRgb(0xCBD0D8);
-            Widget sw = new Container(width: 42, height: 24,
+            Widget sw = new AnimatedContainer(TimeSpan.FromMilliseconds(160), width: 42, height: 24,
                 padding: EdgeInsets.All(2),
                 decoration: new BoxDecoration(Color: onChanged is null ? track.WithOpacity(0.5f) : track, BorderRadius: BorderRadius.Circular(12)),
-                alignment: value ? Alignment.CenterRight : Alignment.CenterLeft,
-                child: new Container(width: 20, height: 20, decoration: new BoxDecoration(Color: Colors.White, Shape: BoxShape.Circle,
-                    BoxShadow: [new BoxShadow(Colors.Black.WithOpacity(0.25f), new Offset(0, 1), 3)])));
+                child: new AnimatedAlign(value ? Alignment.CenterRight : Alignment.CenterLeft, TimeSpan.FromMilliseconds(160),
+                    new Container(width: 20, height: 20, decoration: new BoxDecoration(Color: Colors.White, Shape: BoxShape.Circle,
+                        BoxShadow: [new BoxShadow(Colors.Black.WithOpacity(0.25f), new Offset(0, 1), 3)])), Curves.EaseOut));
             return FocusRing.Around(s.FocusVisible, BorderRadius.Circular(12), sw);
         }, onChanged is null ? null : () => onChanged(!value));
     }
@@ -210,7 +212,7 @@ public sealed class Button(Widget child, Action? onPressed = null, ButtonVariant
                     fg = enabled ? main : Palette.Hint;
                     break;
             }
-            Widget body = new Container(
+            Widget body = new AnimatedContainer(TimeSpan.FromMilliseconds(120),
                 padding: padding ?? EdgeInsets.Symmetric(18, 11),
                 decoration: new BoxDecoration(Color: bg, BorderRadius: radius, Border: border,
                     BoxShadow: variant == ButtonVariant.Elevated && enabled && !s.Pressed

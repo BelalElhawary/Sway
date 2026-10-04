@@ -21,6 +21,7 @@ class MainAppState : State<MainApp>
         {
             "forms" => new FormsDemo(),
             "list" => new ListDemo(),
+            "motion" => new MotionDemo(),
             _ => new CounterApp(),
         };
         return new ColoredBox(Colors.White, new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, children:
@@ -29,7 +30,7 @@ class MainAppState : State<MainApp>
             [
                 new Text("Sway", style: new TextStyle(Color: Colors.White, FontWeight: FontWeight.Bold, FontSize: 16)),
                 new SizedBox(width: 12),
-                Tab("Counter", "counter"), Tab("Forms", "forms"), Tab("List (1500)", "list"),
+                Tab("Counter", "counter"), Tab("Forms", "forms"), Tab("List (1500)", "list"), Tab("Motion", "motion"),
             ])),
             new Expanded(body),
         ]));

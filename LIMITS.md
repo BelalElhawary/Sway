@@ -11,6 +11,42 @@ Tags used:
 
 ---
 
+## Sway.Widgets (Flutter-style rewrite, in progress)
+
+The sections below this one describe the legacy Blazor/CSS engine (`Sway.Core`), which will be removed in phase 6.
+This section tracks the new `Sway.Widgets` project and is updated per phase.
+
+### Text and input (phase 3)
+
+| Limit | Notes |
+| --- | --- |
+| Caret and selection in mixed-direction text | **Approximation.** Positions come from measuring string prefixes, so they are only exact for single-direction lines. Pure RTL lines are mirrored correctly; a line mixing Arabic and Latin can place the caret slightly off at run boundaries. |
+| No emoji or per-character font fallback | **Unsupported.** A glyph missing from the chosen font draws as a box. |
+| `ListView.Builder` needs equal-height items | **Planned.** Pass `itemExtent`, or the first item's size is used for all. Variable heights need a sliver system (`CustomScrollView`, `SliverList`). |
+| No `LayoutBuilder` | **Planned.** Build-during-layout exists only inside the lazy list. |
+| Gestures: no long-press, double-tap, scale or multi-pointer | **Planned.** Tap and drag (vertical, horizontal, pan) compete in a gesture arena. |
+| Scrollbars are indicators only | **Planned.** They fade after scrolling and cannot be dragged or clicked. Wheel scrolling is a fixed 100 px per notch with no smooth scrolling. |
+| Controls use a fixed palette | **Planned (phase 5).** `Theme`/`ThemeData` will replace the hard-coded colours. |
+| Windowed host lightly exercised | Mouse, keyboard, clipboard and cursor paths through Silk.NET were ported from the old host and verified headlessly only. |
+| No IME or dead-key composition | **Unsupported.** Text arrives as plain characters. |
+| Tab traversal follows tree order | There is no `FocusTraversalGroup` or custom ordering, and focus does not scroll into view. |
+
+### Animation (phase 4)
+
+| Limit | Notes |
+| --- | --- |
+| No physics simulations | **Planned.** `SpringSimulation`, `FrictionSimulation` and `AnimationController.Fling` are absent. Scroll fling uses its own exponential decay, and `AnimationController` only runs duration-and-curve animations. |
+| Animations keep ticking while offscreen | **Unsupported.** There is no `TickerMode` or muting, so a hidden repeating animation still requests a frame every tick and keeps the window awake. |
+| No route, `Hero` or shared-element transitions | **Unsupported.** There is no `Navigator` yet; use `AnimatedSwitcher` for page changes. |
+| Implicit alignment is physical | `AnimatedContainer`/`AnimatedAlign` take `Alignment`, not `AlignmentDirectional`. Resolve start/end yourself in RTL layouts. |
+| Missing-to-present properties jump | **Approximation.** An `AnimatedContainer` property that goes from `null` to a value (or back) changes immediately instead of animating in. Colours and shadows inside a decoration do fade in. |
+| Gradients | Blend only between gradients of the same kind with equal stop counts and no explicit stops; otherwise they switch at the halfway point. |
+| `TweenAnimationBuilder` evaluation | It reuses your tween instance to blend, temporarily setting its `Begin`/`End`. Do not share one tween object between two builders. |
+| `AnimatedSize` drives layout from frame callbacks | A size animation relays out its subtree every frame. Avoid it around very large subtrees. |
+| No `AnimatedList`, `AnimatedPhysicalModel`, `AnimatedFractionallySizedBox` or `Hero` | **Planned** as needed. |
+
+---
+
 ## 1. Verification and platform
 
 | Limit | Notes |

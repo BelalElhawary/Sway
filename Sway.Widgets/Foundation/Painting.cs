@@ -61,6 +61,20 @@ public abstract class Gradient
 
 public sealed class LinearGradient(IReadOnlyList<SKColor> colors, IAlignment? begin = null, IAlignment? end = null, IReadOnlyList<float>? stops = null) : Gradient
 {
+    public IReadOnlyList<SKColor> ColorList { get; } = colors;
+    public IAlignment? Begin { get; } = begin;
+    public IAlignment? End { get; } = end;
+    public IReadOnlyList<float>? Stops { get; } = stops;
+
+    internal bool CanLerp(LinearGradient o) => ColorList.Count == o.ColorList.Count && Stops is null && o.Stops is null;
+
+    internal LinearGradient Lerp(LinearGradient o, float t)
+    {
+        var b = Lerps.Alignment((Begin ?? Alignment.CenterLeft).Resolve(TextDirection.Ltr), (o.Begin ?? Alignment.CenterLeft).Resolve(TextDirection.Ltr), t);
+        var e = Lerps.Alignment((End ?? Alignment.CenterRight).Resolve(TextDirection.Ltr), (o.End ?? Alignment.CenterRight).Resolve(TextDirection.Ltr), t);
+        return new LinearGradient(ColorList.Select((c, i) => Lerps.Color(c, o.ColorList[i], t)).ToList(), b, e);
+    }
+
     public override SKShader CreateShader(Rect rect, TextDirection direction)
     {
         var b = (begin ?? Alignment.CenterLeft).Resolve(direction);
@@ -71,6 +85,18 @@ public sealed class LinearGradient(IReadOnlyList<SKColor> colors, IAlignment? be
 
 public sealed class RadialGradient(IReadOnlyList<SKColor> colors, IAlignment? center = null, float radius = 0.5f, IReadOnlyList<float>? stops = null) : Gradient
 {
+    public IReadOnlyList<SKColor> ColorList { get; } = colors;
+    public IAlignment? Center { get; } = center;
+    public float Radius { get; } = radius;
+    public IReadOnlyList<float>? Stops { get; } = stops;
+
+    internal bool CanLerp(RadialGradient o) => ColorList.Count == o.ColorList.Count && Stops is null && o.Stops is null;
+
+    internal RadialGradient Lerp(RadialGradient o, float t) => new(
+        ColorList.Select((c, i) => Lerps.Color(c, o.ColorList[i], t)).ToList(),
+        Lerps.Alignment((Center ?? Alignment.Center).Resolve(TextDirection.Ltr), (o.Center ?? Alignment.Center).Resolve(TextDirection.Ltr), t),
+        Lerps.Float(Radius, o.Radius, t));
+
     public override SKShader CreateShader(Rect rect, TextDirection direction)
     {
         var c = (center ?? Alignment.Center).Resolve(direction);
