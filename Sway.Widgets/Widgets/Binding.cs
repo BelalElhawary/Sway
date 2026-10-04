@@ -27,6 +27,23 @@ public sealed class WidgetsBinding
     static string? _memoryClipboard;
 
     public bool Ctrl, Shift, Alt, Meta;
+
+    Brightness _platformBrightness = Brightness.Light;
+
+    /// <summary>The operating system's light/dark preference; the host sets it. MaterialApp follows it in System mode.</summary>
+    public Brightness PlatformBrightness
+    {
+        get => _platformBrightness;
+        set
+        {
+            if (_platformBrightness == value) return;
+            _platformBrightness = value;
+            PlatformBrightnessChanged?.Invoke();
+            RequestFrame();
+        }
+    }
+
+    public event Action? PlatformBrightnessChanged;
     public RenderView RenderView { get; private set; } = null!;
     Element? _root;
 

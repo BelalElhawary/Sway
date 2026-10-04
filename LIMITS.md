@@ -45,6 +45,22 @@ This section tracks the new `Sway.Widgets` project and is updated per phase.
 | `AnimatedSize` drives layout from frame callbacks | A size animation relays out its subtree every frame. Avoid it around very large subtrees. |
 | No `AnimatedList`, `AnimatedPhysicalModel`, `AnimatedFractionallySizedBox` or `Hero` | **Planned** as needed. |
 
+### Theming and Material 3 (phase 5)
+
+| Limit | Notes |
+| --- | --- |
+| `ColorScheme.FromSeed` approximates HCT | **Approximation.** Tonal palettes are generated in CIE L\*C\*h, not CAM16, so seeded colours are close to but not identical to Flutter's. The default light and dark schemes use the exact published M3 baseline values. |
+| No ripple or ink splash | **Unsupported.** Interaction uses M3 state layers (hover, focus, press tints) only. |
+| System light/dark is read once | **Planned.** The host reads the Windows `AppsUseLightTheme` setting at start-up; it does not follow later changes. Other platforms report light. Set `WidgetsBinding.PlatformBrightness` to override. |
+| Roboto is not bundled | Text uses Roboto if installed and falls back to Segoe UI, so metrics differ slightly from the M3 spec. |
+| Icons are a small built-in set | **Planned.** About twenty Material icons as path data (`Icons`); there is no icon font. Any SVG path on a 24x24 grid works via `IconData`. |
+| Missing M3 components | `Slider`, `TabBar`, `Drawer`, `BottomSheet`, `Tooltip`, `DatePicker`, `SearchBar`, `SegmentedButton`, `Badge`, `NavigationDrawer`, menus (`MenuAnchor`, `PopupMenuButton`) are not implemented. |
+| Dialogs and snack bars are overlay-based | There is no `Navigator`, so dialogs do not trap focus, and snack bars are not queued. Escape does not close a dialog. |
+| `BackdropFilter` | **Unsupported.** `ImageFiltered` blurs the child itself, not what is behind it. |
+| `Grid` is not lazy | **Planned.** It lays out every child, so use `ListView.Builder` for very large collections. Tracks support px, fr and auto only: no `minmax`, `fit-content`, named lines or areas, and no dense auto-flow. Spanning items grow auto tracks evenly. |
+| `Wrap` has no intrinsic height | It cannot be used inside `IntrinsicHeight` with wrapping content. |
+| Floating label is single-line | Multi-line fields keep the label at the top-left; the notch is sized from the unwrapped label width. |
+
 ---
 
 ## 1. Verification and platform

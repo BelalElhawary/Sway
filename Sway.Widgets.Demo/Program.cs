@@ -1,22 +1,32 @@
+using System.Diagnostics;
 using SkiaSharp;
 using Sway.Widgets;
 using Sway.Widgets.Demo;
 
-// `--screenshot out.png` renders headlessly; steps: --click x,y  --move x,y  --advance ms
+// `--screenshot out.png` renders headlessly. Scripted steps run in order before each capture:
+//   --move x,y  --click x,y  --wheel x,y,delta  --type text  --key [ctrl+][shift+]Name  --advance ms
+// Options: --page components|layout|forms|motion|effects|rtl|stress  --dark  --rtl  --size WxH  --bench
 int shot = Array.IndexOf(args, "--screenshot");
-if (shot < 0 || shot + 1 >= args.Length)
+bool bench = args.Contains("--bench");
+if ((shot < 0 || shot + 1 >= args.Length) && !bench)
 {
-    App.Run(new MainApp(), "Sway Widgets", 900, 700);
+    App.Run(new DemoRoot(), "Sway Widgets", 1100, 760);
     return;
 }
 
 var steps = new List<Action<WidgetsBinding>>();
-string page = "counter";
+string page = "components";
+bool dark = false, rtl = false;
+int width = 1100, height = 760;
 for (int i = 0; i < args.Length; i++)
 {
     float[] Numbers(string s) => s.Split(',').Select(float.Parse).ToArray();
     switch (args[i])
     {
+        case "--page": page = args[++i]; break;
+        case "--dark": dark = true; break;
+        case "--rtl": rtl = true; break;
+        case "--size": { var p = args[++i].Split('x'); width = int.Parse(p[0]); height = int.Parse(p[1]); break; }
         case "--move": { var n = Numbers(args[++i]); steps.Add(b => b.Gestures.PointerMove(n[0], n[1])); break; }
         case "--click":
         {
@@ -24,7 +34,6 @@ for (int i = 0; i < args.Length; i++)
             steps.Add(b => { b.Gestures.PointerMove(n[0], n[1]); b.Gestures.PointerDown(n[0], n[1]); b.Gestures.PointerUp(n[0], n[1]); });
             break;
         }
-        case "--page": page = args[++i]; break;
         case "--wheel": { var n = Numbers(args[++i]); steps.Add(b => b.Gestures.PointerScroll(n[0], n[1], 0, n[2])); break; }
         case "--type": { string text = args[++i]; steps.Add(b => b.TextInput(text)); break; }
         case "--key":
@@ -44,4 +53,36 @@ for (int i = 0; i < args.Length; i++)
     }
 }
 
-App.Screenshot(new MainApp(page), args[shot + 1], 900, 700, steps);
+if (bench)
+{
+    // Cold start, then scroll the page and report per-frame cost.
+    var binding = new WidgetsBinding();
+    binding.UseManualClock();
+    var sw = Stopwatch.StartNew();
+    binding.AttachRoot(new DemoRoot(page, dark, rtl));
+    using (var first = binding.RenderToBitmap(width, height)) { }
+    Console.WriteLine($"cold start (mount + first frame): {sw.ElapsedMilliseconds} ms");
+
+    var times = new List<double>();
+    for (int i = 0; i < 60; i++)
+    {
+        binding.Gestures.PointerScroll(width / 2f, height / 2f, 0, 40);
+        sw.Restart();
+        using var bmp = binding.RenderToBitmap(width, height);
+        times.Add(sw.Elapsed.TotalMilliseconds);
+    }
+    Console.WriteLine($"scroll frame (CPU raster): avg {times.Average():F1} ms, max {times.Max():F1} ms");
+
+    times.Clear();
+    for (int i = 0; i < 60; i++)
+    {
+        binding.Gestures.PointerMove(100 + i * 5, 200 + i * 3);
+        sw.Restart();
+        using var bmp = binding.RenderToBitmap(width, height);
+        times.Add(sw.Elapsed.TotalMilliseconds);
+    }
+    Console.WriteLine($"hover frame (CPU raster): avg {times.Average():F1} ms, max {times.Max():F1} ms");
+    return;
+}
+
+App.Screenshot(new DemoRoot(page, dark, rtl), args[shot + 1], width, height, steps);

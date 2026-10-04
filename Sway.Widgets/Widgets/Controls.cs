@@ -61,7 +61,7 @@ sealed class InteractiveState : State<Interactive>
     }
 }
 
-// ---- icon painters ----
+// ---- painters and helpers ----
 
 sealed class CheckPainter(SKColor color, float strokeWidth = 2) : CustomPainter
 {
@@ -70,12 +70,12 @@ sealed class CheckPainter(SKColor color, float strokeWidth = 2) : CustomPainter
         using var p = new SKPaint { Color = color, IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = strokeWidth,
             StrokeCap = SKStrokeCap.Round, StrokeJoin = SKStrokeJoin.Round };
         using var path = new SKPath();
-        path.MoveTo(size.Width * 0.22f, size.Height * 0.52f);
-        path.LineTo(size.Width * 0.43f, size.Height * 0.72f);
-        path.LineTo(size.Width * 0.78f, size.Height * 0.30f);
+        path.MoveTo(size.Width * 0.20f, size.Height * 0.52f);
+        path.LineTo(size.Width * 0.42f, size.Height * 0.74f);
+        path.LineTo(size.Width * 0.80f, size.Height * 0.28f);
         canvas.DrawPath(path, p);
     }
-    public override bool ShouldRepaint(CustomPainter old) => old is not CheckPainter c || c.GetHashCode() != GetHashCode();
+    public override bool ShouldRepaint(CustomPainter old) => true;
 }
 
 sealed class ChevronPainter(SKColor color, bool up = false) : CustomPainter
@@ -97,13 +97,11 @@ sealed class ChevronPainter(SKColor color, bool up = false) : CustomPainter
 
 static class FocusRing
 {
-    public static BoxDecoration Ring(bool visible, BorderRadius radius) =>
-        new(Border: visible ? Border.All(Palette.Primary.WithOpacity(0.45f), 3) : null, BorderRadius: radius);
-
     /// <summary>Draws a translucent focus outline around <paramref name="child"/> without affecting layout.</summary>
-    public static Widget Around(bool visible, BorderRadius radius, Widget child, float inset = -3) =>
+    public static Widget Around(bool visible, BorderRadius radius, Widget child, SKColor color, float inset = -3) =>
         visible
-            ? new Stack([child, Positioned.Fill(new IgnorePointer(new DecoratedBox(Ring(true, radius))), inset, inset, inset, inset)], clip: false)
+            ? new Stack([child, Positioned.Fill(new IgnorePointer(new DecoratedBox(
+                new BoxDecoration(Border: Border.All(color.WithOpacity(0.5f), 3), BorderRadius: radius))), inset, inset, inset, inset)], clip: false)
             : child;
 }
 
@@ -120,25 +118,33 @@ sealed class RenderIgnorePointer(bool ignoring) : RenderProxyBox
     public override bool HitTest(HitTestResult result, Offset position) => !Ignoring && base.HitTest(result, position);
 }
 
-// ---- checkbox / radio / switch ----
+// ---- checkbox / radio / switch (Material 3) ----
+
+/// <summary>The 40px round hover/press/focus halo behind a toggle's mark.</summary>
+static class Halo
+{
+    public static Widget Wrap(InteractionState s, SKColor color, bool enabled, Widget mark, float size = 40) =>
+        new AnimatedContainer(TimeSpan.FromMilliseconds(100), width: size, height: size, alignment: Alignment.Center,
+            decoration: new BoxDecoration(Color: color.WithOpacity(enabled ? StateLayer.Opacity(s) : 0), Shape: BoxShape.Circle), child: mark);
+}
 
 public sealed class Checkbox(bool value, Action<bool>? onChanged = null, SKColor? activeColor = null, Key? key = null) : StatelessWidget(key)
 {
-    static readonly TimeSpan Quick = TimeSpan.FromMilliseconds(120);
-
     public override Widget Build(BuildContext context)
     {
-        var active = activeColor ?? Palette.Primary;
-        var radius = BorderRadius.Circular(4);
-        return new Interactive((ctx, s) =>
+        var s = Theme.Of(context).ColorScheme;
+        var active = activeColor ?? s.Primary;
+        bool enabled = onChanged is not null;
+        return new Interactive((ctx, st) =>
         {
-            var fill = value ? active : s.Hover ? Colors.FromRgb(0xF3F4F6) : Colors.White;
-            var border = value ? active : onChanged is null ? Palette.Border : Colors.Grey;
-            Widget box = new AnimatedContainer(Quick, width: 20, height: 20,
-                decoration: new BoxDecoration(Color: onChanged is null && !value ? Palette.Disabled : fill, BorderRadius: radius, Border: Border.All(border, 2)),
-                child: value ? new CustomPaint(new CheckPainter(Colors.White), size: new Size(16, 16)) : null);
-            return FocusRing.Around(s.FocusVisible, radius, box);
-        }, onChanged is null ? null : () => onChanged(!value));
+            var off = s.OnSurface.WithOpacity(0.38f);
+            var boxColor = value ? (enabled ? active : off) : Colors.Transparent;
+            var border = value ? boxColor : enabled ? s.OnSurfaceVariant : off;
+            Widget box = new AnimatedContainer(TimeSpan.FromMilliseconds(120), width: 18, height: 18,
+                decoration: new BoxDecoration(Color: boxColor, BorderRadius: BorderRadius.Circular(2), Border: Border.All(border, 2)),
+                child: value ? new CustomPaint(new CheckPainter(s.OnPrimary), size: new Size(14, 14)) : null);
+            return Halo.Wrap(st, value ? active : s.OnSurface, enabled, box);
+        }, enabled ? () => onChanged!(!value) : null);
     }
 }
 
@@ -147,17 +153,20 @@ public sealed class Radio<T>(T value, T? groupValue, Action<T>? onChanged = null
 {
     public override Widget Build(BuildContext context)
     {
+        var s = Theme.Of(context).ColorScheme;
         bool selected = EqualityComparer<T>.Default.Equals(value, groupValue);
-        var active = activeColor ?? Palette.Primary;
-        return new Interactive((ctx, s) =>
+        var active = activeColor ?? s.Primary;
+        bool enabled = onChanged is not null;
+        return new Interactive((ctx, st) =>
         {
-            Widget dot = new AnimatedContainer(TimeSpan.FromMilliseconds(120), width: 20, height: 20,
-                decoration: new BoxDecoration(Color: s.Hover ? Colors.FromRgb(0xF3F4F6) : Colors.White, Shape: BoxShape.Circle,
-                    Border: Border.All(selected ? active : Colors.Grey, 2)),
-                alignment: Alignment.Center,
-                child: selected ? new Container(width: 10, height: 10, decoration: new BoxDecoration(Color: active, Shape: BoxShape.Circle)) : null);
-            return FocusRing.Around(s.FocusVisible, BorderRadius.Circular(100), dot);
-        }, onChanged is null ? null : () => onChanged(value));
+            var off = s.OnSurface.WithOpacity(0.38f);
+            var ring = !enabled ? off : selected ? active : s.OnSurfaceVariant;
+            Widget mark = new AnimatedContainer(TimeSpan.FromMilliseconds(120), width: 20, height: 20, alignment: Alignment.Center,
+                decoration: new BoxDecoration(Shape: BoxShape.Circle, Border: Border.All(ring, 2)),
+                child: new AnimatedContainer(TimeSpan.FromMilliseconds(120), width: selected ? 10 : 0, height: selected ? 10 : 0,
+                    decoration: new BoxDecoration(Color: enabled ? active : off, Shape: BoxShape.Circle)));
+            return Halo.Wrap(st, selected ? active : s.OnSurface, enabled, mark);
+        }, enabled ? () => onChanged!(value) : null);
     }
 }
 
@@ -165,65 +174,120 @@ public sealed class Switch(bool value, Action<bool>? onChanged = null, SKColor? 
 {
     public override Widget Build(BuildContext context)
     {
-        var active = activeColor ?? Palette.Primary;
-        return new Interactive((ctx, s) =>
+        var s = Theme.Of(context).ColorScheme;
+        bool enabled = onChanged is not null;
+        var ms = TimeSpan.FromMilliseconds(180);
+        return new Interactive((ctx, st) =>
         {
-            var track = value ? active : s.Hover ? Colors.FromRgb(0xB8BEC8) : Colors.FromRgb(0xCBD0D8);
-            Widget sw = new AnimatedContainer(TimeSpan.FromMilliseconds(160), width: 42, height: 24,
-                padding: EdgeInsets.All(2),
-                decoration: new BoxDecoration(Color: onChanged is null ? track.WithOpacity(0.5f) : track, BorderRadius: BorderRadius.Circular(12)),
-                child: new AnimatedAlign(value ? Alignment.CenterRight : Alignment.CenterLeft, TimeSpan.FromMilliseconds(160),
-                    new Container(width: 20, height: 20, decoration: new BoxDecoration(Color: Colors.White, Shape: BoxShape.Circle,
-                        BoxShadow: [new BoxShadow(Colors.Black.WithOpacity(0.25f), new Offset(0, 1), 3)])), Curves.EaseOut));
-            return FocusRing.Around(s.FocusVisible, BorderRadius.Circular(12), sw);
-        }, onChanged is null ? null : () => onChanged(!value));
+            var trackOn = activeColor ?? s.Primary;
+            var track = value ? trackOn : s.SurfaceContainerHighest;
+            var outline = value ? trackOn : s.Outline;
+            var handle = value ? s.OnPrimary : s.Outline;
+            if (!enabled)
+            {
+                track = value ? s.OnSurface.WithOpacity(0.12f) : s.SurfaceContainerHighest.WithOpacity(0.12f);
+                outline = s.OnSurface.WithOpacity(0.12f);
+                handle = value ? s.Surface : s.OnSurface.WithOpacity(0.38f);
+            }
+            float size = st.Pressed ? 28 : value ? 24 : 16;
+
+            // The 40px halo is positioned around the handle without enlarging the 24px slot it lives in.
+            Widget thumb = new SizedBox(24, 24, new Stack([
+                Positioned.Fill(new Center(new AnimatedContainer(ms, width: size, height: size, curve: Curves.EaseOutCubic,
+                    decoration: new BoxDecoration(Color: handle, Shape: BoxShape.Circle)))),
+                new Positioned(new IgnorePointer(new AnimatedContainer(TimeSpan.FromMilliseconds(100), decoration: new BoxDecoration(
+                    Color: (value ? trackOn : s.OnSurface).WithOpacity(enabled ? StateLayer.Opacity(st) : 0), Shape: BoxShape.Circle))),
+                    left: -8, top: -8, width: 40, height: 40),
+            ], alignment: Alignment.Center, clip: false));
+
+            return new AnimatedContainer(ms, width: 52, height: 32, padding: EdgeInsets.Symmetric(horizontal: value ? 4 : 4, vertical: 4), curve: Curves.EaseOutCubic,
+                decoration: new BoxDecoration(Color: track, BorderRadius: BorderRadius.Circular(16), Border: Border.All(outline, 2)),
+                child: new AnimatedAlign(value ? Alignment.CenterRight : Alignment.CenterLeft, ms, thumb, Curves.EaseOutCubic));
+        }, enabled ? () => onChanged!(!value) : null);
     }
 }
 
-// ---- buttons ----
+// ---- buttons (Material 3) ----
 
-public enum ButtonVariant { Elevated, Outlined, Text }
+public enum ButtonVariant { Filled, Tonal, Elevated, Outlined, Text }
 
-public sealed class Button(Widget child, Action? onPressed = null, ButtonVariant variant = ButtonVariant.Elevated,
-    SKColor? color = null, EdgeInsets? padding = null, Key? key = null) : StatelessWidget(key)
+public sealed class Button(Widget child, Action? onPressed = null, ButtonVariant variant = ButtonVariant.Filled, SKColor? color = null,
+    IconData? icon = null, EdgeInsets? padding = null, Key? key = null) : StatelessWidget(key)
 {
     public override Widget Build(BuildContext context)
     {
-        var main = color ?? Palette.Primary;
-        var radius = BorderRadius.Circular(8);
+        var theme = Theme.Of(context);
+        var s = theme.ColorScheme;
+        var accent = color ?? s.Primary;
         bool enabled = onPressed is not null;
-        return new Interactive((ctx, s) =>
+        var radius = BorderRadius.Circular(20);
+
+        return new Interactive((ctx, st) =>
         {
             SKColor bg, fg;
             Border? border = null;
+            int elevation = 0;
             switch (variant)
             {
+                case ButtonVariant.Filled:
+                    bg = color ?? s.Primary; fg = s.OnPrimary; elevation = st.Hover && !st.Pressed ? 1 : 0; break;
+                case ButtonVariant.Tonal:
+                    bg = s.SecondaryContainer; fg = s.OnSecondaryContainer; elevation = st.Hover && !st.Pressed ? 1 : 0; break;
                 case ButtonVariant.Elevated:
-                    bg = !enabled ? Palette.Border : s.Pressed ? Darken(main, 0.2f) : s.Hover ? Darken(main, 0.1f) : main;
-                    fg = enabled ? Colors.White : Palette.Hint;
-                    break;
+                    bg = s.SurfaceContainerLow; fg = accent; elevation = st.Hover && !st.Pressed ? 2 : 1; break;
                 case ButtonVariant.Outlined:
-                    bg = s.Pressed ? main.WithOpacity(0.16f) : s.Hover ? main.WithOpacity(0.08f) : Colors.Transparent;
-                    fg = enabled ? main : Palette.Hint;
-                    border = Border.All(enabled ? main : Palette.Border, 1);
-                    break;
+                    bg = Colors.Transparent; fg = accent; border = Border.All(st.FocusVisible ? accent : s.Outline); break;
                 default:
-                    bg = s.Pressed ? main.WithOpacity(0.16f) : s.Hover ? main.WithOpacity(0.08f) : Colors.Transparent;
-                    fg = enabled ? main : Palette.Hint;
-                    break;
+                    bg = Colors.Transparent; fg = accent; break;
             }
-            Widget body = new AnimatedContainer(TimeSpan.FromMilliseconds(120),
-                padding: padding ?? EdgeInsets.Symmetric(18, 11),
-                decoration: new BoxDecoration(Color: bg, BorderRadius: radius, Border: border,
-                    BoxShadow: variant == ButtonVariant.Elevated && enabled && !s.Pressed
-                        ? [new BoxShadow(Colors.Black.WithOpacity(s.Hover ? 0.28f : 0.18f), new Offset(0, s.Hover ? 3 : 1), s.Hover ? 8 : 3)] : null),
-                child: new Center(DefaultTextStyle.Merge(ctx, new TextStyle(Color: fg, FontWeight: FontWeight.W600), child), 1, 1));
-            return FocusRing.Around(s.FocusVisible, radius, body);
+
+            if (!enabled)
+            {
+                bool container = variant is ButtonVariant.Filled or ButtonVariant.Tonal or ButtonVariant.Elevated;
+                bg = container ? s.OnSurface.WithOpacity(0.12f) : Colors.Transparent;
+                fg = s.OnSurface.WithOpacity(0.38f);
+                if (border is not null) border = Border.All(s.OnSurface.WithOpacity(0.12f));
+                elevation = 0;
+            }
+
+            bool text = variant == ButtonVariant.Text;
+            var pad = padding ?? EdgeInsets.Only(left: icon is not null ? (text ? 12 : 16) : (text ? 12 : 24), right: text ? 12 : 24);
+            var layered = StateLayer.Blend(bg, fg, enabled ? StateLayer.Opacity(st) : 0);
+
+            Widget label = DefaultTextStyle.Merge(ctx, theme.TextTheme.LabelLarge.Merge(new TextStyle(Color: fg)), child);
+            Widget content = icon is null ? label : new Row(mainAxisSize: MainAxisSize.Min, spacing: 8, children: [new Icon(icon, 18, fg), label]);
+
+            return new AnimatedContainer(TimeSpan.FromMilliseconds(120),
+                constraints: new BoxConstraints(64, float.PositiveInfinity, 40, 40), padding: pad,
+                decoration: new BoxDecoration(Color: layered, BorderRadius: radius, Border: border, BoxShadow: Elevation.Shadows(elevation, s.Shadow)),
+                child: new Row(mainAxisSize: MainAxisSize.Min, mainAxisAlignment: MainAxisAlignment.Center, children: [content]));
         }, onPressed);
     }
+}
 
-    static SKColor Darken(SKColor c, float amount) =>
-        new((byte)(c.Red * (1 - amount)), (byte)(c.Green * (1 - amount)), (byte)(c.Blue * (1 - amount)), c.Alpha);
+public sealed class FilledButton(Widget child, Action? onPressed = null, IconData? icon = null, SKColor? color = null, Key? key = null) : StatelessWidget(key)
+{
+    public override Widget Build(BuildContext context) => new Button(child, onPressed, ButtonVariant.Filled, color, icon);
+}
+
+public sealed class FilledTonalButton(Widget child, Action? onPressed = null, IconData? icon = null, Key? key = null) : StatelessWidget(key)
+{
+    public override Widget Build(BuildContext context) => new Button(child, onPressed, ButtonVariant.Tonal, null, icon);
+}
+
+public sealed class ElevatedButton(Widget child, Action? onPressed = null, IconData? icon = null, Key? key = null) : StatelessWidget(key)
+{
+    public override Widget Build(BuildContext context) => new Button(child, onPressed, ButtonVariant.Elevated, null, icon);
+}
+
+public sealed class OutlinedButton(Widget child, Action? onPressed = null, IconData? icon = null, Key? key = null) : StatelessWidget(key)
+{
+    public override Widget Build(BuildContext context) => new Button(child, onPressed, ButtonVariant.Outlined, null, icon);
+}
+
+public sealed class TextButton(Widget child, Action? onPressed = null, IconData? icon = null, SKColor? color = null, Key? key = null) : StatelessWidget(key)
+{
+    public override Widget Build(BuildContext context) => new Button(child, onPressed, ButtonVariant.Text, color, icon);
 }
 
 // ---- dropdown ----
@@ -231,18 +295,20 @@ public sealed class Button(Widget child, Action? onPressed = null, ButtonVariant
 public sealed record DropdownMenuItem<T>(T Value, Widget Child, bool Enabled = true);
 
 public sealed class DropdownButton<T>(IReadOnlyList<DropdownMenuItem<T>> items, T? value = default, Action<T>? onChanged = null,
-    Widget? hint = null, double menuMaxHeight = 240, Key? key = null) : StatefulWidget(key) where T : notnull
+    Widget? hint = null, string? label = null, double menuMaxHeight = 280, Key? key = null) : StatefulWidget(key) where T : notnull
 {
     internal IReadOnlyList<DropdownMenuItem<T>> Items => items;
     internal T? Value => value;
     internal Action<T>? OnChanged => onChanged;
     internal Widget? Hint => hint;
+    internal string? Label => label;
     internal float MenuMaxHeight => (float)menuMaxHeight;
     public override State CreateState() => new DropdownButtonState<T>();
 }
 
 sealed class DropdownButtonState<T> : State<DropdownButton<T>> where T : notnull
 {
+    const float ItemHeight = 48;
     OverlayEntry? _entry;
     readonly FocusNode _node = new() { DebugLabel = "Dropdown" };
 
@@ -252,6 +318,7 @@ sealed class DropdownButtonState<T> : State<DropdownButton<T>> where T : notnull
     {
         _entry?.Remove();
         _entry = null;
+        if (Mounted) SetState();
         if (refocus && Mounted) _node.RequestFocus();
     }
 
@@ -264,42 +331,42 @@ sealed class DropdownButtonState<T> : State<DropdownButton<T>> where T : notnull
         var origin = box.LocalToGlobal(Offset.Zero);
         var size = box.Size;
         var window = WidgetsBinding.Instance.RenderView.WindowSize;
-        float menuHeight = Math.Min(Widget.MenuMaxHeight, Widget.Items.Count * 40f + 8);
+        float menuHeight = Math.Min(Widget.MenuMaxHeight, Widget.Items.Count * ItemHeight + 16);
         bool above = origin.Dy + size.Height + 4 + menuHeight > window.Height && origin.Dy - 4 - menuHeight > 0;
         float top = above ? origin.Dy - 4 - menuHeight : origin.Dy + size.Height + 4;
+        var origin2 = Context;
 
-        _entry = new OverlayEntry(ctx => new Stack([
+        _entry = new OverlayEntry(ctx => Dialogs.Wrap(origin2, new Stack([
             Positioned.Fill(new GestureDetector(onTap: () => Close(), behavior: HitTestBehavior.Opaque)),
-            new Positioned(new DropdownMenu<T>(Widget.Items, Widget.Value, v => { Close(); Widget.OnChanged?.Invoke(v); }, () => Close(), menuHeight),
+            new Positioned(new DropdownMenu<T>(Widget.Items, Widget.Value, v => { Close(); Widget.OnChanged?.Invoke(v); }, () => Close(), menuHeight, ItemHeight),
                 left: origin.Dx, top: top, width: size.Width),
-        ], fit: StackFit.Expand, clip: false));
+        ], fit: StackFit.Expand, clip: false)));
         overlay.Insert(_entry);
+        SetState();
     }
 
     public override Widget Build(BuildContext context)
     {
+        var theme = Theme.Of(context);
+        var s = theme.ColorScheme;
         var selected = Widget.Items.FirstOrDefault(i => EqualityComparer<T>.Default.Equals(i.Value, Widget.Value));
         bool enabled = Widget.OnChanged is not null;
-        var radius = BorderRadius.Circular(8);
+        bool open = _entry is not null;
 
-        return new Interactive((ctx, s) =>
+        return new Interactive((ctx, st) =>
         {
-            Widget label = selected is not null ? selected.Child : Widget.Hint is { } h
-                ? DefaultTextStyle.Merge(ctx, new TextStyle(Color: Palette.Hint), h) : new SizedBox();
-            Widget body = new Container(
-                padding: EdgeInsets.Symmetric(12, 10),
-                decoration: new BoxDecoration(Color: enabled ? Colors.White : Palette.Disabled, BorderRadius: radius,
-                    Border: Border.All(_entry is not null || s.FocusVisible ? Palette.Primary : s.Hover ? Colors.Grey : Palette.Border, _entry is not null || s.FocusVisible ? 2 : 1)),
-                child: new Row(children: [
-                    new Expanded(label),
-                    new CustomPaint(new ChevronPainter(Colors.Grey, _entry is not null), size: new Size(18, 18)),
-                ]));
-            return body;
+            Widget content = selected is not null
+                ? DefaultTextStyle.Merge(ctx, theme.TextTheme.BodyLarge.Merge(new TextStyle(Color: s.OnSurface)), selected.Child)
+                : Widget.Hint is { } h ? DefaultTextStyle.Merge(ctx, theme.TextTheme.BodyLarge.Merge(new TextStyle(Color: s.OnSurfaceVariant)), h) : new SizedBox(height: 24);
+            return new InputDecorator(
+                new InputDecoration(LabelText: Widget.Label), focused: open || st.FocusVisible, hovered: st.Hover, hasContent: selected is not null || Widget.Hint is not null && Widget.Label is null,
+                enabled: enabled,
+                child: new Row(children: [new Expanded(content), new Icon(open ? Icons.ExpandLess : Icons.ExpandMore, 24, enabled ? s.OnSurfaceVariant : s.OnSurface.WithOpacity(0.38f))]));
         }, enabled ? () => { if (_entry is null) Open(); else Close(); } : null, focusNode: _node);
     }
 }
 
-sealed class DropdownMenu<T>(IReadOnlyList<DropdownMenuItem<T>> items, T? value, Action<T> onSelect, Action onClose, float height) : StatefulWidget
+sealed class DropdownMenu<T>(IReadOnlyList<DropdownMenuItem<T>> items, T? value, Action<T> onSelect, Action onClose, float height, float itemHeight) : StatefulWidget
     where T : notnull
 {
     internal IReadOnlyList<DropdownMenuItem<T>> Items => items;
@@ -307,6 +374,7 @@ sealed class DropdownMenu<T>(IReadOnlyList<DropdownMenuItem<T>> items, T? value,
     internal Action<T> OnSelect => onSelect;
     internal Action OnClose => onClose;
     internal float Height => height;
+    internal float ItemHeight => itemHeight;
     public override State CreateState() => new DropdownMenuState<T>();
 }
 
@@ -314,7 +382,6 @@ sealed class DropdownMenuState<T> : State<DropdownMenu<T>> where T : notnull
 {
     int _highlight = -1;
     readonly ScrollController _scroll = new();
-    const float ItemHeight = 40;
 
     public override void InitState()
     {
@@ -333,9 +400,9 @@ sealed class DropdownMenuState<T> : State<DropdownMenu<T>> where T : notnull
     {
         if (index < 0) return;
         SetState(() => _highlight = index);
-        float top = 4 + index * ItemHeight, pos = _scroll.Offset;
-        if (top < pos) _scroll.JumpTo(top - 4);
-        else if (top + ItemHeight > pos + Widget.Height - 4) _scroll.JumpTo(top + ItemHeight - Widget.Height + 4);
+        float ih = Widget.ItemHeight, top = 8 + index * ih, pos = _scroll.Offset;
+        if (top < pos) _scroll.JumpTo(top - 8);
+        else if (top + ih > pos + Widget.Height - 8) _scroll.JumpTo(top + ih - Widget.Height + 8);
     }
 
     bool OnKey(KeyEvent e)
@@ -357,27 +424,27 @@ sealed class DropdownMenuState<T> : State<DropdownMenu<T>> where T : notnull
 
     public override Widget Build(BuildContext context)
     {
+        var theme = Theme.Of(context);
+        var s = theme.ColorScheme;
         var rows = new List<Widget>();
         for (int i = 0; i < Widget.Items.Count; i++)
         {
             int index = i;
             var item = Widget.Items[i];
             bool selected = EqualityComparer<T>.Default.Equals(item.Value, Widget.Value);
-            rows.Add(new SizedBox(height: ItemHeight, child: new Interactive((ctx, s) => new Container(
-                    padding: EdgeInsets.Symmetric(12, 0),
-                    alignment: Alignment.CenterLeft,
-                    color: _highlight == index || s.Hover ? Palette.Primary.WithOpacity(0.10f) : Colors.Transparent,
-                    child: DefaultTextStyle.Merge(ctx, new TextStyle(
-                        Color: item.Enabled ? Palette.Text : Palette.Hint, FontWeight: selected ? FontWeight.W600 : FontWeight.Normal), item.Child)),
-                item.Enabled ? () => Widget.OnSelect(item.Value) : null, focusable: false, cursor: MouseCursor.Click)));
+            rows.Add(new SizedBox(height: Widget.ItemHeight, child: new Interactive((ctx, st) => new Container(
+                    padding: EdgeInsets.Symmetric(12, 0), alignment: Alignment.CenterLeft,
+                    color: StateLayer.Blend(selected ? s.SecondaryContainer : Colors.Transparent, s.OnSurface, _highlight == index ? 0.10f : StateLayer.Opacity(st)),
+                    child: DefaultTextStyle.Merge(ctx, theme.TextTheme.BodyLarge.Merge(new TextStyle(Color: item.Enabled ? s.OnSurface : s.OnSurface.WithOpacity(0.38f))), item.Child)),
+                item.Enabled ? () => Widget.OnSelect(item.Value) : null, focusable: false)));
         }
 
         return new Focus(autofocus: true, onKey: OnKey, child: new Container(
-            decoration: new BoxDecoration(Color: Colors.White, BorderRadius: BorderRadius.Circular(8), Border: Border.All(Palette.Border),
-                BoxShadow: [new BoxShadow(Colors.Black.WithOpacity(0.18f), new Offset(0, 6), 16)]),
-            padding: EdgeInsets.Symmetric(vertical: 4),
             height: Widget.Height,
-            child: new ClipRRect(BorderRadius.Circular(6), new SingleChildScrollView(
+            padding: EdgeInsets.Symmetric(vertical: 8),
+            decoration: new BoxDecoration(Color: s.SurfaceContainer, BorderRadius: BorderRadius.Circular(Shapes.ExtraSmall),
+                BoxShadow: Elevation.Shadows(2, s.Shadow)),
+            child: new ClipRRect(BorderRadius.Circular(Shapes.ExtraSmall), new SingleChildScrollView(
                 new Column(rows, mainAxisSize: MainAxisSize.Min, crossAxisAlignment: CrossAxisAlignment.Stretch), controller: _scroll))));
     }
 }
