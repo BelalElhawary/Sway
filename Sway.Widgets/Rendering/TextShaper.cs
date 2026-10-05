@@ -34,6 +34,37 @@ public static class TextShaper
         public SKTextBlob? Blob;
     }
 
+    /// <summary>
+    /// A size-bounded cache that evicts by age instead of clearing everything: entries untouched for a whole generation are
+    /// dropped, so a full cache never throws away what the current screen is still using (and never reshapes it all at once).
+    /// </summary>
+    internal sealed class GenerationCache<TKey, TValue>(int generationSize, Action<TValue> release) where TKey : notnull
+    {
+        Dictionary<TKey, TValue> _current = new();
+        Dictionary<TKey, TValue> _previous = new();
+
+        public int Count => _current.Count + _previous.Count;
+
+        public bool TryGetValue(TKey key, out TValue value)
+        {
+            if (_current.TryGetValue(key, out value!)) return true;
+            if (!_previous.Remove(key, out value!)) return false;
+            _current[key] = value; // touched this generation: keep it
+            return true;
+        }
+
+        public void Add(TKey key, TValue value)
+        {
+            if (_current.Count >= generationSize)
+            {
+                foreach (var stale in _previous.Values) release(stale);
+                _previous = _current;
+                _current = new Dictionary<TKey, TValue>();
+            }
+            _current[key] = value;
+        }
+    }
+
     static readonly List<SKTypeface> Fallbacks = new();
     static readonly Dictionary<(SKTypeface, SKFont), SKFont> FallbackFonts = new();
     static readonly Dictionary<(SKTypeface, int), SKTypeface?> FaceForChar = new();
@@ -80,7 +111,7 @@ public static class TextShaper
     }
 
     const int MaxCached = 2048;
-    static readonly Dictionary<ShapeKey, Shaped> ShapeCache = new();
+    static readonly GenerationCache<ShapeKey, Shaped> ShapeCache = new(MaxCached, shaped => shaped.Blob?.Dispose());
 
     // If the native HarfBuzz library cannot load (e.g. missing WASM asset), shaping is disabled for good. Retrying would
     // throw on every measure and paint, which is extremely slow.
@@ -94,15 +125,10 @@ public static class TextShaper
         lock (ShapeCache)
         {
             if (ShapeCache.TryGetValue(key, out var hit)) return hit;
-            if (ShapeCache.Count >= MaxCached)
-            {
-                foreach (var old in ShapeCache.Values) old.Blob?.Dispose();
-                ShapeCache.Clear();
-            }
             try
             {
                 var shaped = new Shaped { Result = GetShaper(font.Typeface).Shape(text, font), Font = font };
-                ShapeCache[key] = shaped;
+                ShapeCache.Add(key, shaped);
                 return shaped;
             }
             catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException or TypeInitializationException)

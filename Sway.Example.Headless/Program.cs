@@ -192,6 +192,24 @@ if (bench)
         }
         Console.WriteLine($"list {label}, 500k items, scroll step: avg {times.Average():F2} ms, max {times.Max():F2} ms");
     }
+
+    // Optimization 2.5: a screen of 1500 stable Arabic strings plus 100 new ones every frame (a live feed). The shape cache
+    // fills up regularly; clearing it all forces the stable 1500 to be shaped again in one frame.
+    {
+        var font = TextStyle.Fallback.ToFont();
+        string Arabic(int n) => "مرحبا " + n;
+        for (int i = 0; i < 1500; i++) TextShaper.MeasureShaped(Arabic(i), font);
+        times.Clear();
+        int fresh = 10_000;
+        for (int frame = 0; frame < 120; frame++)
+        {
+            sw.Restart();
+            for (int i = 0; i < 1500; i++) TextShaper.MeasureShaped(Arabic(i), font);
+            for (int i = 0; i < 100; i++) TextShaper.MeasureShaped(Arabic(fresh++), font);
+            times.Add(sw.Elapsed.TotalMilliseconds);
+        }
+        Console.WriteLine($"shaped-text churn frame (1500 stable + 100 new): avg {times.Average():F2} ms, max {times.Max():F2} ms, frames over 3x median: {times.Count(t => t > 3 * times.OrderBy(x => x).ElementAt(times.Count / 2))}");
+    }
     return;
 }
 
