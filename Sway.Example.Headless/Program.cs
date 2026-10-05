@@ -121,6 +121,21 @@ if (bench)
         times.Add(sw.Elapsed.TotalMilliseconds);
     }
     Console.WriteLine($"still-pointer frame (CPU raster): avg {times.Average():F3} ms, max {times.Max():F3} ms");
+
+    // Optimization 2.1: grapheme boundary lookups on a 5k-character field (FitLine, IndexAt and caret moves call these per character).
+    foreach (var (label, text) in new[]
+    {
+        ("ascii", string.Concat(Enumerable.Repeat("hello world, ", 385))),
+        ("combining", string.Concat(Enumerable.Repeat("hellö wórld 😀 ", 200))),
+    })
+    {
+        var edit = new TextEditState(text, true);
+        int walked = 0;
+        sw.Restart();
+        for (int i = 0; i < edit.Value.Length; i = edit.NextBoundary(i)) walked++;
+        for (int i = edit.Value.Length; i > 0; i = edit.PreviousBoundary(i)) walked++;
+        Console.WriteLine($"grapheme walk, {label} ({edit.Value.Length} chars, {walked} steps): {sw.Elapsed.TotalMilliseconds:F2} ms");
+    }
     return;
 }
 

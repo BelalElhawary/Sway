@@ -195,25 +195,47 @@ public sealed class TextEditState
 
     // ---- grapheme boundaries ----
 
+    // Grapheme starts for the current Value, rebuilt lazily once per edit. Null while the text is plain
+    // (no combining marks, joiners, surrogates or CR), where every index is a boundary.
+    string? _boundsFor;
+    int[]? _bounds;
+
+    int[]? Boundaries()
+    {
+        if (ReferenceEquals(_boundsFor, Value)) return _bounds;
+        _boundsFor = Value;
+        _bounds = IsPlain(Value) ? null : StringInfo.ParseCombiningCharacters(Value);
+        return _bounds;
+    }
+
+    static bool IsPlain(string text)
+    {
+        // U+0300 is the first combining mark; U+0600+ covers Arabic marks and format controls, so stay conservative.
+        foreach (char c in text)
+            if (c >= 0x300 || c == '\r') return false;
+        return true;
+    }
+
     public int PreviousBoundary(int index)
     {
         if (index <= 0) return 0;
-        int previous = 0;
-        foreach (int start in StringInfo.ParseCombiningCharacters(Value))
-        {
-            if (start >= index) break;
-            previous = start;
-        }
-        return previous;
+        var starts = Boundaries();
+        if (starts is null) return Math.Max(Math.Min(index, Value.Length) - 1, 0);
+        // Largest start strictly below index.
+        int at = Array.BinarySearch(starts, index);
+        int insert = at >= 0 ? at : ~at;
+        return insert == 0 ? 0 : starts[insert - 1];
     }
 
     public int NextBoundary(int index)
     {
         if (index >= Value.Length) return Value.Length;
-        var starts = StringInfo.ParseCombiningCharacters(Value);
-        foreach (int start in starts)
-            if (start > index) return start;
-        return Value.Length;
+        var starts = Boundaries();
+        if (starts is null) return Math.Max(index + 1, 0);
+        // Smallest start strictly above index.
+        int at = Array.BinarySearch(starts, index);
+        int next = at >= 0 ? at + 1 : ~at;
+        return next < starts.Length ? starts[next] : Value.Length;
     }
 
     // ---- line navigation (uses lines supplied by layout) ----
