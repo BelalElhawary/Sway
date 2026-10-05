@@ -19,11 +19,13 @@ Sway.slnx
 Sway.Widgets/           # the platform-neutral library: Foundation, Rendering, Widgets
 Sway.Platform.Desktop/  # Windows/Linux/macOS host: window, input, OS theme (Silk.NET)
 Sway.Platform.Android/  # Android host: GL surface, touch, soft keyboard, system theme
+Sway.Platform.Web/      # Browser host: Blazor WebAssembly component on SkiaSharp.Views.Blazor
 Sway.Example/           # the shared example UI (platform-neutral)
 Sway.Example.Desktop/   # desktop runner for the example
 Sway.Platform.Headless/ # windowless host: renders to a PNG
 Sway.Example.Headless/  # headless runner for the example (screenshots, bench)
 Sway.Example.Android/   # Android runner for the example
+Sway.Example.Web/       # Browser runner for the example (needs the wasm-tools workload)
 ```
 
 `Sway.Widgets` is the library. It depends only on SkiaSharp and SkiaSharp.HarfBuzz, so it carries no windowing or OS

@@ -50,6 +50,7 @@ class CounterState : State<CounterPage>
 | --- | --- |
 | `Sway.Widgets` | The platform-neutral library: Foundation, Rendering and Widgets. Depends only on SkiaSharp and HarfBuzz. |
 | `Sway.Platform.Android` | Android host: GL surface, touch, soft keyboard, system theme. Subclass `SwayActivity`. |
+| `Sway.Platform.Web` | Browser host: Blazor WebAssembly component (`SwayView`) on `SkiaSharp.Views.Blazor` (WebGL), pointer, keyboard, clipboard and theme. |
 | `Sway.Platform.Headless` | Windowless host: renders to a PNG with a software surface (`Headless.Screenshot`). |
 | `Sway.Platform.Desktop` | Windows/Linux/macOS host: window, input, OS theme (Silk.NET). Provides `App.Run`. |
 | `Sway.Media` | Optional `MediaPlayerController` and `VideoPlayer` widget (LibVLCSharp). |
@@ -57,6 +58,7 @@ class CounterState : State<CounterPage>
 | `Sway.Example.Desktop` | Runs the example in a desktop window. |
 | `Sway.Example.Headless` | Runs the example without a window: the `--screenshot` and `--bench` tooling. |
 | `Sway.Example.Android` | Runs the example on Android. |
+| `Sway.Example.Web` | Runs the example in the browser (Blazor WebAssembly; the media page is omitted). |
 | `Sway.Widgets.Tests` | xUnit tests that run the widget tree headlessly. |
 | `website/` | Documentation site (Docusaurus). |
 
@@ -73,6 +75,18 @@ dotnet build Sway.slnx
 dotnet test                                    # headless widget tests
 dotnet run --project Sway.Example.Desktop         # the demo app
 ```
+
+### Web
+
+The browser host needs the `wasm-tools` workload (`dotnet workload install wasm-tools`), which relinks the .NET
+runtime with SkiaSharp's native code.
+
+```bash
+dotnet run --project Sway.Example.Web
+```
+
+Host it in your own Blazor WebAssembly app with `<SwayView Root="new MyApp()" />`. Not yet supported on the web:
+the soft keyboard on touch devices, and `Sway.Media`.
 
 ### Headless screenshots
 

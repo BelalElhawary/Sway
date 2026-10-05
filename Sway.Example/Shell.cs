@@ -14,12 +14,16 @@ public class DemoRoot(string page = "components", bool dark = false, bool rtl = 
 
 class DemoRootState : State<DemoRoot>
 {
+    // LibVLC has no browser build, so the media page is left out there.
     static readonly (string id, string label, IconData icon)[] Pages =
     [
         ("components", "Home", Icons.Home), ("layout", "Layout", Icons.Menu), ("forms", "Forms", Icons.Edit),
         ("motion", "Motion", Icons.Star), ("effects", "Effects", Icons.Favorite), ("rtl", "RTL", Icons.ArrowForward), ("stress", "Stress", Icons.MoreVert),
         ("media", "Media", Icons.PlayArrow),
     ];
+
+    static readonly (string id, string label, IconData icon)[] AvailablePages =
+        OperatingSystem.IsBrowser() ? Pages.Where(p => p.id != "media").ToArray() : Pages;
 
     static readonly SKColor?[] Seeds = [null, Colors.FromRgb(0x006A6A), Colors.FromRgb(0xB3261E), Colors.FromRgb(0x1B6EF3), Colors.FromRgb(0x386A20)];
 
@@ -62,8 +66,8 @@ class DemoRootState : State<DemoRoot>
                     new IconButton(new Icon(dark ? Icons.LightMode : Icons.DarkMode), () => SetState(() => _mode = dark ? ThemeMode.Light : ThemeMode.Dark)),
                     new TextButton(new Text(_rtl ? "LTR" : "RTL"), () => SetState(() => _rtl = !_rtl)),
                 ]),
-                navigationRail: new NavigationRail(Array.FindIndex(Pages, p => p.id == _page),
-                    Pages.Select(p => new NavigationDestination(p.icon, p.label)).ToList(), i => SetState(() => _page = Pages[i].id)),
+                navigationRail: new NavigationRail(Array.FindIndex(AvailablePages, p => p.id == _page),
+                    AvailablePages.Select(p => new NavigationDestination(p.icon, p.label)).ToList(), i => SetState(() => _page = AvailablePages[i].id)),
                 body: Body())));
     }
 }
