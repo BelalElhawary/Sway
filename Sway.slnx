@@ -8,7 +8,9 @@
   <Project Path="Sway.Example/Sway.Example.csproj" />
   <Project Path="Sway.Example.Desktop/Sway.Example.Desktop.csproj" />
   <Project Path="Sway.Example.Headless/Sway.Example.Headless.csproj" />
-  <Project Path="Sway.Example.Android/Sway.Example.Android.csproj" />
+  <Project Path="Sway.Example.Android/Sway.Example.Android.csproj">
+    <Deploy Solution="Debug|*" />
+  </Project>
   <Project Path="Sway.Example.Web/Sway.Example.Web.csproj" />
   <Project Path="Sway.Widgets.Tests/Sway.Widgets.Tests.csproj" />
 </Solution>
