@@ -1,16 +1,16 @@
 using System.Diagnostics;
 using SkiaSharp;
 using Sway.Widgets;
-using Sway.Widgets.Demo;
+using Sway.Example;
 
-// `--screenshot out.png` renders headlessly. Scripted steps run in order before each capture:
+// Renders the example without a window. `--screenshot out.png` writes a PNG. Scripted steps run in order before each capture:
 //   --move x,y  --click x,y  --wheel x,y,delta  --type text  --key [ctrl+][shift+]Name  --advance ms
 // Options: --page components|layout|forms|motion|effects|rtl|stress|media  --dark  --rtl  --size WxH  --bench
 int shot = Array.IndexOf(args, "--screenshot");
 bool bench = args.Contains("--bench");
 if ((shot < 0 || shot + 1 >= args.Length) && !bench)
 {
-    App.Run(new DemoRoot(), "Sway Widgets", 1100, 760);
+    Console.WriteLine("Usage: --screenshot out.png [options] | --bench [options]");
     return;
 }
 
@@ -85,4 +85,4 @@ if (bench)
     return;
 }
 
-App.Screenshot(new DemoRoot(page, dark, rtl), args[shot + 1], width, height, steps);
+Headless.Screenshot(new DemoRoot(page, dark, rtl), args[shot + 1], width, height, steps);

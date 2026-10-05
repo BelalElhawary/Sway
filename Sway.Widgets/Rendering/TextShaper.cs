@@ -64,6 +64,64 @@ public static class TextShaper
         return result?.Width ?? font.MeasureText(text);
     }
 
+    /// <summary>
+    /// X offset of every caret boundary in a run (length + 1 entries, from the run's left edge). Offsets come from the
+    /// shaper's glyph clusters, so they land on the glyphs that are drawn, including joined Arabic forms.
+    /// </summary>
+    public static float[] CaretOffsets(string text, SKFont font, bool rtl)
+    {
+        var offsets = new float[text.Length + 1];
+        if (text.Length == 0) return offsets;
+
+        var shaped = ContainsRtl(text) ? GetShaper(font.Typeface).Shape(text, font) : null;
+        if (shaped is null || shaped.Clusters.Length == 0)
+        {
+            for (int i = 1; i <= text.Length; i++) offsets[i] = font.MeasureText(text.AsSpan(0, i));
+            return offsets;
+        }
+
+        // Clusters are UTF-8 byte offsets; map them back to UTF-16 indices.
+        var charAtByte = new Dictionary<int, int> { [0] = 0 };
+        int bytes = 0, chars = 0;
+        foreach (var rune in text.EnumerateRunes())
+        {
+            bytes += rune.Utf8SequenceLength;
+            chars += rune.Utf16SequenceLength;
+            charAtByte[bytes] = chars;
+        }
+
+        // Each glyph covers the space up to the next glyph in visual order.
+        var points = shaped.Points;
+        var byX = Enumerable.Range(0, points.Length).OrderBy(i => points[i].X).ToArray();
+        var extents = new SortedDictionary<int, (float Lo, float Hi)>();
+        for (int k = 0; k < byX.Length; k++)
+        {
+            int g = byX[k];
+            if (!charAtByte.TryGetValue((int)shaped.Clusters[g], out int cluster)) continue;
+            float lo = points[g].X, hi = k + 1 < byX.Length ? points[byX[k + 1]].X : shaped.Width;
+            extents[cluster] = extents.TryGetValue(cluster, out var e) ? (Math.Min(e.Lo, lo), Math.Max(e.Hi, hi)) : (lo, hi);
+        }
+
+        if (extents.Count == 0)
+        {
+            for (int i = 1; i <= text.Length; i++) offsets[i] = font.MeasureText(text.AsSpan(0, i));
+            return offsets;
+        }
+
+        // A cluster starts at the right edge of an RTL run and at the left edge of an LTR run.
+        var starts = extents.Keys.ToArray();
+        for (int k = 0; k < starts.Length; k++)
+        {
+            int from = starts[k], to = k + 1 < starts.Length ? starts[k + 1] : text.Length;
+            var (lo, hi) = extents[from];
+            float startX = rtl ? hi : lo, endX = rtl ? lo : hi;
+            for (int j = from; j < to; j++)
+                offsets[j] = startX + (endX - startX) * (j - from) / (to - from);
+            if (to == text.Length) offsets[to] = endX;
+        }
+        return offsets;
+    }
+
     /// <summary>Draws shaped text onto a canvas at (x, baseline).</summary>
     public static void DrawShapedText(SKCanvas canvas, string text, float x, float baseline, SKFont font, SKPaint paint, SKTextAlign textAlign = SKTextAlign.Left)
     {

@@ -289,7 +289,9 @@ public sealed class RenderParagraph : RenderBox
         {
             string s = text.Substring(run.Start, run.Length);
             DrawRun(canvas, s, x, baseline, font, paint, letterSpacing);
-            x += TextShaper.MeasureShaped(s, font);
+            x += run.Direction == TextDirection.Rtl || !(letterSpacing is { } l && l != 0)
+                ? TextShaper.MeasureShaped(s, font)
+                : s.Sum(c => font.MeasureText(c.ToString()) + l);
         }
     }
 

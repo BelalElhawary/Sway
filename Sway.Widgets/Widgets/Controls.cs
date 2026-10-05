@@ -200,7 +200,8 @@ public sealed class Switch(bool value, Action<bool>? onChanged = null, SKColor? 
                     left: -8, top: -8, width: 40, height: 40),
             ], alignment: Alignment.Center, clip: false));
 
-            return new AnimatedContainer(ms, width: 52, height: 32, padding: EdgeInsets.Symmetric(horizontal: value ? 4 : 4, vertical: 4), curve: Curves.EaseOutCubic,
+            // The track is 32px tall with a 2px border, leaving 28px for the 24px handle (28px when pressed) without vertical padding.
+            return new AnimatedContainer(ms, width: 52, height: 32, padding: EdgeInsets.Symmetric(horizontal: 4, vertical: 0), curve: Curves.EaseOutCubic,
                 decoration: new BoxDecoration(Color: track, BorderRadius: BorderRadius.Circular(16), Border: Border.All(outline, 2)),
                 child: new AnimatedAlign(value ? Alignment.CenterRight : Alignment.CenterLeft, ms, thumb, Curves.EaseOutCubic));
         }, enabled ? () => onChanged!(!value) : null);

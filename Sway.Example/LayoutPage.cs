@@ -1,7 +1,7 @@
 using SkiaSharp;
 using Sway.Widgets;
 
-namespace Sway.Widgets.Demo;
+namespace Sway.Example;
 
 class LayoutPage : StatelessWidget
 {
@@ -36,6 +36,21 @@ class LayoutPage : StatelessWidget
                 new Expanded(Ui.Box("flex 3", s.Tertiary, h: 48, fg: s.OnTertiary), 3),
                 Ui.Box("fixed", s.Error, 80, 48, s.OnError),
             ]))),
+
+            Ui.Section(context, "Overflow warning", new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, mainAxisSize: MainAxisSize.Min, spacing: 8, children:
+            [
+                Frame(context, new SizedBox(height: 48, child: new Row(children:
+                [
+                    Ui.Box("wide A", s.Primary, 200, 48, s.OnPrimary), Ui.Box("wide B", s.Secondary, 200, 48, s.OnSecondary),
+                    Ui.Box("wide C", s.Tertiary, 200, 48, s.OnTertiary), Ui.Box("wide D", s.Error, 200, 48, s.OnError),
+                    Ui.Box("wide E", s.Primary, 200, 48, s.OnPrimary), Ui.Box("wide F", s.Secondary, 200, 48, s.OnSecondary),
+                    Ui.Box("wide G", s.Tertiary, 200, 48, s.OnTertiary), Ui.Box("wide H", s.Error, 200, 48, s.OnError),
+                ]))),
+                Frame(context, new SizedBox(width: 160, height: 100, child: new Column(children:
+                [
+                    Ui.Box("tall 1", s.Primary, h: 60, fg: s.OnPrimary), Ui.Box("tall 2", s.Secondary, h: 60, fg: s.OnSecondary),
+                ]))),
+            ]), "A Row or Column whose children do not fit gets a yellow and black band on the edge they spill past (debug builds)."),
 
             Ui.Section(context, "Cross axis and baseline", Frame(context, new Row(spacing: 12, crossAxisAlignment: CrossAxisAlignment.Baseline, children:
             [

@@ -73,7 +73,7 @@ public sealed class VideoPlayer(MediaPlayerController controller, VideoFit fit =
     {
         public override void Paint(SKCanvas canvas, Size size)
         {
-            canvas.DrawRect(0, 0, size.Width, size.Height, new SKPaint { Color = background });
+            using (var fill = new SKPaint { Color = background }) canvas.DrawRect(0, 0, size.Width, size.Height, fill);
             if (controller.CurrentFrame is not { } frame) return;
 
             float fw = frame.Width, fh = frame.Height;

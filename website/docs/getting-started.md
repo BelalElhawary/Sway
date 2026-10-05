@@ -18,7 +18,14 @@ sidebar_position: 2
 Sway.slnx
 Sway.Widgets/           # the platform-neutral library: Foundation, Rendering, Widgets
 Sway.Platform.Desktop/  # Windows/Linux/macOS host: window, input, OS theme (Silk.NET)
-Sway.Widgets.Demo/      # a Material 3 demo app that exercises the library
+Sway.Platform.Android/  # Android host: GL surface, touch, soft keyboard, system theme
+Sway.Platform.Web/      # Browser host: Blazor WebAssembly component on SkiaSharp.Views.Blazor
+Sway.Example/           # the shared example UI (platform-neutral)
+Sway.Example.Desktop/   # desktop runner for the example
+Sway.Platform.Headless/ # windowless host: renders to a PNG
+Sway.Example.Headless/  # headless runner for the example (screenshots, bench)
+Sway.Example.Android/   # Android runner for the example
+Sway.Example.Web/       # Browser runner for the example (needs the wasm-tools workload)
 ```
 
 `Sway.Widgets` is the library. It depends only on SkiaSharp and SkiaSharp.HarfBuzz, so it carries no windowing or OS
@@ -28,7 +35,7 @@ Add `using Sway.Widgets;`.
 ## Run the demo
 
 ```bash
-dotnet run --project Sway.Widgets.Demo
+dotnet run --project Sway.Example.Desktop
 ```
 
 This opens a window with a navigation rail and pages for components, layout, forms, motion, effects, right-to-left
@@ -90,16 +97,16 @@ without opening a window, which is useful for checking layout changes or scripti
 
 ```bash
 # Render a page to PNG without opening a window
-dotnet run --project Sway.Widgets.Demo -- --screenshot out.png --page layout
+dotnet run --project Sway.Example.Headless -- --screenshot out.png --page layout
 
 # Dark mode, right-to-left, custom size
-dotnet run --project Sway.Widgets.Demo -- --screenshot out.png --page rtl --dark --size 1100x900
+dotnet run --project Sway.Example.Headless -- --screenshot out.png --page rtl --dark --size 1100x900
 
 # Script pointer and keyboard input before capturing
-dotnet run --project Sway.Widgets.Demo -- --screenshot out.png --page forms --click 300,230 --type "hello" --key Tab
+dotnet run --project Sway.Example.Headless -- --screenshot out.png --page forms --click 300,230 --type "hello" --key Tab
 
 # Per-frame cost for scrolling and hovering a page (CPU raster)
-dotnet run --project Sway.Widgets.Demo -- --bench --page stress
+dotnet run --project Sway.Example.Headless -- --bench --page stress
 ```
 
 Pages: `components`, `layout`, `forms`, `motion`, `effects`, `rtl`, `stress`. Steps: `--move x,y`, `--click x,y`,

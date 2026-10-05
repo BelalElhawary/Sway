@@ -1,7 +1,7 @@
 using SkiaSharp;
 using Sway.Widgets;
 
-namespace Sway.Widgets.Demo;
+namespace Sway.Example;
 
 class ComponentsPage : StatefulWidget
 {
@@ -12,6 +12,7 @@ class ComponentsPageState : State<ComponentsPage>
 {
     int _count;
     readonly HashSet<string> _chips = new() { "Filter" };
+    bool _deletableShown = true;
     float _progress = 0.35f;
 
     public override Widget Build(BuildContext context)
@@ -49,7 +50,7 @@ class ComponentsPageState : State<ComponentsPage>
                 ..new[] { "Filter", "Search", "Music", "Travel" }.Select(c => (Widget)new Chip(new Text(c),
                     () => SetState(() => { if (!_chips.Remove(c)) _chips.Add(c); }), selected: _chips.Contains(c))),
                 new Chip(new Text("Assist"), () => { }, icon: Icons.Info),
-                new Chip(new Text("Deletable"), () => { }, onDeleted: () => { }),
+                ..(_deletableShown ? [new Chip(new Text("Deletable"), () => { }, onDeleted: () => SetState(() => _deletableShown = false))] : Array.Empty<Widget>()),
             ])),
 
             Ui.Section(context, "Cards and lists", new Wrap(spacing: 12, runSpacing: 12, children:

@@ -172,11 +172,4 @@ public static class App
         MouseCursor.Grab or MouseCursor.Grabbing or MouseCursor.Move => StandardCursor.Hand,
         _ => StandardCursor.Default,
     };
-
-    /// <summary>Renders the widget to a PNG without opening a window; see <see cref="Headless.Screenshot"/>.</summary>
-    public static void Screenshot(Widget root, string pngPath, int width, int height, IEnumerable<Action<WidgetsBinding>>? steps = null)
-    {
-        SystemTheme.Source = DesktopSystemTheme.ForCurrentOS();
-        Headless.Screenshot(root, pngPath, width, height, steps);
-    }
 }

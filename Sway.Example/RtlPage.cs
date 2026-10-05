@@ -1,7 +1,7 @@
 using SkiaSharp;
 using Sway.Widgets;
 
-namespace Sway.Widgets.Demo;
+namespace Sway.Example;
 
 /// <summary>The same content laid out left-to-right and right-to-left, side by side.</summary>
 class RtlPage : StatelessWidget

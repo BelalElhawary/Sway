@@ -5,7 +5,9 @@ namespace Sway.Widgets;
 /// <summary>Lays out, paints and hit-tests a <see cref="TextEditState"/> (caret, selection, wrapping, inner scroll).</summary>
 public sealed class RenderEditable : RenderBox
 {
-    sealed record Line(int Start, int End, bool HardBreak, float Width, bool Rtl);
+    // X holds the caret x of every index in the line, relative to the line's left origin; Width is its total advance.
+    sealed record Run(int Start, int Length, float Origin, float[] Local);
+    sealed record Line(int Start, int End, bool HardBreak, float Width, float[] X, List<Run> Runs);
 
     TextEditState _state;
     TextStyle _style;
@@ -76,8 +78,8 @@ public sealed class RenderEditable : RenderBox
 
         void Add(int start, int end, bool hard)
         {
-            string s = text.Substring(start, end - start);
-            _lines.Add(new Line(start, end, hard, RenderParagraph.Measure(s, _style, font), IsRtl(s)));
+            var x = LineOffsets(text.Substring(start, end - start), font, out float width, out var runs);
+            _lines.Add(new Line(start, end, hard, width, x, runs));
             _state.Lines.Add(new TextLine(start, end, hard));
         }
 
@@ -125,20 +127,45 @@ public sealed class RenderEditable : RenderBox
         return Math.Max(i, _state.NextBoundary(start));
     }
 
-    static bool IsRtl(string s) => TextShaper.IsRtlText(s);
+    /// <summary>Caret x of each index in a line, in visual order. Runs follow the field direction, so an empty RTL field still has its caret on the right.</summary>
+    float[] LineOffsets(string s, SKFont font, out float width, out List<Run> placed)
+    {
+        var offsets = new float[s.Length + 1];
+        width = 0;
+        placed = new List<Run>();
+        if (s.Length == 0) return offsets;
+
+        var runs = Bidi.Analyze(s, _direction);
+        IEnumerable<BidiRun> visual = _direction == TextDirection.Rtl ? Enumerable.Reverse(runs) : runs;
+        float origin = 0;
+        foreach (var run in visual)
+        {
+            string runText = s.Substring(run.Start, run.Length);
+            var local = TextShaper.CaretOffsets(runText, font, run.Direction == TextDirection.Rtl);
+            // Runs without RTL characters are painted one character at a time with letter spacing; mirror that advance.
+            if (_style.LetterSpacing is { } ls && ls != 0 && !TextShaper.ContainsRtl(runText))
+            {
+                float acc = 0;
+                for (int i = 1; i <= runText.Length; i++) { acc += font.MeasureText(runText[i - 1].ToString()) + ls; local[i] = acc; }
+            }
+            for (int i = 0; i <= run.Length; i++) offsets[run.Start + i] = origin + local[i];
+            placed.Add(new Run(run.Start, run.Length, origin, local));
+            origin += local.Max(); // an RTL run starts at its right edge, so its width is not the last offset
+        }
+        width = origin;
+        return offsets;
+    }
 
     // ---- geometry ----
 
     int LineIndexOf(int index) => _state.LineOfIndex(index);
 
-    float LineX0(Line l) => l.Rtl ? Size.Width - l.Width : 0;
+    float LineX0(Line l) => _direction == TextDirection.Rtl ? Size.Width - l.Width : 0;
 
     float XOf(Line l, int index)
     {
-        string text = Display;
         index = Math.Clamp(index, l.Start, l.End);
-        float w = RenderParagraph.Measure(text.Substring(l.Start, index - l.Start), _style, Font);
-        return l.Rtl ? LineX0(l) + l.Width - w : LineX0(l) + w;
+        return LineX0(l) + l.X[index - l.Start];
     }
 
     int IndexAt(Line l, float x)
@@ -177,13 +204,14 @@ public sealed class RenderEditable : RenderBox
         }
         else
         {
-            float content = _lines[0].Width;
-            float max = Math.Max(0, content - Size.Width + 2);
+            // An RTL line hangs off the left edge once it is wider than the field; its only scroll range is that overhang.
+            float x0 = LineX0(_lines[0]);
+            float min = Math.Min(0, x0);
+            float max = _direction == TextDirection.Rtl ? 0 : Math.Max(0, _lines[0].Width - Size.Width + 2);
             float x = _state.ScrollX;
             if (caret.Dx < x) x = caret.Dx;
             else if (caret.Dx > x + Size.Width - 1) x = caret.Dx - Size.Width + 1;
-            // Right-aligned (RTL) single lines never scroll; they simply overflow on the left.
-            _state.ScrollX = _lines[0].Rtl ? 0 : Math.Clamp(x, 0, max);
+            _state.ScrollX = Math.Clamp(x, min, max);
             _state.ScrollY = 0;
         }
     }
@@ -200,6 +228,64 @@ public sealed class RenderEditable : RenderBox
         _state.MoveTo(IndexAt(_lines[target], x), extend);
         AfterCaretMove();
     }
+
+    /// <summary>
+    /// Moves the caret one step left or right on screen. Left and right follow the glyphs, so in RTL text Left moves
+    /// toward the logical end instead of the previous character. Word moves keep the logical order, mirrored for RTL.
+    /// </summary>
+    public void MoveVisualHorizontal(int direction, bool byWord, bool extend)
+    {
+        if (_lines.Count == 0) return;
+        if (byWord)
+        {
+            _state.MoveHorizontal(_direction == TextDirection.Rtl ? -direction : direction, true, extend);
+            AfterCaretMove();
+            return;
+        }
+
+        if (!extend && _state.HasSelection)
+        {
+            // Collapse to the selection edge that is further in the arrow's direction.
+            float a = CaretX(_state.SelectionStart), b = CaretX(_state.SelectionEnd);
+            bool startIsLeft = a <= b;
+            _state.MoveTo((direction < 0) == startIsLeft ? _state.SelectionStart : _state.SelectionEnd, false);
+            AfterCaretMove();
+            return;
+        }
+
+        int from = _state.Caret;
+        var line = _lines[Math.Clamp(LineIndexOf(from), 0, _lines.Count - 1)];
+        float x = XOf(line, from);
+        const float eps = 0.01f;
+
+        // The nearest grapheme boundary on this line that lies further in the arrow's direction.
+        int target = -1;
+        float targetX = 0;
+        for (int i = line.Start; i <= line.End; i = _state.NextBoundary(i))
+        {
+            if (i != from)
+            {
+                float xi = XOf(line, i);
+                bool better = direction < 0
+                    ? xi < x - eps && (target < 0 || xi > targetX)
+                    : xi > x + eps && (target < 0 || xi < targetX);
+                if (better) { target = i; targetX = xi; }
+            }
+            if (i >= line.End || _state.NextBoundary(i) > line.End) break;
+        }
+
+        // At the end of the line, fall back to moving through the text.
+        if (target < 0)
+        {
+            _state.MoveHorizontal(_direction == TextDirection.Rtl ? -direction : direction, false, extend);
+            AfterCaretMove();
+            return;
+        }
+        _state.MoveTo(target, extend);
+        AfterCaretMove();
+    }
+
+    float CaretX(int index) => XOf(_lines[Math.Clamp(LineIndexOf(index), 0, _lines.Count - 1)], index);
 
     public void MoveToLineEdge(bool end, bool extend)
     {
@@ -253,21 +339,34 @@ public sealed class RenderEditable : RenderBox
                 bool endsInSelection = _state.SelectionEnd > l.End && _state.SelectionStart <= l.End && l.HardBreak;
                 if (s < e || endsInSelection)
                 {
-                    float x1 = XOf(l, s), x2 = s < e ? XOf(l, e) : XOf(l, l.End) + 4; // a little tail for selected newlines
-                    canvas.DrawRect(Math.Min(x1, x2), top, Math.Abs(x2 - x1), _lineHeight, selPaint);
+                    // One rectangle per bidi run, so a selection across directions highlights exactly the selected glyphs.
+                    foreach (var run in l.Runs)
+                    {
+                        int rs = Math.Max(s, l.Start + run.Start), re = Math.Min(e, l.Start + run.Start + run.Length);
+                        if (rs >= re) continue;
+                        float x1 = LineX0(l) + run.Origin + run.Local[rs - l.Start - run.Start];
+                        float x2 = LineX0(l) + run.Origin + run.Local[re - l.Start - run.Start];
+                        canvas.DrawRect(Math.Min(x1, x2), top, Math.Abs(x2 - x1), _lineHeight, selPaint);
+                    }
+                    if (endsInSelection)
+                    {
+                        float tail = XOf(l, l.End); // a little tail for selected newlines
+                        canvas.DrawRect(tail, top, 4, _lineHeight, selPaint);
+                    }
                 }
             }
 
             string s2 = text.Substring(l.Start, l.End - l.Start);
-            RenderParagraph.DrawText(canvas, s2, LineX0(l), top + _baseline, font, textPaint, _style.LetterSpacing,
-                l.Rtl ? TextDirection.Rtl : TextDirection.Ltr);
+            RenderParagraph.DrawText(canvas, s2, LineX0(l), top + _baseline, font, textPaint, _style.LetterSpacing, _direction);
         }
 
         if (_focused && _caretVisible && !_state.HasSelection && _lines.Count > 0)
         {
             var c = CaretPosition(_state.Caret);
             using var caretPaint = new SKPaint { Color = _cursorColor, IsAntialias = false };
-            canvas.DrawRect(c.Dx, c.Dy + 1, 1.5f, _lineHeight - 2, caretPaint);
+            // A caret at the very edge of the box (an empty RTL field) would fall outside the clip and vanish.
+            float cx = Math.Clamp(c.Dx, _state.ScrollX, _state.ScrollX + Size.Width - 1.5f);
+            canvas.DrawRect(cx, c.Dy + 1, 1.5f, _lineHeight - 2, caretPaint);
         }
 
         canvas.Restore();
