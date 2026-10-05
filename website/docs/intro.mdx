@@ -4,60 +4,66 @@ sidebar_position: 1
 
 # Introduction
 
-Sway is a .NET library that renders [Blazor](https://learn.microsoft.com/aspnet/core/blazor/) components to a native
-desktop window — no browser, no WebView, no Electron. It hosts the standard Blazor component model and reimplements
-the pieces a browser would normally provide: an HTML/CSS parser, a style cascade, flex and grid layout, a Skia-backed
-painter, and OpenGL window with mouse/keyboard/IME input, all in C#.
+Sway is a .NET UI toolkit with a [Flutter](https://flutter.dev)-style widget system. You describe your interface as a
+tree of immutable widgets in C#; Sway diffs it, lays it out with box constraints, and paints it with
+[SkiaSharp](https://github.com/mono/SkiaSharp) into a native OpenGL window — no browser, no WebView, no XAML.
 
 ```csharp
-App.Create()
-   .AddStylesheet("app.css")
-   .Run<MainWindow>("My App", 1024, 768);
+App.Run(new MaterialApp(home: new CounterPage()), "My App", 800, 600);
 ```
 
-A component in Sway looks exactly like a Blazor component, because it is one:
+```csharp
+class CounterPage : StatefulWidget
+{
+    public override State CreateState() => new CounterPageState();
+}
 
-```razor
-<div class="card">
-    <h2>Count: @count</h2>
-    <button @onclick="() => count++">Increment</button>
-</div>
+class CounterPageState : State<CounterPage>
+{
+    int _count;
 
-@code {
-    int count;
+    public override Widget Build(BuildContext context) => new Scaffold(
+        appBar: new AppBar(title: new Text("Counter")),
+        body: new Center(new Text($"Count: {_count}", style: Theme.Of(context).TextTheme.DisplaySmall)),
+        floatingActionButton: new FloatingActionButton(new Icon(Icons.Add), () => SetState(() => _count++)));
 }
 ```
 
-## Why Sway exists
+## The model
 
-Blazor's component model (`@code`, data binding, event handlers, dependency injection) is a productive way to build
-UI, but it normally needs either a browser (WebAssembly) or a WebView (Blazor Hybrid). Sway instead lays out and
-paints that same component tree itself, so a Blazor UI can run as a self-contained native window with its own
-renderer — useful for desktop tools, kiosks, games and embedded UI where shipping a browser engine isn't desirable.
+Sway follows Flutter's three trees:
 
-## What's implemented
+- **Widgets** are cheap, immutable descriptions (`Container`, `Row`, `Text`, `TextField`...). `Build` returns them.
+- **Elements** are the long-lived instances that Sway diffs against the new widgets. They hold `State`, resolve
+  `Theme.Of(context)` and `Directionality.Of(context)`, and decide what to rebuild.
+- **Render objects** do layout (constraints go down, sizes go up), painting and hit testing.
 
-- A CSS parser and cascade covering selectors, specificity, `@media`, `@keyframes` and `@font-face`.
-- Block, inline, flex and grid layout.
-- Transitions, keyframe animations, gradients, shadows, filters and 2D transforms, all rendered through
-  [SkiaSharp](https://github.com/mono/SkiaSharp).
-- A real OpenGL window (via [Silk.NET](https://github.com/dotnet/Silk.NET)) with mouse, keyboard, scroll and IME
-  text input, plus a headless mode that renders straight to PNG for screenshot-based testing.
-- The built-in form controls (`input`, `textarea`, `select`, checkboxes, radios) with their own text editing and hit
-  testing, since they draw themselves rather than laying out children.
+## What is included
 
-None of this depends on a browser, WebAssembly or a WebView — see [Architecture](./architecture) for how the pieces
-fit together.
+- Layout: `Row`, `Column`, `Flex`, `Stack`, `Wrap`, a CSS-grid-style `Grid`, `Padding`, `Align`, `SizedBox`,
+  `ConstrainedBox`, `AspectRatio`, `IntrinsicWidth` and more.
+- Material 3 as the default theme: colour scheme (baseline or seeded), type scale, elevation, light and dark modes,
+  buttons, text fields with floating labels, selection controls, dropdowns, cards, lists, chips, navigation,
+  dialogs and snack bars.
+- Text with HarfBuzz shaping, wrapping, rich spans and right-to-left support (`Directionality`, bidi runs, mirrored
+  layouts).
+- Input: tap and drag gestures with a gesture arena, hover and cursors, focus and Tab traversal, a full text editor
+  (selection, clipboard, undo), scrolling with fling and lazy lists.
+- Animation: `AnimationController`, curves, tweens, transitions and implicit widgets such as `AnimatedContainer`.
+- Effects: shadows, gradients, clips, transforms, blur and colour filters.
+- A real window via [Silk.NET](https://github.com/dotnet/Silk.NET), and a headless mode that renders straight to PNG
+  for screenshot-based checks.
 
-## What's not (yet)
+## What is not (yet)
 
-Sway is not a browser engine, and the gaps are tracked deliberately rather than discovered by surprise — see
-[Known limits](./known-limits) for the full list. The short version: no JS interop (so no `Virtualize`, `InputFile`,
-or most third-party Blazor component libraries), no routing, no accessibility tree, and a deliberately pared-down
-subset of CSS (no tables, no floats, no `::before`/`::after`, approximate line boxes).
+Sway is young. Known gaps are tracked in [Known limits](./known-limits): no accessibility tree, no `Navigator`, a
+subset of Material 3 components, Windows-first font handling, and no automated test suite yet.
 
 ## Next steps
 
-- [Getting started](./getting-started) — run the sample app and the headless CLI.
-- [Architecture](./architecture) — how a Razor component becomes pixels.
-- [CSS support](./css-support) — what's implemented and what to avoid relying on.
+- [Getting started](./getting-started): run the demo and write your first widget.
+- [Widgets](./widgets): the catalogue of layout, painting and text widgets.
+- [Theming](./theming): Material 3, colour schemes, dark mode and text styles.
+- [Input and focus](./input): gestures, scrolling, text fields and the keyboard.
+- [Animation](./animation): controllers, tweens and implicit animations.
+- [Architecture](./architecture): how a widget becomes pixels.

@@ -11,24 +11,24 @@ type FeatureItem = {
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Real Blazor components',
+    title: 'Flutter-style widgets in C#',
     Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
-        Write ordinary <code>.razor</code> components — markup, <code>@code</code>,
-        data binding and event handlers — and host them without a browser or a
-        WebView.
+        Immutable widgets, stateful <code>State</code> with <code>SetState</code>, inherited
+        widgets and box-constraint layout: the Flutter model, written in plain C#
+        with no browser, WebView or XAML.
       </>
     ),
   },
   {
-    title: 'Its own CSS engine',
+    title: 'Material 3 by default',
     Svg: require('@site/static/img/undraw_docusaurus_tree.svg').default,
     description: (
       <>
-        A purpose-built parser, cascade, and flex/grid layout engine style and
-        position every box, with transitions, keyframe animations, gradients and
-        filters rendered through SkiaSharp.
+        Colour schemes from a seed, the full type scale, elevation, light and dark
+        modes, floating-label text fields, buttons, navigation and dialogs, with
+        right-to-left layouts and animation built in.
       </>
     ),
   },
@@ -37,9 +37,9 @@ const FeatureList: FeatureItem[] = [
     Svg: require('@site/static/img/undraw_docusaurus_react.svg').default,
     description: (
       <>
-        Runs in a real OpenGL window via Silk.NET, or headlessly to a PNG for
-        screenshot-based checks — see <code>--screenshot</code>,{' '}
-        <code>--verify</code> and <code>--bench</code> in Getting Started.
+        Renders with SkiaSharp in a real OpenGL window via Silk.NET, or headlessly to
+        a PNG for screenshot-based checks, with a scriptable clock for deterministic
+        animation frames.
       </>
     ),
   },

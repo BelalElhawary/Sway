@@ -34,7 +34,7 @@ export default function Home(): ReactNode {
   return (
     <Layout
       title={siteConfig.title}
-      description="Sway renders Blazor components to a native desktop window, with its own CSS layout, styling and painting — no browser or WebView.">
+      description="Sway is a Flutter-style widget toolkit for .NET: constraint layout, Material 3, animation and text, rendered natively with Skia — no browser or WebView.">
       <HomepageHeader />
       <main>
         <HomepageFeatures />

@@ -4,79 +4,89 @@ sidebar_position: 3
 
 # Architecture
 
-Sway turns a Razor component tree into pixels in the same stages a browser would, each implemented as its own
-area under `Sway.Core`:
+Sway turns a widget tree into pixels in stages that mirror Flutter's, each implemented under `Sway.Widgets`:
 
 ```
-Blazor component tree
-        │  Microsoft.AspNetCore.Components (RenderTreeBuilder)
+Widget tree            immutable configuration returned by Build()
+        │  diff by type and key
         ▼
-  Dom/            node tree (elements, text, attributes) kept in sync with Blazor's render output
+Element tree           long-lived instances: State, inherited lookups, dirty tracking
         ▼
-  Styling/        CSS parsing, cascade and selector matching → ComputedStyle per node
+RenderObject tree      constraints down, sizes up; paint; hit test
         ▼
-  Layout/         block / inline / flex / grid → position and size for every box
+Skia canvas            SKCanvas on an OpenGL surface (or a CPU bitmap when headless)
         ▼
-  Rendering/       a culled display list, painted with SkiaSharp
-        ▼
-  Platform/        the OpenGL window (Silk.NET) or headless PNG output, input routing
+Platform host           window, input routing, clipboard, cursors (Sway.Platform.Desktop today)
 ```
 
-## Dom
+## Foundation
 
-`Dom/Nodes.cs` defines the node tree (`Document`, `ElementNode`, `TextNode`) that Sway keeps in sync with Blazor's
-render output, along with the dirty flags that drive incremental restyle/layout. `Dom/Controls.cs` classifies the
-built-in form controls (`input`, `textarea`, `select`, checkboxes, radios) — these are "replaced" elements that
-draw themselves instead of laying out children. `Dom/HtmlFragment.cs` parses the static HTML fragments the Razor
-compiler emits for markup, using a minimal parser (no implicit tag closing or table fix-up). `Dom/TextEditState.cs`
-holds the caret/selection state for text editing.
-
-## Styling
-
-`Styling/CssParser.cs` is a parser written for Sway rather than a wrapper around an existing engine, so it can
-preserve custom properties and `var()` as raw text. `Selectors.cs` matches selectors against the node tree, and
-`StyleResolver.cs` runs the cascade — specificity, `@media`/`@supports`, inheritance — to produce a
-`ComputedStyle` (`ComputedStyle.cs`) for each node. `CssValues.cs` and `GridValues.cs` parse property values.
-`Animator.cs`, `AnimatedProperties.cs` and `Easing.cs` drive `transition` and `@keyframes` animation, interpolating
-the computed style over time. `EffectTypes.cs`/`EffectValues.cs` model shadows, gradients, filters and transforms.
-
-## Layout
-
-`Layout/LayoutEngine.cs` walks the styled tree and dispatches to `FlexLayout.cs`, `GridLayout.cs` or block/inline
-layout for each box, producing a position and size for every node. `PositionedLayout.cs` resolves absolute/fixed
-positioning and stacking. `TextControls.cs` lays out editable text controls, and `FontCache.cs` resolves
-`@font-face` and system font fallback. A layout change only re-lays-out its dirty chain up to the root; clean
-subtrees are translated rather than recomputed (see [Known limits](./known-limits) for the exceptions).
+`Foundation/Widget.cs` defines `Widget`, `StatelessWidget`, `StatefulWidget`/`State`, `InheritedWidget`,
+`ParentDataWidget` and the matching elements. `Element.UpdateChildren` reconciles child lists from both ends and then
+by key, so a `State` follows its widget when siblings reorder. `BuildOwner` keeps the dirty list and rebuilds
+shallowest elements first. `Geometry.cs` holds `Offset`, `Size`, `EdgeInsets`, `Alignment` and `BoxConstraints`;
+`Painting.cs` holds decorations, borders, shadows and gradients.
 
 ## Rendering
 
-`Rendering/DisplayList.cs` builds a paint-order, culled list of draw operations from the laid-out tree each frame.
-`Painter.cs` and `ControlPainter.cs` execute that list against a SkiaSharp canvas — the latter specifically for
-form controls, which paint themselves rather than going through normal box painting. `GradientShader.cs` and
-`Affine.cs` implement gradients and 2D transform matrices. `SkiaRenderer.cs` owns the `SKSurface`/canvas setup for
-both the live GPU path and the headless CPU-raster path, and `SelectPopup.cs` renders the `<select>` dropdown as an
-overlay.
+`Rendering/RenderObject.cs` is the base of the render tree. `MarkNeedsLayout` flags the chain up to the root, and a
+layout pass only re-lays-out flagged nodes: a child with unchanged constraints and no dirty flag returns immediately.
+`RenderBox` adds the constraint protocol and hit testing; `RenderShifted.cs` (padding, align, clip, opacity,
+transform, listener), `RenderFlex.cs` (Row/Column and Stack) and `RenderLayouts.cs` (Wrap, Grid, filters) implement
+the layout widgets.
+
+Text goes through `RenderParagraph`: runs are measured with HarfBuzz (`TextShaper`), broken into lines, split into
+directional runs by `Bidi`, and drawn per run in visual order. `RenderEditable` draws the same way for text fields and
+adds the caret, selection and inner scrolling on top of `TextEditState`.
+
+## Binding and frames
+
+`Widgets/Binding.cs` (`WidgetsBinding`) owns the build and pipeline owners and runs a frame:
+
+1. Run due timers and frame callbacks (tickers, fling).
+2. Rebuild dirty elements.
+3. Flush layout.
+4. Paint the whole tree into the canvas.
+5. Re-run hover testing, since layout may have moved things under a still pointer.
+
+The host only draws when `NeedsFrame` is true: something was marked dirty, a timer is due, or an animation requested
+another frame. The clock can be frozen and advanced by hand (`UseManualClock`, `AdvanceClock`), which is what makes
+animated screenshots deterministic.
+
+## Input
+
+`GestureBinding` hit tests the render tree, delivers pointer events to the objects under the pointer, tracks hover for
+`MouseRegion`, and routes events by pointer id. `GestureArena` decides which recognizer wins when several compete
+(a tap versus a drag inside a scroll view); the first claimant wins, otherwise the deepest on pointer-up.
+`FocusManager` holds the primary focus, dispatches key events up the focus chain and implements Tab traversal.
 
 ## Platform
 
-`Platform/App.cs` is the entry point (`App.Create().AddStylesheet(...).Run<TRoot>(...)`): it owns the Silk.NET
-window, OpenGL/Skia surface, and input event wiring, and also exposes `Screenshot<TRoot>` for headless rendering.
-`Platform/UiHost.cs` is the core per-document host — it mounts the Blazor component, owns the render loop
-(`NeedsFrame`/`Frame`), and routes pointer, keyboard and clipboard events into the Dom/Styling/Layout pipeline. It
-also implements the `VerifyLayout`/`VerifyStyles` self-checks and `FrameStats` profiling used by the `--verify` and
-`--bench` CLI flags (see [Getting started](./getting-started)). `KeyMap.cs` translates Silk.NET key codes to
-Blazor's key names and maps cursor styles to platform cursors.
+Rendering and platform code live in separate projects. `Sway.Widgets` is platform-neutral: widgets, layout, painting
+and text on SkiaSharp and HarfBuzz, with no window, input or OS dependency. It talks to the host through a small
+surface: `WidgetsBinding` takes pointer, key and text events and draws a frame onto any `SKCanvas`, the clipboard and
+cursor are delegates, and `ISystemThemeSource` (installed through `SystemTheme.Source`) supplies the OS light/dark
+preference and accent colour. `Headless.Screenshot` renders to a PNG with no host at all.
+
+`Sway.Platform.Desktop` is the host for Windows, Linux and macOS. `App.Run` owns the Silk.NET window, the
+OpenGL/Skia surface and the input wiring; `KeyMap` translates Silk.NET keys to DOM-style key names (`"Enter"`,
+`"ArrowLeft"`), which is what `KeyEvent.Key` carries; `DesktopSystemTheme` picks the registry, `defaults` or
+`gsettings` theme source for the current OS. `App.Screenshot` wraps `Headless.Screenshot` with the desktop theme.
+
+A new platform (Android, say) is a new `Sway.Platform.*` project that creates a GPU surface, forwards touch, key and
+text input to `WidgetsBinding`, calls `DrawFrame` each frame it needs one, and provides an `ISystemThemeSource`.
+Nothing in `Sway.Widgets` changes.
 
 ## Where to look in the code
 
 | Area | Files |
 | --- | --- |
-| CSS parsing and cascade | `Styling/CssParser.cs`, `Selectors.cs`, `StyleResolver.cs`, `CssValues.cs` |
-| Effects values (shadows, gradients, transforms, filters) | `Styling/EffectValues.cs`, `EffectTypes.cs`, `Rendering/GradientShader.cs`, `Rendering/Affine.cs` |
-| Transitions and animations | `Styling/Animator.cs`, `AnimatedProperties.cs`, `Easing.cs` |
-| Block, inline, flex, grid layout | `Layout/LayoutEngine.cs`, `FlexLayout.cs`, `GridLayout.cs`, `PositionedLayout.cs` |
-| Paint order, culling and hit testing | `Rendering/DisplayList.cs`, `Painter.cs` |
-| Incremental invalidation and layout cache | `Dom/Nodes.cs` (`Document`, dirty flags), `Styling/StyleResolver.cs`, `Layout/LayoutEngine.cs` |
-| Profiling and self-checks | `Platform/FrameStats.cs`, `UiHost.VerifyLayout`/`VerifyStyles`, `App.Benchmark` |
-| Form controls | `Dom/TextEditState.cs`, `Dom/Controls.cs`, `Layout/TextControls.cs`, `Rendering/ControlPainter.cs` |
-| Input routing | `Platform/UiHost.cs`, `Platform/KeyMap.cs`, `Platform/App.cs` |
+| Widget, Element, State | `Foundation/Widget.cs` |
+| Constraints, geometry, decorations | `Foundation/Geometry.cs`, `Painting.cs` |
+| Render objects and layout | `Rendering/RenderObject.cs`, `RenderBox.cs`, `RenderShifted.cs`, `RenderFlex.cs`, `RenderLayouts.cs` |
+| Text | `Rendering/TextShaper.cs`, `Bidi.cs`, `FontCache.cs`, `RenderParagraph.cs`, `RenderEditable.cs` |
+| Frames, clock and gestures | `Widgets/Binding.cs`, `Widgets/Gestures.cs` |
+| Focus and keyboard | `Widgets/Focus.cs`, `Sway.Platform.Desktop/KeyMap.cs` |
+| Scrolling | `Widgets/Scrolling.cs` |
+| Animation | `Foundation/Animation.cs`, `Curves.cs`, `Lerp.cs`, `Widgets/Animated.cs` |
+| Theme and Material 3 | `Foundation/ColorScheme.cs`, `Widgets/Theme.cs`, `Controls.cs`, `TextField.cs` |
