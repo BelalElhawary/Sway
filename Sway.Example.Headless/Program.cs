@@ -138,15 +138,22 @@ if (bench)
     }
 
     // Optimization 2.2 / 2.3: typing into a 5k-character textarea (every keystroke re-lays-out the field).
+    // One long paragraph is the worst case for 2.2; the same text split into 50 paragraphs is what 2.3 speeds up.
+    string sentence = string.Concat(Enumerable.Repeat("The quick brown fox jumps over the lazy dog. ", 111));
+    foreach (var (label, doc) in new[]
+    {
+        ("1 paragraph", sentence),
+        ("50 paragraphs", string.Join((char)10, Enumerable.Range(0, 50).Select(i => $"{i}: " + sentence.Substring(i * 99, 95)))),
+    })
     {
         var area = new WidgetsBinding();
         area.UseManualClock();
-        var controller = new TextEditingController(string.Concat(Enumerable.Repeat("The quick brown fox jumps over the lazy dog. ", 111)));
+        var controller = new TextEditingController(doc);
         area.AttachRoot(new Align(Alignment.TopLeft, new Directionality(TextDirection.Ltr,
             new SizedBox(width: 400, child: new EditableText(controller, maxLines: null, autofocus: true)))));
         sw.Restart();
         using (var first = area.RenderToBitmap(width, height)) { }
-        Console.WriteLine($"textarea first layout, {controller.Text.Length} chars: {sw.Elapsed.TotalMilliseconds:F1} ms");
+        double firstMs = sw.Elapsed.TotalMilliseconds;
         area.Gestures.PointerDown(20, 10); area.Gestures.PointerUp(20, 10);
         using (var focused = area.RenderToBitmap(width, height)) { }
         times.Clear();
@@ -157,7 +164,7 @@ if (bench)
             using var bmp = area.RenderToBitmap(width, height);
             times.Add(sw.Elapsed.TotalMilliseconds);
         }
-        Console.WriteLine($"textarea keystroke frame: avg {times.Average():F1} ms, max {times.Max():F1} ms (text now {controller.Text.Length} chars)");
+        Console.WriteLine($"textarea {label}, {doc.Length} chars: first layout {firstMs:F1} ms, keystroke frame avg {times.Average():F1} ms, max {times.Max():F1} ms (now {controller.Text.Length} chars)");
     }
     return;
 }

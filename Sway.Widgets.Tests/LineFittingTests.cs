@@ -65,4 +65,59 @@ public class LineFittingTests
             Assert.True(w <= render.Size.Width + 0.5f || state.NextBoundary(line.Start) >= line.End, $"line {line.Start}-{line.End} is {w}px");
         }
     }
+
+    // ---- optimization 2.3: per-paragraph line cache ----
+
+    static string Doc(int paragraphs) =>
+        string.Join((char)10, Enumerable.Range(0, paragraphs).Select(i => $"Paragraph {i}: " + Rep("The quick brown fox jumps over the lazy dog. ", 3)));
+
+    [Fact]
+    public void EditingOneParagraphLaysOutOnlyThatParagraph()
+    {
+        var (h, render, state) = Area(Doc(20));
+        h.Tap(20, 10); // focus; the caret lands in the first paragraph
+        int before = render.ParagraphsLaidOut;
+
+        h.Binding.TextInput("x");
+        h.Pump();
+
+        Assert.Equal(1, render.ParagraphsLaidOut - before);
+        Assert.Equal(Doc(20).Length + 1, state.Value.Length);
+    }
+
+    [Fact]
+    public void MovingTheCaretLaysOutNoParagraphs()
+    {
+        var (h, render, _) = Area(Doc(20));
+        h.Tap(20, 10);
+        int before = render.ParagraphsLaidOut;
+
+        h.Tap(120, 10);
+        h.Tap(60, 10);
+
+        Assert.Equal(0, render.ParagraphsLaidOut - before);
+    }
+
+    [Fact]
+    public void CachedLayoutEqualsAFreshLayoutAfterEdits()
+    {
+        var (h, _, state) = Area(Doc(12));
+        h.Tap(20, 10);
+        for (int i = 0; i < 40; i++) { h.Binding.TextInput(i % 7 == 0 ? " " : "wide"); h.Pump(); }
+        h.Binding.KeyDown("Enter", "Enter"); h.Binding.KeyUp("Enter", "Enter");
+        h.Binding.TextInput("new paragraph");
+        h.Pump();
+
+        var (_, _, fresh) = Area(state.Value);
+        Assert.Equal(Breaks(fresh), Breaks(state));
+    }
+
+    [Fact]
+    public void IdenticalParagraphsAreLaidOutOnce()
+    {
+        var paragraph = Rep("The quick brown fox jumps over the lazy dog. ", 3);
+        var (_, render, state) = Area(string.Join((char)10, Enumerable.Repeat(paragraph, 10)));
+        Assert.True(state.Lines.Count > 10);
+        Assert.Equal(1, render.ParagraphsLaidOut);
+    }
 }

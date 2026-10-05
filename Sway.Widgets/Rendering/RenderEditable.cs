@@ -70,17 +70,34 @@ public sealed class RenderEditable : RenderBox
         EnsureCaretVisible();
     }
 
+    // Wrapped lines per paragraph (relative to the paragraph start), valid while the context below is unchanged.
+    // Only paragraphs present in the latest layout are kept, so the cache never outgrows the document.
+    Dictionary<string, List<Line>> _paragraphs = new();
+    (float width, TextStyle style, TextDirection direction, bool obscure, bool multiline) _paragraphContext;
+    internal int ParagraphsLaidOut;
+
     void BuildLines(float width, SKFont font)
     {
         string text = Display;
+        var context = (width, _style, _direction, _obscure, Multiline);
+        if (!context.Equals(_paragraphContext)) { _paragraphs.Clear(); _paragraphContext = context; }
+        var used = new Dictionary<string, List<Line>>();
         _lines = new List<Line>();
         _state.Lines.Clear();
 
-        void Add(int start, int end, bool hard)
+        void AddParagraph(int pos, int end)
         {
-            var x = LineOffsets(text.Substring(start, end - start), font, out float width, out var runs);
-            _lines.Add(new Line(start, end, hard, width, x, runs));
-            _state.Lines.Add(new TextLine(start, end, hard));
+            string paragraph = text.Substring(pos, end - pos);
+            if (!used.TryGetValue(paragraph, out var lines))
+            {
+                if (!_paragraphs.TryGetValue(paragraph, out lines)) lines = LayoutParagraph(text, pos, end, width, font);
+                used[paragraph] = lines;
+            }
+            foreach (var l in lines)
+            {
+                _lines.Add(l with { Start = l.Start + pos, End = l.End + pos });
+                _state.Lines.Add(new TextLine(l.Start + pos, l.End + pos, l.HardBreak));
+            }
         }
 
         int pos = 0;
@@ -88,24 +105,39 @@ public sealed class RenderEditable : RenderBox
         {
             int nl = Multiline ? text.IndexOf('\n', pos) : -1;
             int hardEnd = nl < 0 ? text.Length : nl;
-            if (!Multiline) { Add(0, text.Length, true); break; }
-
-            // Soft-wrap this paragraph at word boundaries; very long words break by character.
-            int start = pos;
-            while (start < hardEnd)
-            {
-                int end = FitLine(text, start, hardEnd, width, font);
-                bool lastOfPara = end >= hardEnd;
-                Add(start, end, lastOfPara);
-                start = end;
-                if (lastOfPara) break;
-            }
-            if (hardEnd == pos) Add(pos, pos, true); // empty paragraph
+            AddParagraph(pos, hardEnd);
             if (nl < 0) break;
             pos = nl + 1;
-            if (pos == text.Length && nl >= 0) { Add(pos, pos, true); break; }
+            if (pos == text.Length) { AddParagraph(pos, pos); break; }
         }
-        if (_lines.Count == 0) Add(0, 0, true);
+        _paragraphs = used;
+    }
+
+    /// <summary>Soft-wraps one paragraph at word boundaries (very long words break by character); lines are relative to <paramref name="pos"/>.</summary>
+    List<Line> LayoutParagraph(string text, int pos, int hardEnd, float width, SKFont font)
+    {
+        ParagraphsLaidOut++;
+        var result = new List<Line>();
+
+        void Add(int start, int end, bool hard)
+        {
+            var x = LineOffsets(text.Substring(start, end - start), font, out float lineWidth, out var runs);
+            result.Add(new Line(start - pos, end - pos, hard, lineWidth, x, runs));
+        }
+
+        if (!Multiline) { Add(pos, hardEnd, true); return result; }
+
+        int start = pos;
+        while (start < hardEnd)
+        {
+            int end = FitLine(text, start, hardEnd, width, font);
+            bool lastOfPara = end >= hardEnd;
+            Add(start, end, lastOfPara);
+            start = end;
+            if (lastOfPara) break;
+        }
+        if (hardEnd == pos) Add(pos, pos, true); // empty paragraph
+        return result;
     }
 
     int FitLine(string text, int start, int hardEnd, float width, SKFont font)
