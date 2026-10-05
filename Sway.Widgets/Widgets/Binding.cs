@@ -11,8 +11,11 @@ public sealed class WidgetsBinding
     public static WidgetsBinding Instance { get; private set; } = null!;
 
     readonly System.Diagnostics.Stopwatch _stopwatch = System.Diagnostics.Stopwatch.StartNew();
-    readonly List<Action<TimeSpan>> _frameCallbacks = new();
+    List<Action<TimeSpan>> _frameCallbacks = new();
+    List<Action<TimeSpan>> _spareCallbacks = new();
     readonly List<(TimeSpan due, Action action)> _timers = new();
+    readonly List<(TimeSpan due, Action action)> _dueTimers = new();
+    TimeSpan _earliestDue = TimeSpan.MaxValue; // earliest due time among _timers, so idle polling is O(1)
     readonly System.Collections.Concurrent.ConcurrentQueue<Action> _posted = new();
     TimeSpan? _manualClock;
     bool _frameRequested = true;
@@ -95,7 +98,9 @@ public sealed class WidgetsBinding
 
     public void ScheduleTimer(TimeSpan delay, Action action)
     {
-        _timers.Add((Now + delay, action));
+        var due = Now + delay;
+        _timers.Add((due, action));
+        if (due < _earliestDue) _earliestDue = due;
         RequestFrame();
     }
 
@@ -109,22 +114,64 @@ public sealed class WidgetsBinding
         RequestFrame();
     }
 
-    public bool CancelTimer(Action action) => _timers.RemoveAll(t => t.action == action) > 0;
+    public bool CancelTimer(Action action)
+    {
+        bool removed = _timers.RemoveAll(t => t.action == action) > 0;
+        if (removed) RecomputeEarliestDue();
+        return removed;
+    }
+
+    void RecomputeEarliestDue()
+    {
+        var earliest = TimeSpan.MaxValue;
+        foreach (var t in _timers)
+            if (t.due < earliest) earliest = t.due;
+        _earliestDue = earliest;
+    }
 
     void RunScheduled()
     {
         while (_posted.TryDequeue(out var posted)) posted();
 
         var now = Now;
-        var due = _timers.Where(t => t.due <= now).OrderBy(t => t.due).ToList();
-        _timers.RemoveAll(t => t.due <= now);
-        foreach (var t in due) t.action();
+        if (_earliestDue <= now)
+        {
+            // Due timers run oldest first (ties in the order they were scheduled).
+            _dueTimers.Clear();
+            for (int i = 0; i < _timers.Count; i++)
+                if (_timers[i].due <= now) _dueTimers.Add(_timers[i]);
+            _timers.RemoveAll(t => t.due <= now);
+            RecomputeEarliestDue();
+            InsertionSortByDue(_dueTimers);
+            // An action may schedule more timers; _dueTimers is only touched here, so iterate a copy-free snapshot by index.
+            int count = _dueTimers.Count;
+            for (int i = 0; i < count; i++) _dueTimers[i].action();
+        }
 
         if (_frameCallbacks.Count > 0)
         {
-            var callbacks = _frameCallbacks.ToArray();
-            _frameCallbacks.Clear();
-            foreach (var cb in callbacks) cb(now);
+            // Callbacks scheduled while these run belong to the next frame: swap in an empty list instead of copying.
+            var callbacks = _frameCallbacks;
+            _frameCallbacks = _spareCallbacks;
+            try { for (int i = 0; i < callbacks.Count; i++) callbacks[i](now); }
+            finally
+            {
+                // Even if a callback throws, the rest of this frame's callbacks are dropped and the two lists stay distinct.
+                callbacks.Clear();
+                _spareCallbacks = callbacks;
+            }
+        }
+    }
+
+    static void InsertionSortByDue(List<(TimeSpan due, Action action)> timers)
+    {
+        // Stable, and the list is almost always tiny and already ordered.
+        for (int i = 1; i < timers.Count; i++)
+        {
+            var item = timers[i];
+            int j = i - 1;
+            while (j >= 0 && timers[j].due > item.due) { timers[j + 1] = timers[j]; j--; }
+            timers[j + 1] = item;
         }
     }
 
@@ -168,8 +215,7 @@ public sealed class WidgetsBinding
     {
         if (_frameRequested || _frameCallbacks.Count > 0 || !_posted.IsEmpty) return true;
         if (RenderView is not null && RenderView.WindowSize != new Size(width, height)) return true;
-        var now = Now;
-        return _timers.Any(t => t.due <= now);
+        return _earliestDue <= Now;
     }
 
     /// <summary>Debug mode: draws the frame rate over the app. Toggle at runtime with F3 in a windowed host.</summary>

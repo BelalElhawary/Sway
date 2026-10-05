@@ -210,7 +210,58 @@ if (bench)
         }
         Console.WriteLine($"shaped-text churn frame (1500 stable + 100 new): avg {times.Average():F2} ms, max {times.Max():F2} ms, frames over 3x median: {times.Count(t => t > 3 * times.OrderBy(x => x).ElementAt(times.Count / 2))}");
     }
+
+    // Optimizations 3.3 / 3.4: scheduler cost on a tiny page: 20 self-rescheduling frame callbacks (animations), 100 pending
+    // timers (tooltips, debounces) and one widget rebuilt every frame. The bitmap is 8x8 so painting does not hide the scheduler.
+    {
+        var sched = new WidgetsBinding();
+        sched.UseManualClock();
+        Action? rebuild = null;
+        sched.AttachRoot(new Rebuilder(r => rebuild = r));
+        using (var first = sched.RenderToBitmap(8, 8)) { }
+        for (int i = 0; i < 20; i++)
+        {
+            Action<TimeSpan>? tick = null;
+            tick = _ => sched.ScheduleFrameCallback(tick!);
+            sched.ScheduleFrameCallback(tick);
+        }
+        for (int i = 0; i < 100; i++) sched.ScheduleTimer(TimeSpan.FromHours(1 + i), () => { });
+        for (int i = 0; i < 200; i++) { rebuild!(); using var warm = sched.RenderToBitmap(8, 8); }
+        times.Clear();
+        for (int i = 0; i < 2000; i++)
+        {
+            rebuild!();
+            sw.Restart();
+            using var bmp = sched.RenderToBitmap(8, 8);
+            times.Add(sw.Elapsed.TotalMilliseconds);
+        }
+        Console.WriteLine($"scheduler frame (20 callbacks, 100 timers, 1 rebuild): avg {times.Average() * 1000:F1} us, max {times.Max() * 1000:F0} us");
+
+        var idle = new WidgetsBinding();
+        idle.UseManualClock();
+        idle.AttachRoot(new SizedBox(width: 4, height: 4));
+        using (var settled = idle.RenderToBitmap(8, 8)) { }
+        for (int i = 0; i < 100; i++) idle.ScheduleTimer(TimeSpan.FromHours(1 + i), () => { });
+        using (var settled = idle.RenderToBitmap(8, 8)) { }
+        sw.Restart();
+        int polled = 0;
+        for (int i = 0; i < 1_000_000; i++) if (idle.NeedsFrame(8, 8)) polled++;
+        Console.WriteLine($"idle NeedsFrame poll (100 timers): {sw.Elapsed.TotalMilliseconds * 1000 / 1_000_000:F3} us per call ({polled} true)");
+    }
     return;
 }
 
 Headless.Screenshot(new DemoRoot(page, dark, rtl), args[shot + 1], width, height, steps);
+
+sealed class Rebuilder(Action<Action> expose) : StatefulWidget
+{
+    public override State CreateState() => new RebuilderState();
+    internal Action<Action> Expose => expose;
+}
+
+sealed class RebuilderState : State<Rebuilder>
+{
+    int _n;
+    public override void InitState() => Widget.Expose(() => SetState(() => _n++));
+    public override Widget Build(BuildContext context) => new SizedBox(width: 4 + _n % 2, height: 4);
+}
