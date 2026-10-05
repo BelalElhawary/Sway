@@ -5,7 +5,7 @@ using Sway.Widgets;
 namespace Sway.Example;
 
 /// <summary>The demo app: a Material 3 shell with a navigation rail, theme-mode, seed-colour and text-direction switches.</summary>
-public class DemoRoot(string page = "components", bool dark = false, bool rtl = false) : StatefulWidget
+public class DemoRoot(string page = "material", bool dark = false, bool rtl = false) : StatefulWidget
 {
     public string Page => page;
     public bool Dark => dark;
@@ -17,7 +17,7 @@ class DemoRootState : State<DemoRoot>
 {
     static readonly (string id, string label, IconData icon)[] Pages =
     [
-        ("components", "Home", Icons.Home), ("layout", "Layout", Icons.Menu), ("forms", "Forms", Icons.Edit),
+        ("material", "Material", Icons.Home), ("layout", "Layout", Icons.Menu), ("forms", "Forms", Icons.Edit),
         ("motion", "Motion", Icons.Star), ("effects", "Effects", Icons.Favorite), ("rtl", "RTL", Icons.ArrowForward), ("stress", "Stress", Icons.MoreVert),
         ("media", "Media", Icons.PlayArrow), ("icons", "Icons", Icons.GridView), ("carbon", "Carbon", Icons.Menu),
     ];
@@ -52,7 +52,7 @@ class DemoRootState : State<DemoRoot>
         "media" => new MediaPage(),
         "icons" => new IconsPage(),
         "carbon" => new CarbonPage(),
-        _ => new ComponentsPage(),
+        _ => new MaterialPage(),
     };
 
     public override Widget Build(BuildContext context)

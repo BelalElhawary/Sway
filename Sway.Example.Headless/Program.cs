@@ -6,7 +6,7 @@ using Sway.Example;
 
 // Renders the example without a window. `--screenshot out.png` writes a PNG. Scripted steps run in order before each capture:
 //   --move x,y  --click x,y  --wheel x,y,delta  --type text  --key [ctrl+][shift+]Name  --advance ms
-// Options: --page components|layout|forms|motion|effects|rtl|stress|media|icons|carbon  --dark  --rtl  --size WxH  --bench
+// Options: --page material|layout|forms|motion|effects|rtl|stress|media|icons|carbon  --dark  --rtl  --size WxH  --bench
 LibVlcMediaBackend.Install();
 int shot = Array.IndexOf(args, "--screenshot");
 bool bench = args.Contains("--bench");
@@ -17,7 +17,7 @@ if ((shot < 0 || shot + 1 >= args.Length) && !bench)
 }
 
 var steps = new List<Action<WidgetsBinding>>();
-string page = "components";
+string page = "material";
 bool dark = false, rtl = false;
 int width = 1100, height = 760;
 for (int i = 0; i < args.Length; i++)
