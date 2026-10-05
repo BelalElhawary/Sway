@@ -40,7 +40,8 @@ class CounterState : State<CounterPage>
   (selection, clipboard, undo).
 - **Input**: gestures, hover, focus traversal and keyboard handling.
 - **Painting effects**: shadows, gradients, transforms, clipping and backdrop filters.
-- **Media**: optional video and audio playback through LibVLC (`Sway.Media`).
+- **Media**: `VideoPlayer` and `AudioPlayer` widgets with controls, on LibVLC (Windows, Linux, macOS, Android) or an HTML media element (browser).
+- **File pickers**: native open-file and open-folder dialogs on every host (`FilePicker`).
 - **Headless rendering**: render any widget tree to a PNG on the CPU, with scripted input. This is used by the tests
   and the demo's screenshot mode.
 
@@ -53,12 +54,14 @@ class CounterState : State<CounterPage>
 | `Sway.Platform.Web` | Browser host: Blazor WebAssembly component (`SwayView`) on `SkiaSharp.Views.Blazor` (WebGL), pointer, keyboard, clipboard and theme. |
 | `Sway.Platform.Headless` | Windowless host: renders to a PNG with a software surface (`Headless.Screenshot`). |
 | `Sway.Platform.Desktop` | Windows/Linux/macOS host: window, input, OS theme (Silk.NET). Provides `App.Run`. |
-| `Sway.Media` | Optional `MediaPlayerController` and `VideoPlayer` widget (LibVLCSharp). |
+| `Sway.Media` | Platform-neutral media: `MediaPlayerController`, `VideoPlayer`, `AudioPlayer`, and the `IMediaBackend` interface. |
+| `Sway.Media.LibVlc` | The LibVLC backend for Windows, Linux, macOS and Android (`LibVlcMediaBackend.Install()`). |
+| `Sway.Media.Web` | The browser backend (`await BrowserMediaBackend.InstallAsync()`). |
 | `Sway.Example` | The shared example UI (Material 3, pages for components, layout, forms, motion, effects, RTL, stress and media). No platform code. |
 | `Sway.Example.Desktop` | Runs the example in a desktop window. |
 | `Sway.Example.Headless` | Runs the example without a window: the `--screenshot` and `--bench` tooling. |
 | `Sway.Example.Android` | Runs the example on Android. |
-| `Sway.Example.Web` | Runs the example in the browser (Blazor WebAssembly; the media page is omitted). |
+| `Sway.Example.Web` | Runs the example in the browser (Blazor WebAssembly). |
 | `Sway.Widgets.Tests` | xUnit tests that run the widget tree headlessly. |
 | `website/` | Documentation site (Docusaurus). |
 
@@ -86,7 +89,7 @@ dotnet run --project Sway.Example.Web
 ```
 
 Host it in your own Blazor WebAssembly app with `<SwayView Root="new MyApp()" />`. Not yet supported on the web:
-the soft keyboard on touch devices, and `Sway.Media`.
+the soft keyboard on touch devices.
 
 ### Headless screenshots
 

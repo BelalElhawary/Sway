@@ -12,6 +12,7 @@ public static class App
     public static void Run(Widget root, string title = "Sway", int width = 1024, int height = 768, bool showFps = false)
     {
         SystemTheme.Source = DesktopSystemTheme.ForCurrentOS();
+        FilePicker.Source = DesktopFilePicker.ForCurrentOS();
         var binding = new WidgetsBinding();
         // Debug mode: pass showFps, set SWAY_DEBUG_FPS=1, or press F3 while running.
         binding.ShowFps = showFps || Environment.GetEnvironmentVariable("SWAY_DEBUG_FPS") == "1";
@@ -48,6 +49,7 @@ public static class App
 
         window.Load += () =>
         {
+            if (OperatingSystem.IsWindows() && window.Native?.Win32 is { } win32) WindowsDialog.Owner = win32.Hwnd;
             var glInterface = GRGlInterface.Create(name =>
                 window.GLContext!.TryGetProcAddress(name, out var address) ? address : IntPtr.Zero);
             grContext = GRContext.CreateGl(glInterface);

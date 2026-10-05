@@ -12,6 +12,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.0" PrivateAssets="all" />
     <ProjectReference Include="..\Sway.Example\Sway.Example.csproj" />
     <ProjectReference Include="..\Sway.Platform.Web\Sway.Platform.Web.csproj" />
+    <ProjectReference Include="..\Sway.Media.Web\Sway.Media.Web.csproj" />
   </ItemGroup>
 
 </Project>

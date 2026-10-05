@@ -5,13 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Sway.Media</RootNamespace>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="LibVLCSharp" Version="3.9.2" />
-    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.21" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
-  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Sway.Widgets\Sway.Widgets.csproj" />

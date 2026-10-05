@@ -5,15 +5,18 @@ using VlcMedia = LibVLCSharp.Shared.Media;
 
 namespace Sway.Media;
 
-public enum MediaStatus { Idle, Opening, Buffering, Playing, Paused, Ended, Error }
-
 /// <summary>
-/// Plays audio or video through LibVLC. Audio goes straight to the sound device; video frames are decoded into a
-/// buffer that <see cref="VideoPlayer"/> paints. Call the control methods and read the properties from the UI thread;
+/// Plays audio or video through LibVLC on Windows, Linux, macOS and Android. Audio goes straight to the sound device;
+/// video frames are decoded into a buffer that <c>VideoSurface</c> paints. Windows and Android bundle the
+/// native library (NuGet); macOS bundles it when built on a Mac, and Linux needs the system VLC packages
+/// (<c>libvlc</c>, e.g. <c>apt install vlc</c>). Install it once at startup with <see cref="Install"/>.
 /// LibVLC's own threads only touch the frame buffer, which is guarded by a lock.
 /// </summary>
-public sealed class MediaPlayerController : IDisposable
+public sealed class LibVlcMediaBackend : IMediaBackend
 {
+    /// <summary>Makes LibVLC the engine behind every <see cref="MediaPlayerController"/>.</summary>
+    public static void Install() => MediaBackend.Install(() => new LibVlcMediaBackend(), Preload);
+
     static readonly object InitLock = new();
     static LibVLC? _libVlc;
 
@@ -38,7 +41,7 @@ public sealed class MediaPlayerController : IDisposable
     bool _muted;
     VlcMedia? _media;
     bool _disposed;
-    volatile bool _error, _ended;
+    volatile bool _error, _ended, _looping;
     volatile float _buffering = 100;
 
     // Frames go through three buffers so the decoder never waits for the UI's copy (a stalled decoder makes video
@@ -58,7 +61,7 @@ public sealed class MediaPlayerController : IDisposable
     readonly MediaPlayer.LibVLCVideoUnlockCb _unlockCb;
     readonly MediaPlayer.LibVLCVideoDisplayCb _displayCb;
 
-    public MediaPlayerController()
+    public LibVlcMediaBackend()
     {
         _formatCb = OnFormat;
         _cleanupCb = (ref IntPtr _) => { };
@@ -67,11 +70,8 @@ public sealed class MediaPlayerController : IDisposable
         _displayCb = OnDisplay;
     }
 
-    /// <summary>
-    /// Loads LibVLC on a background thread so the first <see cref="Open"/> does not stall the UI. Loading the native
-    /// library and scanning its plugins takes long enough to freeze a page, so call this at startup.
-    /// </summary>
-    public static void Preload() => Task.Run(() => LibVlc);
+    // Loading the native library and scanning its plugins takes long enough to freeze a page, so Preload does it early.
+    static void Preload() => Task.Run(() => LibVlc);
 
     // Created on first use: building a MediaPlayer forces LibVLC to load, which is too slow for a page build.
     MediaPlayer Player
@@ -80,7 +80,7 @@ public sealed class MediaPlayerController : IDisposable
         {
             if (_player is not null) return _player;
             var player = new MediaPlayer(LibVlc);
-            player.EndReached += (_, _) => _ended = true;
+            player.EndReached += (_, _) => OnEndReached();
             player.EncounteredError += (_, _) => _error = true;
             player.Buffering += (_, e) => _buffering = e.Cache;
             player.SetVideoFormatCallbacks(_formatCb, _cleanupCb);
@@ -90,9 +90,6 @@ public sealed class MediaPlayerController : IDisposable
             return _player = player;
         }
     }
-
-    /// <summary>Raised on the calling thread after a control method changes the player (open, play, pause, seek, ...).</summary>
-    public event Action? Changed;
 
     // Native calls (and loading LibVLC itself, which takes seconds on a cold start) run here, in order, so the UI
     // thread never waits on them. Reads stay on the UI thread; they are cheap.
@@ -111,7 +108,15 @@ public sealed class MediaPlayerController : IDisposable
             }, TaskScheduler.Default);
     }
 
-    /// <summary>Opens a file path or a URL (http, rtsp, ...). Playback starts only after <see cref="Play"/>.</summary>
+    // LibVLC calls this on its own thread and must not be re-entered from it, so the restart goes through the queue.
+    void OnEndReached()
+    {
+        if (!_looping) { _ended = true; return; }
+        Post(() => { _player?.Stop(); _player?.Play(); });
+    }
+
+    public bool Looping { get => _looping; set => _looping = value; }
+
     public void Open(string source)
     {
         _error = _ended = false;
@@ -121,15 +126,32 @@ public sealed class MediaPlayerController : IDisposable
         {
             var player = Player;
             var old = _media;
+#if ANDROID
+            var oldDescriptor = _descriptor;
+            _descriptor = null;
+            if (source.StartsWith("content://", StringComparison.Ordinal))
+            {
+                // A picked document has no path: LibVLC reads it through a file descriptor the content provider hands out.
+                _descriptor = global::Android.App.Application.Context.ContentResolver!.OpenFileDescriptor(global::Android.Net.Uri.Parse(source)!, "r")!;
+                _media = new VlcMedia(LibVlc, _descriptor.Fd);
+            }
+            else
+#endif
             _media = source.Contains("://", StringComparison.Ordinal)
                 ? new VlcMedia(LibVlc, new Uri(source))
                 : new VlcMedia(LibVlc, source, FromType.FromPath);
             player.Media = _media;
             old?.Dispose();
+#if ANDROID
+            oldDescriptor?.Dispose();
+#endif
             _opening = false;
         });
-        Changed?.Invoke();
     }
+
+#if ANDROID
+    global::Android.OS.ParcelFileDescriptor? _descriptor;
+#endif
 
     public void Play()
     {
@@ -139,20 +161,12 @@ public sealed class MediaPlayerController : IDisposable
             if (_ended) { _ended = false; _player.Stop(); }
             _player.Play();
         });
-        Changed?.Invoke();
     }
 
-    public void Pause() { Post(() => _player?.SetPause(true)); Changed?.Invoke(); }
-    public void Resume() { Post(() => _player?.SetPause(false)); Changed?.Invoke(); }
+    public void Pause() => Post(() => _player?.SetPause(true));
+    public void Resume() => Post(() => _player?.SetPause(false));
 
-    public void TogglePlay()
-    {
-        if (Status is MediaStatus.Playing or MediaStatus.Buffering) Pause();
-        else if (Status == MediaStatus.Paused) Resume();
-        else Play();
-    }
-
-    public void Stop() { _ended = false; Post(() => _player?.Stop()); Changed?.Invoke(); }
+    public void Stop() { _ended = false; Post(() => _player?.Stop()); }
 
     public TimeSpan Duration => _player is { Length: > 0 } p ? TimeSpan.FromMilliseconds(p.Length) : TimeSpan.Zero;
 
@@ -165,11 +179,9 @@ public sealed class MediaPlayerController : IDisposable
             {
                 if (_player is { } p) p.Time = (long)Math.Clamp(value.TotalMilliseconds, 0, Math.Max(0, p.Length));
             });
-            Changed?.Invoke();
         }
     }
 
-    /// <summary>0 to 100; values above 100 amplify.</summary>
     public int Volume
     {
         get => _volume;
@@ -210,22 +222,13 @@ public sealed class MediaPlayerController : IDisposable
         }
     }
 
-    /// <summary>Cache fill, 0 to 100, while the status is <see cref="MediaStatus.Buffering"/>.</summary>
     public float BufferingProgress => _buffering;
 
-    /// <summary>True while the player is working and the UI should keep asking for frames.</summary>
-    public bool IsActive => Status is MediaStatus.Opening or MediaStatus.Buffering or MediaStatus.Playing;
-
-    /// <summary>The decoded video size, or zero for audio-only media or before the first frame.</summary>
     public (int Width, int Height) VideoSize
     {
         get { lock (_frameLock) return (_bufferWidth, _bufferHeight); }
     }
 
-    /// <summary>
-    /// The most recent video frame, or null if there is none. The bitmap is owned by the controller and replaced
-    /// when a newer frame arrives, so paint it right away and do not keep it.
-    /// </summary>
     public SKBitmap? CurrentFrame
     {
         get
@@ -328,6 +331,9 @@ public sealed class MediaPlayerController : IDisposable
                 _player?.Stop();
                 _player?.Dispose();
                 _media?.Dispose();
+#if ANDROID
+                _descriptor?.Dispose();
+#endif
                 lock (_frameLock)
                 {
                     _frame?.Dispose();

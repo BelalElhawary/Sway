@@ -15,6 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Sway.Example\Sway.Example.csproj" />
     <ProjectReference Include="..\Sway.Platform.Android\Sway.Platform.Android.csproj" />
+    <ProjectReference Include="..\Sway.Media.LibVlc\Sway.Media.LibVlc.csproj" />
   </ItemGroup>
 
 </Project>

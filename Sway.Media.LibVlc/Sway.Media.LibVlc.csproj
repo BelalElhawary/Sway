@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- LibVLC backend for Sway.Media: Windows, Linux, macOS (net10.0) and Android (net10.0-android). -->
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net10.0-android</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Sway.Media</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <SupportedOSPlatformVersion Condition="$(TargetFramework.EndsWith('-android'))">26</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="LibVLCSharp" Version="3.9.2" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.21" Condition="!$(TargetFramework.EndsWith('-android')) And $([MSBuild]::IsOSPlatform('Windows'))" />
+    <PackageReference Include="VideoLAN.LibVLC.Mac" Version="3.1.3.1" Condition="!$(TargetFramework.EndsWith('-android')) And $([MSBuild]::IsOSPlatform('OSX'))" />
+    <PackageReference Include="VideoLAN.LibVLC.Android" Version="3.6.5" Condition="$(TargetFramework.EndsWith('-android'))" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Sway.Media\Sway.Media.csproj" />
+  </ItemGroup>
+
+</Project>

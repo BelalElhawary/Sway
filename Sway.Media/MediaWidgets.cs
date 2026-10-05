@@ -40,6 +40,7 @@ public sealed class MediaBuilder(MediaPlayerController controller, Func<BuildCon
 
         void OnChanged()
         {
+            if (!Mounted) return;
             SetState();
             Pump();
         }
@@ -62,8 +63,8 @@ public sealed class MediaBuilder(MediaPlayerController controller, Func<BuildCon
     }
 }
 
-/// <summary>Draws the current video frame of a controller, scaled to fit. Audio-only media draws just the background.</summary>
-public sealed class VideoPlayer(MediaPlayerController controller, VideoFit fit = VideoFit.Contain, SKColor? background = null, Key? key = null)
+/// <summary>The bare picture: draws the current video frame of a controller, scaled to fit, with no controls. Audio-only media draws just the background.</summary>
+public sealed class VideoSurface(MediaPlayerController controller, VideoFit fit = VideoFit.Contain, SKColor? background = null, Key? key = null)
     : StatelessWidget(key)
 {
     public override Widget Build(BuildContext context) =>

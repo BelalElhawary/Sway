@@ -93,3 +93,38 @@ left-to-right and right-to-left runs.
 
 `Overlay` (installed by the app root) layers widgets above the page. `Dialogs.Show` and `Dialogs.ShowSnackBar` use it,
 and so does the dropdown menu. Insert your own with `Overlay.Of(context).Insert(new OverlayEntry(...))`.
+
+## Media and file pickers
+
+`Sway.Media` is platform-neutral. Each host installs the engine it can run, once at startup, and the widgets work the same
+everywhere:
+
+| Platform | Install | Engine |
+| --- | --- | --- |
+| Windows, Linux, macOS, Android | `LibVlcMediaBackend.Install();` (`Sway.Media.LibVlc`) | LibVLC |
+| Browser | `await BrowserMediaBackend.InstallAsync();` (`Sway.Media.Web`) | HTML media element |
+
+```csharp
+new VideoPlayer(source: "movie.mp4", autoPlay: true)          // picture + controls, owns its player
+new AudioPlayer(source: "song.mp3", title: "Song", subtitle: "Artist")
+
+var player = new MediaPlayerController();                      // or drive one yourself
+new VideoPlayer(controller: player);
+```
+
+`VideoSurface` is the bare picture, and `MediaBuilder` rebuilds a widget as the player advances. To support another
+platform, implement `IMediaBackend` and pass it to `MediaBackend.Install`.
+
+`FilePicker` opens the platform's own dialogs. Each host installs its implementation of `IFilePickerSource` itself, so the call
+is the same everywhere:
+
+```csharp
+FilePicker.PickFiles(files => { if (files.Count > 0) player.Open(files[0].Source); },
+    new FilePickerOptions { Filters = [FileTypeFilter.Media] });
+
+FilePicker.PickFolder(async folder => { var files = await folder!.GetFilesAsync(FileTypeFilter.Audio); /* ... */ });
+```
+
+The callbacks run on the UI thread. A picked file's `Source` is what you hand to a player: a path on desktop, a `content://` URI on
+Android and a `blob:` URL in the browser. Use `PickedFile.OpenReadAsync()` to read the bytes on any platform. `WidgetsBinding.Post`
+runs an action on the UI thread from any other thread.

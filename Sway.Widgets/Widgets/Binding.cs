@@ -13,6 +13,7 @@ public sealed class WidgetsBinding
     readonly System.Diagnostics.Stopwatch _stopwatch = System.Diagnostics.Stopwatch.StartNew();
     readonly List<Action<TimeSpan>> _frameCallbacks = new();
     readonly List<(TimeSpan due, Action action)> _timers = new();
+    readonly System.Collections.Concurrent.ConcurrentQueue<Action> _posted = new();
     TimeSpan? _manualClock;
     bool _frameRequested = true;
 
@@ -98,10 +99,22 @@ public sealed class WidgetsBinding
         RequestFrame();
     }
 
+    /// <summary>
+    /// Queues <paramref name="action"/> to run on the UI thread at the start of the next frame. This is the one
+    /// member that is safe to call from any thread: use it to deliver results from dialogs, network and media threads.
+    /// </summary>
+    public void Post(Action action)
+    {
+        _posted.Enqueue(action);
+        RequestFrame();
+    }
+
     public bool CancelTimer(Action action) => _timers.RemoveAll(t => t.action == action) > 0;
 
     void RunScheduled()
     {
+        while (_posted.TryDequeue(out var posted)) posted();
+
         var now = Now;
         var due = _timers.Where(t => t.due <= now).OrderBy(t => t.due).ToList();
         _timers.RemoveAll(t => t.due <= now);
@@ -153,7 +166,7 @@ public sealed class WidgetsBinding
     /// <summary>True when drawing now would produce a different image than the last frame.</summary>
     public bool NeedsFrame(float width, float height)
     {
-        if (_frameRequested || _frameCallbacks.Count > 0) return true;
+        if (_frameRequested || _frameCallbacks.Count > 0 || !_posted.IsEmpty) return true;
         if (RenderView is not null && RenderView.WindowSize != new Size(width, height)) return true;
         var now = Now;
         return _timers.Any(t => t.due <= now);

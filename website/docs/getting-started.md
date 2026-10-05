@@ -26,7 +26,9 @@ Sway.Platform.Headless/ # windowless host: renders to a PNG
 Sway.Example.Headless/  # headless runner for the example (screenshots, bench)
 Sway.Example.Android/   # Android runner for the example
 Sway.Example.Web/       # Browser runner for the example (needs the wasm-tools workload)
-Sway.Media/             # optional video and audio playback (LibVLCSharp)
+Sway.Media/             # platform-neutral video and audio players and the IMediaBackend interface
+Sway.Media.LibVlc/      # LibVLC backend: Windows, Linux, macOS, Android
+Sway.Media.Web/         # browser backend: HTML media element
 Sway.Widgets.Tests/     # xUnit tests that run the widget tree headlessly
 ```
 
@@ -55,7 +57,7 @@ dotnet run --project Sway.Example.Web
 ```
 
 To host Sway in your own Blazor WebAssembly app, add `<SwayView Root="new MyApp()" />`. The soft keyboard on touch
-devices and `Sway.Media` are not supported on the web yet.
+devices is not supported on the web yet.
 
 ## Your first app
 

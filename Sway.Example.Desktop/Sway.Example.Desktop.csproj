@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Sway.Example\Sway.Example.csproj" />
     <ProjectReference Include="..\Sway.Platform.Desktop\Sway.Platform.Desktop.csproj" />
+    <ProjectReference Include="..\Sway.Media.LibVlc\Sway.Media.LibVlc.csproj" />
   </ItemGroup>
 
 </Project>

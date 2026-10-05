@@ -14,16 +14,12 @@ public class DemoRoot(string page = "components", bool dark = false, bool rtl = 
 
 class DemoRootState : State<DemoRoot>
 {
-    // LibVLC has no browser build, so the media page is left out there.
     static readonly (string id, string label, IconData icon)[] Pages =
     [
         ("components", "Home", Icons.Home), ("layout", "Layout", Icons.Menu), ("forms", "Forms", Icons.Edit),
         ("motion", "Motion", Icons.Star), ("effects", "Effects", Icons.Favorite), ("rtl", "RTL", Icons.ArrowForward), ("stress", "Stress", Icons.MoreVert),
         ("media", "Media", Icons.PlayArrow),
     ];
-
-    static readonly (string id, string label, IconData icon)[] AvailablePages =
-        OperatingSystem.IsBrowser() ? Pages.Where(p => p.id != "media").ToArray() : Pages;
 
     /// <summary>Below this width (logical px) the shell drops the navigation rail and tightens page padding.</summary>
     public const float CompactWidth = 600;
@@ -65,7 +61,7 @@ class DemoRootState : State<DemoRoot>
             home: new LayoutBuilder((ctx, box) =>
             {
                 bool compact = box.MaxWidth < CompactWidth;
-                int selected = Array.FindIndex(AvailablePages, p => p.id == _page);
+                int selected = Array.FindIndex(Pages, p => p.id == _page);
                 return new Scaffold(
                     appBar: new AppBar(title: new Text("Sway Widgets"), actions:
                     [
@@ -75,11 +71,11 @@ class DemoRootState : State<DemoRoot>
                     ]),
                     // A rail needs ~80px of the width; on a phone the pages move to a scrolling strip of chips under the app bar instead.
                     navigationRail: compact ? null : new NavigationRail(selected,
-                        AvailablePages.Select(p => new NavigationDestination(p.icon, p.label)).ToList(), i => SetState(() => _page = AvailablePages[i].id)),
+                        Pages.Select(p => new NavigationDestination(p.icon, p.label)).ToList(), i => SetState(() => _page = Pages[i].id)),
                     body: compact ? new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, children:
                     [
                         new SingleChildScrollView(scrollDirection: Axis.Horizontal, padding: EdgeInsets.Symmetric(12, 4), child: new Row(spacing: 8, children:
-                            AvailablePages.Select(p => (Widget)new Chip(new Text(p.label), () => SetState(() => _page = p.id), selected: p.id == _page, icon: p.icon)).ToList())),
+                            Pages.Select(p => (Widget)new Chip(new Text(p.label), () => SetState(() => _page = p.id), selected: p.id == _page, icon: p.icon)).ToList())),
                         new Expanded(Body()),
                     ]) : Body());
             }));

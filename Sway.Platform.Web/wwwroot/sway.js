@@ -105,3 +105,35 @@ export function detach(host) {
     for (const fn of hosts.get(host) ?? []) fn();
     hosts.delete(host);
 }
+
+// ---- file pickers ----
+// A browser cannot hand out paths, so each chosen file becomes a blob: URL (playable and fetchable) plus its metadata.
+function describe(file) {
+    return { name: file.name, url: URL.createObjectURL(file), size: file.size, relativePath: file.webkitRelativePath || file.name };
+}
+
+function showPicker(configure) {
+    return new Promise(resolve => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.style.display = 'none';
+        configure(input);
+        const done = files => { input.remove(); resolve(files); };
+        input.addEventListener('change', () => done([...input.files].map(describe)));
+        input.addEventListener('cancel', () => done([]));
+        document.body.appendChild(input);
+        input.click();
+    });
+}
+
+export function pickFiles(accept, multiple) {
+    return showPicker(input => { if (accept) input.accept = accept; input.multiple = multiple; });
+}
+
+export function pickFolder() {
+    return showPicker(input => { input.webkitdirectory = true; });
+}
+
+export async function readBytes(url) {
+    return new Uint8Array(await (await fetch(url)).arrayBuffer());
+}

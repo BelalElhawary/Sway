@@ -43,6 +43,7 @@ public partial class SwayView : ComponentBase, IAsyncDisposable
         if (!firstRender) return;
         _self = DotNetObjectReference.Create(this);
         _module = await Js.InvokeAsync<IJSObjectReference>("import", "./_content/Sway.Platform.Web/sway.js");
+        FilePicker.Source = new WebFilePicker(_module);
         await _module.InvokeVoidAsync("attach", _host, _self);
         _binding!.RequestFrame();
     }

@@ -27,6 +27,7 @@ public abstract class SwayActivity : Activity
         base.OnCreate(savedInstanceState);
 
         SystemTheme.Source = new AndroidThemeSource(this);
+        FilePicker.Source = new AndroidFilePicker(this);
         _binding = new WidgetsBinding { PlatformBrightness = SystemTheme.Brightness() };
         _binding.GetClipboard = ReadClipboard;
         _binding.SetClipboard = WriteClipboard;
@@ -58,6 +59,35 @@ public abstract class SwayActivity : Activity
     {
         _view?.OnPause();
         base.OnPause();
+    }
+
+    // ---- activity results (file pickers) ----
+
+    readonly Dictionary<int, TaskCompletionSource<Intent?>> _pendingResults = new();
+    int _nextRequestCode = 0x5A00;
+
+    /// <summary>Launches <paramref name="intent"/> and completes with the result data, or null if the user backed out.</summary>
+    internal Task<Intent?> StartForResultAsync(Intent intent)
+    {
+        var source = new TaskCompletionSource<Intent?>();
+        RunOnUiThread(() =>
+        {
+            int code = _nextRequestCode++;
+            _pendingResults[code] = source;
+            try { StartActivityForResult(intent, code); }
+            catch (Exception e)
+            {
+                _pendingResults.Remove(code);
+                source.SetException(e); // no app can handle the request
+            }
+        });
+        return source.Task;
+    }
+
+    protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
+    {
+        base.OnActivityResult(requestCode, resultCode, data);
+        if (_pendingResults.Remove(requestCode, out var source)) source.SetResult(resultCode == Result.Ok ? data : null);
     }
 
     string? ReadClipboard()
