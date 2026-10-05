@@ -466,6 +466,7 @@ sealed class LazyViewportElement : RenderObjectElement
     readonly Dictionary<int, Element> _children = new();
     int _version;
     int _builtVersion = -1;
+    int _lastFirst = int.MinValue, _lastLast = int.MinValue;
 
     public LazyViewportElement(LazyViewport widget) : base(widget) { }
 
@@ -492,6 +493,10 @@ sealed class LazyViewportElement : RenderObjectElement
     {
         bool rebuild = _builtVersion != _version;
         _builtVersion = _version;
+
+        // Scrolling within the same window of items needs no unmounting, rebuilding or child-list resync.
+        if (!rebuild && first == _lastFirst && last == _lastLast && _children.Count == Math.Max(0, Math.Min(last, W.ItemCount - 1) - first + 1)) return;
+        _lastFirst = first; _lastLast = last;
 
         foreach (var idx in _children.Keys.Where(i => i < first || i > last || i >= W.ItemCount).ToList())
         {
