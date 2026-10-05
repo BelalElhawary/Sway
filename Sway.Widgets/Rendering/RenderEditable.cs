@@ -110,21 +110,41 @@ public sealed class RenderEditable : RenderBox
 
     int FitLine(string text, int start, int hardEnd, float width, SKFont font)
     {
-        float Measure(int end) => RenderParagraph.Measure(text.Substring(start, end - start), _style, font);
-        if (Measure(hardEnd) <= width) return hardEnd;
+        // Prefixes are always measured at a grapheme boundary: a prefix cut inside a cluster does not measure monotonically.
+        int Snap(int index) => Math.Min(_state.NextBoundary(index - 1), hardEnd);
+        bool Overflows(int end) => RenderParagraph.Measure(text.Substring(start, end - start), _style, font) > width;
 
-        int lastSpace = -1;
-        int i = start;
-        for (; i < hardEnd; i = _state.NextBoundary(i))
+        // The line breaks before the first grapheme whose prefix overflows, but always keeps at least one grapheme.
+        // Prefix width only grows with length: gallop to a prefix that overflows (so a long paragraph is never
+        // measured whole for every line), then binary-search the exact overflow point.
+        int low = Math.Min(_state.NextBoundary(start), hardEnd) + 1, high = -1;
+        for (int step = 32; high < 0; step *= 2)
         {
-            int next = _state.NextBoundary(i);
-            if (next > hardEnd) next = hardEnd;
-            if (Measure(next) > width && i > start)
-                break;
-            if (text[i] == ' ') lastSpace = i + 1;
+            int probe = low - 1 + step;
+            if (probe >= hardEnd)
+            {
+                if (!Overflows(hardEnd)) return hardEnd;
+                high = hardEnd;
+            }
+            else if (Overflows(Snap(probe))) high = probe;
+            else low = probe + 1;
         }
-        if (lastSpace > start && lastSpace <= i) return lastSpace;
-        return Math.Max(i, _state.NextBoundary(start));
+
+        int breakAt = hardEnd;
+        if (low <= hardEnd)
+        {
+            while (low < high)
+            {
+                int mid = low + (high - low) / 2;
+                if (Overflows(Snap(mid))) high = mid; else low = mid + 1;
+            }
+            breakAt = _state.PreviousBoundary(Snap(low));
+        }
+
+        // Prefer breaking after the last space that precedes the overflow.
+        int space = breakAt > start ? text.LastIndexOf(' ', breakAt - 1, breakAt - start) : -1;
+        if (space >= start) return space + 1;
+        return Math.Max(breakAt, _state.NextBoundary(start));
     }
 
     /// <summary>Caret x of each index in a line, in visual order. Runs follow the field direction, so an empty RTL field still has its caret on the right.</summary>

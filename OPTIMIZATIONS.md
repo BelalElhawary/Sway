@@ -33,7 +33,7 @@ trimming.
 | # | Impact | Where | Problem | Fix |
 | --- | --- | --- | --- | --- |
 | 2.1 ✅ | High | [TextEditState.cs:197-217](Sway.Widgets/Foundation/TextEditState/TextEditState.cs) `PreviousBoundary`, `NextBoundary` | Both call `StringInfo.ParseCombiningCharacters(Value)`, which scans and allocates an `int[]` for the whole string. They are called inside loops (`RenderEditable.FitLine`, `IndexAt`, `MoveVisualHorizontal`, `NextBoundary` twice per iteration in `FitLine`), so wrapping a long field is O(n²) in time and allocation, and runs on every keystroke. | Cache the boundary array keyed by `Version` (rebuild lazily once per edit) and binary-search it. Or use `StringInfo.GetNextTextElementLength` on a span, which does not allocate. Add an ASCII fast path: with no surrogates or combining marks, every index is a boundary. |
-| 2.2 | High | [RenderEditable.cs](Sway.Widgets/Rendering/RenderEditable.cs) `FitLine` (~line 111) | For each candidate boundary it does `text.Substring(start, end - start)` and re-measures the whole prefix, again O(n²) for a long line. | Measure incrementally: accumulate advances per grapheme (or per word), or binary-search the break index over a cached `float[]` of prefix advances. The `LineOffsets` result already holds those advances once a line exists. |
+| 2.2 ✅ | High | [RenderEditable.cs](Sway.Widgets/Rendering/RenderEditable.cs) `FitLine` (~line 111) | For each candidate boundary it does `text.Substring(start, end - start)` and re-measures the whole prefix, again O(n²) for a long line. | Measure incrementally: accumulate advances per grapheme (or per word), or binary-search the break index over a cached `float[]` of prefix advances. The `LineOffsets` result already holds those advances once a line exists. |
 | 2.3 | High | [RenderEditable.cs](Sway.Widgets/Rendering/RenderEditable.cs) `BuildLines` / `PerformLayout` | Every edit re-lays-out and re-shapes the whole document, including `Bidi.Analyze`, `Substring` and `CaretOffsets` for each line. Typing in a long textarea costs the length of the document. | Cache lines per paragraph (split at `\n`), keyed by the paragraph string plus width, and re-lay-out only paragraphs whose text changed. `TextEditState.LinesVersion` / `LinesWidth` already exist for this and are unused here. |
 | 2.4 | Med | [TextShaper.cs](Sway.Widgets/Rendering/TextShaper.cs) `MeasureShaped`, `DrawShapedText` | Only RTL strings are cached. LTR strings go to `font.MeasureText` and `canvas.DrawText(string)` every time. `DrawText(string)` converts the string to glyphs on each call. | Cache `SKTextBlob` for LTR runs the same way (`(face, size, text)` key), or a paragraph-level blob per `Segment`, built once in `PerformLayout`. Painting then becomes one `DrawText(blob)` per segment. |
 | 2.5 | Med | [TextShaper.cs](Sway.Widgets/Rendering/TextShaper.cs) `GetShaped` | When the cache reaches 2048 entries it clears everything, disposing blobs that may still be referenced by the frame in flight, and then reshapes the whole screen at once (a frame hitch). | Use an LRU, or generation-based eviction (drop the half not touched in the last N frames). Defer blob disposal to after the frame. |
@@ -102,7 +102,7 @@ selection drag does not scroll the parent, and collapsing the selection on blur)
 ## Suggested order
 
 1. ✅ **1.1, 4.1** (stop repainting and hit testing when nothing changed): small diffs, biggest idle and hover win.
-2. **2.1** ✅, **2.2** (grapheme boundary cache, incremental line fitting): removes the quadratic behaviour in text fields.
+2. **2.1** ✅, **2.2** ✅ (grapheme boundary cache, incremental line fitting): removes the quadratic behaviour in text fields.
 3. **3.1, 3.2** (lazy list prefix sums and scroll without layout): needed for lists beyond a few thousand rows.
 4. **1.2** (repaint boundaries): the large architectural change; do it once the cheap items are measured.
 5. Everything marked Low, as part of normal edits to those files.
@@ -120,6 +120,7 @@ have numbers.
 | 1.1 | `PointerMove` requests a frame only when `UpdateHover` reports a hover-set or cursor change. State-changing handlers request their own frames. | `MovingOverNothingRequestsNoFrame`, `MovingInsideTheSameRegionRequestsNoFrame` (fail before, pass after); `EnteringAndLeavingARegionStillFiresCallbacksAndRequestsAFrame`, `CursorChangeRequestsAFrameSoTheHostCanApplyIt`, `OnHoverStillFiresOnEveryMoveInsideTheRegion` (pass before and after: behaviour that must not regress). |
 | 4.1 | `AfterFrame` re-hit-tests only when `PipelineOwner.DidLayout` is set; hover diffing uses loops instead of LINQ. | `AFrameWithoutLayoutDoesNotHitTestAgain` (fails before, passes after); `LayoutMovingAWidgetFromUnderAStillPointerStillRefreshesHover` (passes before and after). |
 | 2.1 | `PreviousBoundary`/`NextBoundary` use a per-edit cached boundary array (binary search), with an identity fast path for plain text (no marks, surrogates or CR). | `GraphemeBoundaryTests`: every index of 9 samples (ASCII, CRLF, combining, ZWJ family, Arabic, CJK) matches a fresh `ParseCombiningCharacters` scan, and the cache follows `Insert`/`Undo`/`SetValueExternal`. These pin behaviour and pass before and after. |
+| 2.2 | `FitLine` gallops (doubling probes) to the first overflowing prefix, then binary-searches the exact break, measuring only at grapheme boundaries; the whole-paragraph measure per line is gone. | `LineFittingTests`: line breaks for 7 samples (sentences, one long word, combining marks and emoji, paragraphs, runs of spaces, short, empty) equal the output captured from the old algorithm, and every wrapped line fits. Pass before and after. |
 
 ### Measured
 
@@ -134,8 +135,12 @@ CPU raster, 1100x760:
 | Still-pointer clock-only frame, avg | 0.91-0.98 ms | 0.98-1.11 ms (no measurable change) |
 | 2.1 Grapheme walk, 5k-char ASCII field (10010 steps) | 950-980 ms | 0.52-0.55 ms (about 1800x less) |
 | 2.1 Grapheme walk, 3.2k-char field with combining marks and emoji | 280-310 ms | 0.68-0.71 ms (about 430x less) |
+| 2.2 Textarea keystroke frame, 5k-char single paragraph, 400 px wide | 11.7-13.2 ms | 4.9-5.7 ms (about 2.4x less) |
+| 2.2 Textarea first layout, same text | 11.6-16.7 ms | 5.9-6.7 ms |
 
 4.1 shows no gain on this small page: its saved hit test is microseconds here. It matters on deep trees; add a
 large-tree scenario before claiming a number for it.
+
+The remaining ~5 ms per keystroke is mostly 2.3 (every edit re-shapes every line) and 2.4 (no LTR text cache).
 
 Rule for the next items: add a bench scenario with before/after numbers, a test that fails on the old code and passes on the new, plus tests pinning the behaviour that must not change.

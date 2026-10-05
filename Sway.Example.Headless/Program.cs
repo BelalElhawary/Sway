@@ -136,6 +136,29 @@ if (bench)
         for (int i = edit.Value.Length; i > 0; i = edit.PreviousBoundary(i)) walked++;
         Console.WriteLine($"grapheme walk, {label} ({edit.Value.Length} chars, {walked} steps): {sw.Elapsed.TotalMilliseconds:F2} ms");
     }
+
+    // Optimization 2.2 / 2.3: typing into a 5k-character textarea (every keystroke re-lays-out the field).
+    {
+        var area = new WidgetsBinding();
+        area.UseManualClock();
+        var controller = new TextEditingController(string.Concat(Enumerable.Repeat("The quick brown fox jumps over the lazy dog. ", 111)));
+        area.AttachRoot(new Align(Alignment.TopLeft, new Directionality(TextDirection.Ltr,
+            new SizedBox(width: 400, child: new EditableText(controller, maxLines: null, autofocus: true)))));
+        sw.Restart();
+        using (var first = area.RenderToBitmap(width, height)) { }
+        Console.WriteLine($"textarea first layout, {controller.Text.Length} chars: {sw.Elapsed.TotalMilliseconds:F1} ms");
+        area.Gestures.PointerDown(20, 10); area.Gestures.PointerUp(20, 10);
+        using (var focused = area.RenderToBitmap(width, height)) { }
+        times.Clear();
+        for (int i = 0; i < 20; i++)
+        {
+            area.TextInput("x");
+            sw.Restart();
+            using var bmp = area.RenderToBitmap(width, height);
+            times.Add(sw.Elapsed.TotalMilliseconds);
+        }
+        Console.WriteLine($"textarea keystroke frame: avg {times.Average():F1} ms, max {times.Max():F1} ms (text now {controller.Text.Length} chars)");
+    }
     return;
 }
 
