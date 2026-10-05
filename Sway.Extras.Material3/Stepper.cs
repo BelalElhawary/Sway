@@ -57,10 +57,10 @@ public sealed class Stepper(IReadOnlyList<Step> steps, int currentStep = 0, Acti
         ]);
     }
 
-    Widget Controls(int index) => new Padding(EdgeInsets.Only(top: 16), new Row(mainAxisSize: MainAxisSize.Min, spacing: 8, children:
+    Widget Controls(BuildContext context, int index) => new Padding(EdgeInsets.Only(top: 16), new Row(mainAxisSize: MainAxisSize.Min, spacing: 8, children:
     [
-        new FilledButton(new Text(index == steps.Count - 1 ? "Finish" : "Continue"), onStepContinue),
-        new TextButton(new Text("Cancel"), onStepCancel),
+        new FilledButton(new Text(index == steps.Count - 1 ? MaterialLocalizations.Of(context).FinishButtonLabel : MaterialLocalizations.Of(context).ContinueButtonLabel), onStepContinue),
+        new TextButton(new Text(MaterialLocalizations.Of(context).CancelButtonLabel), onStepCancel),
     ]));
 
     Widget BuildVertical(BuildContext context)
@@ -85,7 +85,7 @@ public sealed class Stepper(IReadOnlyList<Step> steps, int currentStep = 0, Acti
                 new Expanded(new ClipRect(new AnimatedSize(TimeSpan.FromMilliseconds(200),
                     open ? new Padding(EdgeInsets.Only(left: 23, right: 24, top: 4, bottom: last ? 16 : 24),
                             new Column(mainAxisSize: MainAxisSize.Min, crossAxisAlignment: CrossAxisAlignment.Start, children:
-                            [step.Content, Controls(index)]))
+                            [step.Content, Controls(context, index)]))
                         : new SizedBox(height: last ? 0 : 16),
                     Alignment.TopLeft, Curves.EaseInOut))),
             ])));
@@ -113,7 +113,7 @@ public sealed class Stepper(IReadOnlyList<Step> steps, int currentStep = 0, Acti
         [
             new Row(header),
             new Padding(EdgeInsets.All(24), new Column(mainAxisSize: MainAxisSize.Min, crossAxisAlignment: CrossAxisAlignment.Start, children:
-                [steps[current].Content, Controls(current)])),
+                [steps[current].Content, Controls(context, current)])),
         ]);
     }
 }

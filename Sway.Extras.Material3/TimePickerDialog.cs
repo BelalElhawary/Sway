@@ -44,6 +44,7 @@ sealed class TimePickerDialogState : State<TimePickerDialog>
     public override Widget Build(BuildContext context)
     {
         var theme = Theme.Of(context);
+        var l10n = MaterialLocalizations.Of(context);
         var s = theme.ColorScheme;
 
         Widget Box(string text, bool selected, Action onTap) => new Interactive((ctx, st) => new AnimatedContainer(TimeSpan.FromMilliseconds(120),
@@ -89,7 +90,7 @@ sealed class TimePickerDialogState : State<TimePickerDialog>
         return new SizedBox(width: 328, child: new Material(new Padding(EdgeInsets.All(24), new Column(
             mainAxisSize: MainAxisSize.Min, crossAxisAlignment: CrossAxisAlignment.Start, spacing: 20, children:
             [
-                new Text("Select time", style: theme.TextTheme.LabelLarge.Merge(new TextStyle(Color: s.OnSurfaceVariant))),
+                new Text(l10n.SelectTimeLabel, style: theme.TextTheme.LabelLarge.Merge(new TextStyle(Color: s.OnSurfaceVariant))),
                 new Row(mainAxisAlignment: MainAxisAlignment.Center, spacing: 12, children:
                 [
                     Box(new TimeOfDay(_hour, 0).HourOfPeriod.ToString("00"), !_pickingMinute, () => SetState(() => _pickingMinute = false)),
@@ -97,15 +98,15 @@ sealed class TimePickerDialogState : State<TimePickerDialog>
                     Box(_minute.ToString("00"), _pickingMinute, () => SetState(() => _pickingMinute = true)),
                     new Column(mainAxisSize: MainAxisSize.Min, children:
                     [
-                        Period("AM", !IsPm, () => SetPeriod(false), new BorderRadius(new Radius(8, 8), new Radius(8, 8), new Radius(0, 0), new Radius(0, 0))),
-                        Period("PM", IsPm, () => SetPeriod(true), new BorderRadius(new Radius(0, 0), new Radius(0, 0), new Radius(8, 8), new Radius(8, 8))),
+                        Period(l10n.AmLabel, !IsPm, () => SetPeriod(false), new BorderRadius(new Radius(8, 8), new Radius(8, 8), new Radius(0, 0), new Radius(0, 0))),
+                        Period(l10n.PmLabel, IsPm, () => SetPeriod(true), new BorderRadius(new Radius(0, 0), new Radius(0, 0), new Radius(8, 8), new Radius(8, 8))),
                     ]),
                 ]),
                 new Center(dial),
                 new Align(Alignment.CenterRight, new Row(mainAxisSize: MainAxisSize.Min, spacing: 8, children:
                 [
-                    new TextButton(new Text("Cancel"), Widget.OnCancel),
-                    new TextButton(new Text("OK"), () => Widget.OnConfirm(new TimeOfDay(_hour, _minute))),
+                    new TextButton(new Text(l10n.CancelButtonLabel), Widget.OnCancel),
+                    new TextButton(new Text(l10n.OkButtonLabel), () => Widget.OnConfirm(new TimeOfDay(_hour, _minute))),
                 ])),
             ])), s.SurfaceContainerHigh, 3, BorderRadius.Circular(Shapes.ExtraLarge)));
     }

@@ -306,12 +306,12 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
             return new Container(height: height, color: k.ButtonPrimary, padding: EdgeInsets.Only(left: 16), child: new Row(
                 crossAxisAlignment: CrossAxisAlignment.Center, children:
             [
-                new Text($"{picked.Count} item{(picked.Count == 1 ? "" : "s")} selected",
+                new Text(CarbonLocalizations.Of(Context).ItemsSelected(picked.Count),
                     style: theme.Type.BodyCompact01.Merge(new TextStyle(Color: k.TextOnColor))),
                 new Expanded(new SizedBox()),
                 ..(Widget.BatchActions ?? []).Select(a => (Widget)new CarbonButton(new Text(a.Label), () => a.OnPressed(picked),
                     CarbonButtonKind.GhostOnColor, CarbonButtonSize.Large, a.Icon)),
-                new CarbonButton(new Text("Cancel"), ClearSelection, CarbonButtonKind.GhostOnColor, CarbonButtonSize.Large),
+                new CarbonButton(new Text(CarbonLocalizations.Of(Context).Cancel), ClearSelection, CarbonButtonKind.GhostOnColor, CarbonButtonSize.Large),
             ]));
         }
 
@@ -397,7 +397,7 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
         {
             if (visible.Count == 0)
                 return new Container(height: rowHeight * 2, color: k.Layer01, alignment: Alignment.Center,
-                    child: new Text(_search.Text.Trim().Length > 0 ? "No matching results" : "No data",
+                    child: new Text(_search.Text.Trim().Length > 0 ? CarbonLocalizations.Of(context).NoMatchingResults : CarbonLocalizations.Of(context).NoData,
                         style: theme.Type.BodyCompact01.Merge(new TextStyle(Color: k.TextSecondary))));
             if (measured)
             {

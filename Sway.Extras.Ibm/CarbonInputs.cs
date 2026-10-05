@@ -63,7 +63,7 @@ sealed class CarbonTextAreaState : State<CarbonTextArea>
             new GestureDetector(onTap: enabled ? () => Node.RequestFocus() : null, behavior: HitTestBehavior.Opaque,
                 child: new Padding(EdgeInsets.Symmetric(horizontal: 16, vertical: 12), field)));
 
-        var below = Widget.ErrorText ?? (over ? "Too many characters" : null);
+        var below = Widget.ErrorText ?? (over ? CarbonLocalizations.Of(context).TooManyCharacters : null);
         return new MouseRegion(onEnter: _ => SetState(() => _hover = true), onExit: _ => SetState(() => _hover = false), opaque: false,
             child: new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, mainAxisSize: MainAxisSize.Min, spacing: 8, children:
             [
@@ -177,7 +177,7 @@ sealed class CarbonNumberInputState : State<CarbonNumberInput>
             new Container(width: 1, height: height / 2, color: c.BorderSubtle01),
             Step(Icons.Add, Widget.Step, enabled && _current < Widget.Max),
         ]);
-        var below = Widget.ErrorText ?? (invalid ? "Enter a valid number" : null);
+        var below = Widget.ErrorText ?? (invalid ? CarbonLocalizations.Of(context).EnterValidNumber : null);
         return new MouseRegion(onEnter: _ => SetState(() => _hover = true), onExit: _ => SetState(() => _hover = false), opaque: false,
             child: new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, mainAxisSize: MainAxisSize.Min, spacing: 8, children:
             [
@@ -298,13 +298,13 @@ sealed class CarbonSliderState : State<CarbonSlider>
 
 /// <summary>A Carbon select: a labelled single-choice field. It uses the same menu as <see cref="CarbonDropdown{T}"/>.</summary>
 public sealed class CarbonSelect<T>(IReadOnlyList<CarbonDropdownItem<T>> items, T? value = default, Action<T>? onChanged = null, string? label = null,
-    string? helperText = null, string placeholder = "Choose an option", CarbonFieldSize size = CarbonFieldSize.Medium, bool onLayer = false, Key? key = null)
+    string? helperText = null, string? placeholder = null, CarbonFieldSize size = CarbonFieldSize.Medium, bool onLayer = false, Key? key = null)
     : StatelessWidget(key) where T : notnull
 {
     public override Widget Build(BuildContext context)
     {
         var c = CarbonTheme.Of(context);
-        Widget dropdown = new CarbonDropdown<T>(items, value, onChanged, label, placeholder, size, onLayer);
+        Widget dropdown = new CarbonDropdown<T>(items, value, onChanged, label, placeholder ?? CarbonLocalizations.Of(context).ChooseAnOption, size, onLayer);
         return helperText is null ? dropdown : new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, mainAxisSize: MainAxisSize.Min, spacing: 8, children:
         [
             dropdown,

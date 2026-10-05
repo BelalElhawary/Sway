@@ -48,7 +48,7 @@ public static class Dialogs
     {
         var theme = Theme.Of(origin);
         return new Theme(theme, new IconTheme(theme.ColorScheme.OnSurfaceVariant, 24,
-            new DefaultTextStyle(theme.TextTheme.BodyMedium, new Directionality(Directionality.Of(origin), child))));
+            new DefaultTextStyle(theme.TextTheme.BodyMedium, new Directionality(Directionality.Of(origin), Localizations.Wrap(origin, child)))));
     }
 
     // Snack bars show one at a time; the rest wait their turn.

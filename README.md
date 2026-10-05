@@ -41,6 +41,10 @@ class CounterState : State<CounterPage>
 - **Animation**: `AnimationController`, curves, tweens and implicit `Animated*` widgets.
 - **Text**: HarfBuzz shaping, bidirectional text and right-to-left layout, rich text and a full text editor
   (selection, clipboard, undo).
+- **Localization**: `Locale`, `Localizations` and `LocalizationsDelegate<T>` in the core; `MaterialApp(locale: ...)` and
+  `CarbonApp(locale: ...)` translate the built-in strings (English, Arabic, Spanish, French, German), format dates with the
+  locale's culture and week start, and switch to right-to-left for RTL languages. Add your own resources with
+  `localizationsDelegates` and read them with `Localizations.Of<T>(context)`.
 - **Input**: gestures, hover, focus traversal and keyboard handling.
 - **Painting effects**: shadows, gradients, transforms, clipping and backdrop filters.
 - **Media**: a `MediaPlayerController` and `VideoSurface` in the core media package, Material 3 `VideoPlayer` and `AudioPlayer` widgets with controls in `Sway.Extras.Material3.Media`, on LibVLC (Windows, Linux, macOS, Android) or an HTML media element (browser).

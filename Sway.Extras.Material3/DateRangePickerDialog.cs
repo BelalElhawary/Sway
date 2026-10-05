@@ -18,7 +18,6 @@ public sealed class DateRangePickerDialog(DateTime firstDate, DateTime lastDate,
 
 sealed class DateRangePickerDialogState : State<DateRangePickerDialog>
 {
-    static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
     const float Cell = 40;
 
     DateTime? _start, _end;
@@ -43,17 +42,17 @@ sealed class DateRangePickerDialogState : State<DateRangePickerDialog>
         else _end = date;
     });
 
-    static string Format(DateTime? d) => d?.ToString("MMM d", Culture) ?? "Start date";
-
     public override Widget Build(BuildContext context)
     {
         var theme = Theme.Of(context);
         var s = theme.ColorScheme;
+        var l10n = MaterialLocalizations.Of(context);
+        bool rtl = Directionality.Of(context) == TextDirection.Rtl;
         var today = DateTime.Today;
         int daysInMonth = DateTime.DaysInMonth(_month.Year, _month.Month);
-        int leading = (int)_month.DayOfWeek; // weeks start on Sunday
+        int leading = ((int)_month.DayOfWeek - (int)l10n.FirstDayOfWeek + 7) % 7;
 
-        var weekdays = new[] { "S", "M", "T", "W", "T", "F", "S" }
+        var weekdays = Enumerable.Range(0, 7).Select(i => l10n.NarrowWeekday((DayOfWeek)(((int)l10n.FirstDayOfWeek + i) % 7)))
             .Select(d => (Widget)new SizedBox(Cell, Cell, new Center(new Text(d, style: theme.TextTheme.BodyMedium.Merge(new TextStyle(Color: s.OnSurface)))))).ToList();
 
         var weeks = new List<Widget>();
@@ -73,9 +72,10 @@ sealed class DateRangePickerDialogState : State<DateRangePickerDialog>
                 bool endpoint = isStart || isEnd;
                 bool inside = _start is not null && _end is not null && date > _start && date < _end;
                 bool isToday = date == today;
-                string label = day.ToString(Culture);
+                string label = l10n.FormatDayNumber(day);
                 // The band behind the days is a separate full-width strip, so the endpoints get a half band on their inner side.
-                bool bandLeft = inside || isEnd && _start != _end, bandRight = inside || isStart && _end is not null && _start != _end;
+                bool bandBefore = inside || isEnd && _start != _end, bandAfter = inside || isStart && _end is not null && _start != _end;
+                bool bandLeft = rtl ? bandAfter : bandBefore, bandRight = rtl ? bandBefore : bandAfter;
                 days.Add(new Interactive((ctx, st) =>
                 {
                     var fg = !enabled ? s.OnSurface.WithOpacity(0.38f) : endpoint ? s.OnPrimary : inside ? s.OnPrimaryContainer : isToday ? s.Primary : s.OnSurface;
@@ -96,8 +96,8 @@ sealed class DateRangePickerDialogState : State<DateRangePickerDialog>
         [
             new Padding(EdgeInsets.Only(left: 24, right: 12, top: 16, bottom: 12), new Column(crossAxisAlignment: CrossAxisAlignment.Start, spacing: 36, children:
             [
-                new Text("Select range", style: theme.TextTheme.LabelLarge.Merge(new TextStyle(Color: s.OnSurfaceVariant))),
-                new Text($"{Format(_start)} – {(_end is null ? "End date" : Format(_end))}",
+                new Text(l10n.SelectRangeLabel, style: theme.TextTheme.LabelLarge.Merge(new TextStyle(Color: s.OnSurfaceVariant))),
+                new Text($"{(_start is { } from ? l10n.FormatShortDate(from) : l10n.StartDateLabel)} – {(_end is { } to ? l10n.FormatShortDate(to) : l10n.EndDateLabel)}",
                     style: theme.TextTheme.HeadlineSmall.Merge(new TextStyle(Color: s.OnSurface))),
             ])),
             new SizedBox(height: 1, child: new ColoredBox(s.OutlineVariant)),
@@ -105,18 +105,18 @@ sealed class DateRangePickerDialogState : State<DateRangePickerDialog>
             [
                 new SizedBox(height: 48, child: new Row(children:
                 [
-                    new Expanded(new Padding(EdgeInsets.Only(left: 12), new Text(_month.ToString("MMMM yyyy", Culture),
+                    new Expanded(new Padding(EdgeInsets.Only(left: 12), new Text(l10n.FormatMonthYear(_month),
                         style: theme.TextTheme.LabelLarge.Merge(new TextStyle(Color: s.OnSurfaceVariant))))),
-                    new IconButton(new Icon(Icons.ChevronLeft), CanGoBack ? () => SetState(() => _month = _month.AddMonths(-1)) : null),
-                    new IconButton(new Icon(Icons.ChevronRight), CanGoForward ? () => SetState(() => _month = _month.AddMonths(1)) : null),
+                    new IconButton(new Icon(rtl ? Icons.ChevronRight : Icons.ChevronLeft), CanGoBack ? () => SetState(() => _month = _month.AddMonths(-1)) : null),
+                    new IconButton(new Icon(rtl ? Icons.ChevronLeft : Icons.ChevronRight), CanGoForward ? () => SetState(() => _month = _month.AddMonths(1)) : null),
                 ])),
                 new Row(weekdays),
                 ..weeks,
             ])),
             new Padding(EdgeInsets.Only(left: 12, right: 12, top: 8, bottom: 8), new Align(Alignment.CenterRight, new Row(mainAxisSize: MainAxisSize.Min, spacing: 8, children:
             [
-                new TextButton(new Text("Cancel"), Widget.OnCancel),
-                new TextButton(new Text("Save"), _start is { } a && _end is { } b ? () => Widget.OnConfirm(new DateRange(a, b)) : null),
+                new TextButton(new Text(l10n.CancelButtonLabel), Widget.OnCancel),
+                new TextButton(new Text(l10n.SaveButtonLabel), _start is { } a && _end is { } b ? () => Widget.OnConfirm(new DateRange(a, b)) : null),
             ]))),
         ]), s.SurfaceContainerHigh, 3, BorderRadius.Circular(Shapes.ExtraLarge)));
     }

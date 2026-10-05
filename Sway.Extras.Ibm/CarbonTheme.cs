@@ -71,7 +71,7 @@ public sealed class CarbonTheme(CarbonThemeData data, Widget child, Key? key = n
         var theme = Of(origin);
         return new CarbonTheme(theme, new IconTheme(theme.Colors.IconPrimary, 16,
             new DefaultTextStyle(theme.Type.BodyCompact01.Merge(new TextStyle(Color: theme.Colors.TextPrimary)),
-                new Directionality(Directionality.Of(origin), child))));
+                new Directionality(Directionality.Of(origin), Localizations.Wrap(origin, child)))));
     }
 }
 
@@ -79,16 +79,20 @@ public enum CarbonThemeMode { System, Light, Dark }
 
 /// <summary>
 /// Root widget for Carbon apps: picks the light or dark theme (following the operating system by default), installs the
-/// default text style and icon colour, and paints the page background.
+/// default text style and icon colour, and paints the page background. <paramref name="locale"/> selects the language of Carbon's own strings
+/// (English when null; <see cref="Locale.System"/> follows the OS) and the text direction unless <paramref name="textDirection"/> is given.
 /// </summary>
 public sealed class CarbonApp(Widget home, CarbonThemeData? theme = null, CarbonThemeData? darkTheme = null,
-    CarbonThemeMode themeMode = CarbonThemeMode.System, TextDirection? textDirection = null, Key? key = null) : StatefulWidget(key)
+    CarbonThemeMode themeMode = CarbonThemeMode.System, TextDirection? textDirection = null, Locale? locale = null,
+    IReadOnlyList<ILocalizationsDelegate>? localizationsDelegates = null, Key? key = null) : StatefulWidget(key)
 {
     internal Widget Home => home;
     internal CarbonThemeData? Theme => theme;
     internal CarbonThemeData? DarkTheme => darkTheme;
     internal CarbonThemeMode Mode => themeMode;
-    internal TextDirection? Direction => textDirection;
+    internal TextDirection? Direction => textDirection ?? locale?.TextDirection;
+    internal Locale Locale => locale ?? Locale.English;
+    internal IReadOnlyList<ILocalizationsDelegate> Delegates { get; } = [CarbonLocalizations.Delegate, ..localizationsDelegates ?? []];
     public override State CreateState() => new CarbonAppState();
 }
 
@@ -110,6 +114,7 @@ sealed class CarbonAppState : State<CarbonApp>
         Widget app = new CarbonTheme(data, new IconTheme(data.Colors.IconPrimary, 16,
             new DefaultTextStyle(data.Type.BodyCompact01.Merge(new TextStyle(Color: data.Colors.TextPrimary)),
                 new ColoredBox(data.Colors.Background, Widget.Home))));
+        app = new Localizations(Widget.Locale, Widget.Delegates, app);
         if (Widget.Direction is { } d) app = new Directionality(d, app);
         return app;
     }

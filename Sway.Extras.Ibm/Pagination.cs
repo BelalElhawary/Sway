@@ -40,14 +40,14 @@ public sealed class Pagination(int totalItems, int page, int pageSize, Action<in
                     new SizedBox(width: 4),
                     ..onPageSizeChanged is null ? Array.Empty<Widget>() :
                     [
-                        ..roomy ? [new Text("Items per page:", style: secondary)] : Array.Empty<Widget>(),
+                        ..roomy ? [new Text(CarbonLocalizations.Of(context).ItemsPerPage, style: secondary)] : Array.Empty<Widget>(),
                         new SizedBox(width: 88, child: new CarbonDropdown<int>(
                             sizes.Select(n => new CarbonDropdownItem<int>(n, n.ToString())).ToList(), pageSize, onPageSizeChanged, size: CarbonFieldSize.Large, onLayer: true)),
                         Divider(),
                     ],
-                    new Expanded(new Text($"{first}–{last} of {totalItems}{(roomy ? $" item{(totalItems == 1 ? "" : "s")}" : "")}",
+                    new Expanded(new Text(CarbonLocalizations.Of(context).ItemRange(first, last, totalItems, roomy),
                         style: secondary, softWrap: false, overflow: TextOverflow.Ellipsis, maxLines: 1)),
-                    ..medium ? [new Text($"{current + 1} of {pages} page{(pages == 1 ? "" : "s")}", style: secondary)] : Array.Empty<Widget>(),
+                    ..medium ? [new Text(CarbonLocalizations.Of(context).PageOf(current + 1, pages), style: secondary)] : Array.Empty<Widget>(),
                     new CarbonIconButton(Icons.ChevronLeft, current > 0 ? () => onPageChanged(current - 1) : null, CarbonButtonSize.Large),
                     new CarbonIconButton(Icons.ChevronRight, current < pages - 1 ? () => onPageChanged(current + 1) : null, CarbonButtonSize.Large),
                 ])),

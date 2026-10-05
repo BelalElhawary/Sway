@@ -50,18 +50,18 @@ public sealed class VideoPlayer(
                 child: new Stack(fit: StackFit.Expand, children:
                 [
                     new GestureDetector(new VideoSurface(c, Widget.Fit, Widget.Background), onTap: Widget.ShowControls ? c.TogglePlay : null, onDoubleTap: Widget.OnFullscreen),
-                    new MediaBuilder(c, (_, p) => new Center(StatusOverlay(p))),
+                    new MediaBuilder(c, (_, p) => new Center(StatusOverlay(context, p))),
                     ..Widget.ShowControls ? [new MediaBuilder(c, (ctx, p) => ControlBar(ctx, p))] : Array.Empty<Widget>(),
                 ]));
         }
 
-        static Widget StatusOverlay(MediaPlayerController p)
+        static Widget StatusOverlay(BuildContext context, MediaPlayerController p)
         {
             if (p.Status == MediaStatus.Error)
                 return new IgnorePointer(new Column(mainAxisSize: MainAxisSize.Min, spacing: 8, children:
                 [
                     new Icon(Icons.Error, 40, SKColors.White),
-                    new Text("This media can't be played", style: new TextStyle(Color: SKColors.White)),
+                    new Text(MaterialLocalizations.Of(context).MediaErrorLabel, style: new TextStyle(Color: SKColors.White)),
                 ]));
             if (p.Status is MediaStatus.Opening or MediaStatus.Buffering)
                 return new IgnorePointer(new CircularProgressIndicator(color: SKColors.White, size: 40));

@@ -4,7 +4,7 @@ using Sway.Widgets;
 
 namespace Sway.Example;
 
-/// <summary>The demo app: a Material 3 shell with a navigation rail, theme-mode, seed-colour and text-direction switches.</summary>
+/// <summary>The demo app: a Material 3 shell with a navigation rail, theme-mode, seed-colour and language switches.</summary>
 public class DemoRoot(string page = "material", bool dark = false, bool rtl = false) : StatefulWidget
 {
     public string Page => page;
@@ -18,7 +18,7 @@ class DemoRootState : State<DemoRoot>
     static readonly (string id, string label, IconData icon)[] Pages =
     [
         ("material", "Material", Icons.Home), ("layout", "Layout", Icons.Menu), ("forms", "Forms", Icons.Edit),
-        ("motion", "Motion", Icons.Star), ("effects", "Effects", Icons.Favorite), ("rtl", "RTL", Icons.ArrowForward), ("stress", "Stress", Icons.MoreVert),
+        ("motion", "Motion", Icons.Star), ("effects", "Effects", Icons.Favorite), ("rtl", "Language", Icons.ArrowForward), ("stress", "Stress", Icons.MoreVert),
         ("media", "Media", Icons.PlayArrow), ("icons", "Icons", Icons.GridView), ("carbon", "Carbon", Icons.Menu),
     ];
 
@@ -60,7 +60,7 @@ class DemoRootState : State<DemoRoot>
         bool dark = _mode == ThemeMode.Dark;
         return new MaterialApp(
             themeMode: _mode, theme: Theme(Brightness.Light), darkTheme: Theme(Brightness.Dark),
-            textDirection: _rtl ? TextDirection.Rtl : TextDirection.Ltr,
+            locale: _rtl ? new Locale("ar") : new Locale("en"), localizationsDelegates: [DemoStrings.Delegate],
             home: new LayoutBuilder((ctx, box) =>
             {
                 bool compact = box.MaxWidth < CompactWidth;
@@ -70,7 +70,7 @@ class DemoRootState : State<DemoRoot>
                     [
                         new IconButton(new Icon(Icons.Star), () => SetState(() => _seed = (_seed + 1) % Seeds.Length)),
                         new IconButton(new Icon(dark ? Icons.LightMode : Icons.DarkMode), () => SetState(() => _mode = dark ? ThemeMode.Light : ThemeMode.Dark)),
-                        new TextButton(new Text(_rtl ? "LTR" : "RTL"), () => SetState(() => _rtl = !_rtl)),
+                        new TextButton(new Text(_rtl ? "English" : "العربية"), () => SetState(() => _rtl = !_rtl)),
                     ]),
                     // A rail needs ~80px of the width; on a phone the pages move to a scrolling strip of chips under the app bar instead.
                     navigationRail: compact ? null : new NavigationRail(selected,

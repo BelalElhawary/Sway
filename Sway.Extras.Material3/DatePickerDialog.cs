@@ -17,7 +17,6 @@ public sealed class DatePickerDialog(DateTime initialDate, DateTime firstDate, D
 
 sealed class DatePickerDialogState : State<DatePickerDialog>
 {
-    static readonly CultureInfo Culture = CultureInfo.InvariantCulture;
     const float Cell = 40;
 
     DateTime _selected, _month;
@@ -37,11 +36,13 @@ sealed class DatePickerDialogState : State<DatePickerDialog>
     {
         var theme = Theme.Of(context);
         var s = theme.ColorScheme;
+        var l10n = MaterialLocalizations.Of(context);
+        bool rtl = Directionality.Of(context) == TextDirection.Rtl;
         var today = DateTime.Today;
         int daysInMonth = DateTime.DaysInMonth(_month.Year, _month.Month);
-        int leading = (int)_month.DayOfWeek; // weeks start on Sunday
+        int leading = ((int)_month.DayOfWeek - (int)l10n.FirstDayOfWeek + 7) % 7;
 
-        var weekdays = new[] { "S", "M", "T", "W", "T", "F", "S" }
+        var weekdays = Enumerable.Range(0, 7).Select(i => l10n.NarrowWeekday((DayOfWeek)(((int)l10n.FirstDayOfWeek + i) % 7)))
             .Select(d => (Widget)new SizedBox(Cell, Cell, new Center(new Text(d, style: theme.TextTheme.BodyMedium.Merge(new TextStyle(Color: s.OnSurface)))))).ToList();
 
         var weeks = new List<Widget>();
@@ -57,7 +58,7 @@ sealed class DatePickerDialogState : State<DatePickerDialog>
                 }
                 var date = new DateTime(_month.Year, _month.Month, day);
                 bool selected = date == _selected, isToday = date == today, enabled = date >= Widget.First && date <= Widget.Last;
-                string label = day.ToString(Culture); // the builder below runs later, after the loop variable has moved on
+                string label = l10n.FormatDayNumber(day); // the builder below runs later, after the loop variable has moved on
                 days.Add(new Interactive((ctx, st) =>
                 {
                     var fg = !enabled ? s.OnSurface.WithOpacity(0.38f) : selected ? s.OnPrimary : isToday ? s.Primary : s.OnSurface;
@@ -75,26 +76,26 @@ sealed class DatePickerDialogState : State<DatePickerDialog>
         [
             new Padding(EdgeInsets.Only(left: 24, right: 12, top: 16, bottom: 12), new Column(crossAxisAlignment: CrossAxisAlignment.Start, spacing: 36, children:
             [
-                new Text("Select date", style: theme.TextTheme.LabelLarge.Merge(new TextStyle(Color: s.OnSurfaceVariant))),
-                new Text(_selected.ToString("ddd, MMM d", Culture), style: theme.TextTheme.HeadlineMedium.Merge(new TextStyle(Color: s.OnSurface))),
+                new Text(l10n.SelectDateLabel, style: theme.TextTheme.LabelLarge.Merge(new TextStyle(Color: s.OnSurfaceVariant))),
+                new Text(l10n.FormatMediumDate(_selected), style: theme.TextTheme.HeadlineMedium.Merge(new TextStyle(Color: s.OnSurface))),
             ])),
             new SizedBox(height: 1, child: new ColoredBox(s.OutlineVariant)),
             new Padding(EdgeInsets.Symmetric(horizontal: 12), new Column(crossAxisAlignment: CrossAxisAlignment.Start, children:
             [
                 new SizedBox(height: 48, child: new Row(children:
                 [
-                    new Expanded(new Padding(EdgeInsets.Only(left: 12), new Text(_month.ToString("MMMM yyyy", Culture),
+                    new Expanded(new Padding(EdgeInsets.Only(left: 12), new Text(l10n.FormatMonthYear(_month),
                         style: theme.TextTheme.LabelLarge.Merge(new TextStyle(Color: s.OnSurfaceVariant))))),
-                    new IconButton(new Icon(Icons.ChevronLeft), CanGoBack ? () => SetState(() => _month = _month.AddMonths(-1)) : null),
-                    new IconButton(new Icon(Icons.ChevronRight), CanGoForward ? () => SetState(() => _month = _month.AddMonths(1)) : null),
+                    new IconButton(new Icon(rtl ? Icons.ChevronRight : Icons.ChevronLeft), CanGoBack ? () => SetState(() => _month = _month.AddMonths(-1)) : null),
+                    new IconButton(new Icon(rtl ? Icons.ChevronLeft : Icons.ChevronRight), CanGoForward ? () => SetState(() => _month = _month.AddMonths(1)) : null),
                 ])),
                 new Row(weekdays),
                 ..weeks,
             ])),
             new Padding(EdgeInsets.Only(left: 12, right: 12, top: 8, bottom: 8), new Align(Alignment.CenterRight, new Row(mainAxisSize: MainAxisSize.Min, spacing: 8, children:
             [
-                new TextButton(new Text("Cancel"), Widget.OnCancel),
-                new TextButton(new Text("OK"), () => Widget.OnConfirm(_selected)),
+                new TextButton(new Text(l10n.CancelButtonLabel), Widget.OnCancel),
+                new TextButton(new Text(l10n.OkButtonLabel), () => Widget.OnConfirm(_selected)),
             ]))),
         ]), s.SurfaceContainerHigh, 3, BorderRadius.Circular(Shapes.ExtraLarge)));
     }

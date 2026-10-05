@@ -266,7 +266,7 @@ sealed class CarbonCodeSnippetState : State<CarbonCodeSnippet>
                         new SingleChildScrollView(new Padding(EdgeInsets.Only(left: 16, top: 16, right: 56, bottom: 16), new Text(shown, style: style, softWrap: false)), Axis.Horizontal),
                         new Positioned(CopyButton(), top: 8, right: 8),
                     ], clip: false),
-                    ..long_ ? [new Padding(EdgeInsets.Only(left: 8, bottom: 8), new Align(Alignment.CenterLeft, new CarbonButton(new Text(_expanded ? "Show less" : "Show more"),
+                    ..long_ ? [new Padding(EdgeInsets.Only(left: 8, bottom: 8), new Align(Alignment.CenterLeft, new CarbonButton(new Text(_expanded ? CarbonLocalizations.Of(context).ShowLess : CarbonLocalizations.Of(context).ShowMore),
                         () => SetState(() => _expanded = !_expanded), CarbonButtonKind.Ghost, CarbonButtonSize.Small, _expanded ? Icons.KeyboardArrowDown : Icons.ChevronRight)))] : Array.Empty<Widget>(),
                 ]));
         }

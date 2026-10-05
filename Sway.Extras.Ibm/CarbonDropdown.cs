@@ -10,14 +10,14 @@ public sealed record CarbonDropdownItem<T>(T Value, string Label, bool Enabled =
 /// while it is open. A null <c>onChanged</c> disables it.
 /// </summary>
 public sealed class CarbonDropdown<T>(IReadOnlyList<CarbonDropdownItem<T>> items, T? value = default, Action<T>? onChanged = null,
-    string? label = null, string placeholder = "Select", CarbonFieldSize size = CarbonFieldSize.Medium, bool onLayer = false,
+    string? label = null, string? placeholder = null, CarbonFieldSize size = CarbonFieldSize.Medium, bool onLayer = false,
     float menuMaxHeight = 240, Key? key = null) : StatefulWidget(key) where T : notnull
 {
     internal IReadOnlyList<CarbonDropdownItem<T>> Items => items;
     internal T? Value => value;
     internal Action<T>? OnChanged => onChanged;
     internal string? Label => label;
-    internal string Placeholder => placeholder;
+    internal string? Placeholder => placeholder;
     internal CarbonFieldSize Size => size;
     internal bool OnLayer => onLayer;
     internal float MenuMaxHeight => menuMaxHeight;
@@ -77,7 +77,7 @@ sealed class CarbonDropdownState<T> : State<CarbonDropdown<T>> where T : notnull
         {
             Widget content = new Row(crossAxisAlignment: CrossAxisAlignment.Center, children:
             [
-                new Expanded(new Padding(EdgeInsets.Only(left: 16), new Text(selected?.Label ?? Widget.Placeholder, softWrap: false,
+                new Expanded(new Padding(EdgeInsets.Only(left: 16), new Text(selected?.Label ?? Widget.Placeholder ?? CarbonLocalizations.Of(context).Select, softWrap: false,
                     overflow: TextOverflow.Ellipsis, maxLines: 1,
                     style: theme.Type.BodyCompact01.Merge(new TextStyle(Color: !enabled ? c.TextDisabled : selected is null ? c.TextPlaceholder : c.TextPrimary))))),
                 new SizedBox(width: height, height: height, child: new Center(new Icon(open ? Icons.ExpandLess : Icons.ExpandMore, 16, enabled ? c.IconPrimary : c.IconDisabled))),

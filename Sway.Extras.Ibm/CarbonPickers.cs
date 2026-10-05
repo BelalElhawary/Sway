@@ -6,14 +6,14 @@ namespace Sway.Extras.Ibm;
 
 /// <summary>A Carbon combo box: a text field that filters its list as you type. Choosing an item fills the field; clicking away restores the chosen label.</summary>
 public sealed class CarbonComboBox<T>(IReadOnlyList<CarbonDropdownItem<T>> items, T? value = default, Action<T>? onChanged = null, string? label = null,
-    string placeholder = "Filter...", string? helperText = null, CarbonFieldSize size = CarbonFieldSize.Medium, bool onLayer = false,
+    string? placeholder = null, string? helperText = null, CarbonFieldSize size = CarbonFieldSize.Medium, bool onLayer = false,
     float menuMaxHeight = 240, Key? key = null) : StatefulWidget(key) where T : notnull
 {
     internal IReadOnlyList<CarbonDropdownItem<T>> Items => items;
     internal T? Value => value;
     internal Action<T>? OnChanged => onChanged;
     internal string? Label => label;
-    internal string Placeholder => placeholder;
+    internal string? Placeholder => placeholder;
     internal string? HelperText => helperText;
     internal CarbonFieldSize Size => size;
     internal bool OnLayer => onLayer;
@@ -124,7 +124,7 @@ sealed class CarbonComboBoxState<T> : State<CarbonComboBox<T>> where T : notnull
         float item = (float)Widget.Size;
         Widget list = matches.Count == 0
             ? new Container(height: item, padding: EdgeInsets.Symmetric(horizontal: 16), alignment: AlignmentDirectional.CenterStart,
-                child: new Text("No matching results", style: theme.Type.BodyCompact01.Merge(new TextStyle(Color: c.TextSecondary))))
+                child: new Text(CarbonLocalizations.Of(Context).NoMatchingResults, style: theme.Type.BodyCompact01.Merge(new TextStyle(Color: c.TextSecondary))))
             : new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, mainAxisSize: MainAxisSize.Min, children: matches.Select((m, i) =>
             {
                 bool selected = EqualityComparer<T>.Default.Equals(m.Value, Widget.Value);
@@ -152,7 +152,7 @@ sealed class CarbonComboBoxState<T> : State<CarbonComboBox<T>> where T : notnull
         [
             new Expanded(new GestureDetector(onTap: enabled ? () => { _node.RequestFocus(); OpenMenu(); } : null, behavior: HitTestBehavior.Opaque,
                 child: new Padding(EdgeInsets.Symmetric(horizontal: 16), new Align(AlignmentDirectional.CenterStart,
-                    new EditableText(_text, _node, text, text.Merge(new TextStyle(Color: c.TextPlaceholder)), Widget.Placeholder, false, 1, null, !enabled,
+                    new EditableText(_text, _node, text, text.Merge(new TextStyle(Color: c.TextPlaceholder)), Widget.Placeholder ?? CarbonLocalizations.Of(Context).FilterPlaceholder, false, 1, null, !enabled,
                         c.TextPrimary, c.Highlight, Typed))))),
             new GestureDetector(onTap: enabled ? () => { if (open) Close(); else { _node.RequestFocus(); OpenMenu(); } } : null, behavior: HitTestBehavior.Opaque,
                 child: new SizedBox(width: height, height: height, child: new Center(new Icon(open ? Icons.ExpandLess : Icons.ExpandMore, 16, enabled ? c.IconPrimary : c.IconDisabled)))),
@@ -171,14 +171,14 @@ sealed class CarbonComboBoxState<T> : State<CarbonComboBox<T>> where T : notnull
 
 /// <summary>A Carbon multi-select: a dropdown whose items are checkboxes. The menu stays open while you pick, and a count badge clears the lot.</summary>
 public sealed class CarbonMultiSelect<T>(IReadOnlyList<CarbonDropdownItem<T>> items, IReadOnlyCollection<T> selected, Action<IReadOnlyList<T>>? onChanged = null,
-    string? label = null, string placeholder = "Choose options", CarbonFieldSize size = CarbonFieldSize.Medium, bool onLayer = false,
+    string? label = null, string? placeholder = null, CarbonFieldSize size = CarbonFieldSize.Medium, bool onLayer = false,
     float menuMaxHeight = 240, Key? key = null) : StatefulWidget(key) where T : notnull
 {
     internal IReadOnlyList<CarbonDropdownItem<T>> Items => items;
     internal IReadOnlyCollection<T> Selected => selected;
     internal Action<IReadOnlyList<T>>? OnChanged => onChanged;
     internal string? Label => label;
-    internal string Placeholder => placeholder;
+    internal string? Placeholder => placeholder;
     internal CarbonFieldSize Size => size;
     internal bool OnLayer => onLayer;
     internal float MenuMaxHeight => menuMaxHeight;
@@ -275,7 +275,7 @@ sealed class CarbonMultiSelectState<T> : State<CarbonMultiSelect<T>> where T : n
             Widget content = new Row(crossAxisAlignment: CrossAxisAlignment.Center, children:
             [
                 ..chosen.Count > 0 ? [new Padding(EdgeInsets.Only(left: 16), badge)] : Array.Empty<Widget>(),
-                new Expanded(new Padding(EdgeInsets.Symmetric(horizontal: 16), new Text(names.Count > 0 ? string.Join(", ", names) : Widget.Placeholder, softWrap: false,
+                new Expanded(new Padding(EdgeInsets.Symmetric(horizontal: 16), new Text(names.Count > 0 ? string.Join(", ", names) : Widget.Placeholder ?? CarbonLocalizations.Of(context).ChooseOptions, softWrap: false,
                     overflow: TextOverflow.Ellipsis, maxLines: 1,
                     style: theme.Type.BodyCompact01.Merge(new TextStyle(Color: !enabled ? c.TextDisabled : names.Count == 0 ? c.TextPlaceholder : c.TextPrimary))))),
                 new SizedBox(width: height, height: height, child: new Center(new Icon(open ? Icons.ExpandLess : Icons.ExpandMore, 16, enabled ? c.IconPrimary : c.IconDisabled))),
@@ -321,7 +321,7 @@ sealed class CarbonCalendarState : State<CarbonCalendar>
     {
         var theme = CarbonTheme.Of(context);
         var c = theme.Colors;
-        var culture = CultureInfo.CurrentCulture;
+        var culture = Localizations.LocaleOf(context).Culture;
         var first = culture.DateTimeFormat.FirstDayOfWeek;
         int lead = ((int)_month.DayOfWeek - (int)first + 7) % 7;
         var start = _month.AddDays(-lead);
@@ -477,7 +477,7 @@ sealed class CarbonDatePickerState : State<CarbonDatePicker>
             [
                 ..Widget.Label is null ? Array.Empty<Widget>() : [new Text(Widget.Label, style: theme.Type.Label01.Merge(new TextStyle(Color: enabled ? c.TextSecondary : c.TextDisabled)))],
                 CarbonField.Frame(theme, height, _node.HasFocus || _entry is not null, _hover && enabled, _invalid, enabled, Widget.OnLayer ? c.Field02 : null, content),
-                ..(_invalid ? [new Text("Enter a date as mm/dd/yyyy", style: theme.Type.HelperText01.Merge(new TextStyle(Color: c.TextError)))]
+                ..(_invalid ? [new Text(CarbonLocalizations.Of(context).EnterDateAs("mm/dd/yyyy"), style: theme.Type.HelperText01.Merge(new TextStyle(Color: c.TextError)))]
                     : Widget.HelperText is { } h ? [new Text(h, style: theme.Type.HelperText01.Merge(new TextStyle(Color: c.TextHelper)))] : Array.Empty<Widget>()),
             ]));
     }
@@ -487,8 +487,8 @@ sealed class CarbonDatePickerState : State<CarbonDatePicker>
 /// A Carbon file uploader: a heading, a description and a button that opens the platform's file picker. Chosen files are listed with a button to remove each.
 /// The control holds no state of its own: the owner keeps <paramref name="files"/> and updates it from <paramref name="onChanged"/>.
 /// </summary>
-public sealed class CarbonFileUploader(IReadOnlyList<PickedFile> files, Action<IReadOnlyList<PickedFile>> onChanged, string label = "Upload files",
-    string? description = null, string buttonLabel = "Add file", bool multiple = true, IReadOnlyList<FileTypeFilter>? filters = null, Key? key = null) : StatelessWidget(key)
+public sealed class CarbonFileUploader(IReadOnlyList<PickedFile> files, Action<IReadOnlyList<PickedFile>> onChanged, string? label = null,
+    string? description = null, string? buttonLabel = null, bool multiple = true, IReadOnlyList<FileTypeFilter>? filters = null, Key? key = null) : StatelessWidget(key)
 {
     static string Size(long? bytes) => bytes switch
     {
@@ -510,9 +510,9 @@ public sealed class CarbonFileUploader(IReadOnlyList<PickedFile> files, Action<I
 
         return new Column(crossAxisAlignment: CrossAxisAlignment.Start, mainAxisSize: MainAxisSize.Min, spacing: 8, children:
         [
-            new Text(label, style: theme.Type.Heading03.Merge(new TextStyle(Color: c.TextPrimary))),
+            new Text(label ?? CarbonLocalizations.Of(context).UploadFiles, style: theme.Type.Heading03.Merge(new TextStyle(Color: c.TextPrimary))),
             ..description is null ? Array.Empty<Widget>() : [new Text(description, style: theme.Type.BodyCompact01.Merge(new TextStyle(Color: c.TextSecondary)))],
-            new Padding(EdgeInsets.Only(top: 8, bottom: 8), new CarbonButton(new Text(buttonLabel), Pick, CarbonButtonKind.Tertiary, CarbonButtonSize.Medium, Icons.Add)),
+            new Padding(EdgeInsets.Only(top: 8, bottom: 8), new CarbonButton(new Text(buttonLabel ?? CarbonLocalizations.Of(context).AddFile), Pick, CarbonButtonKind.Tertiary, CarbonButtonSize.Medium, Icons.Add)),
             ..files.Select((f, i) => (Widget)new SizedBox(width: 320, child: new Container(height: 48, color: c.Layer01, padding: EdgeInsets.Only(left: 16), child: new Row(
                 crossAxisAlignment: CrossAxisAlignment.Center, spacing: 8, children:
                 [

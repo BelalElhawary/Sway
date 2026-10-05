@@ -43,6 +43,7 @@ public sealed class AudioPlayer(
             var c = Controller;
             var theme = Theme.Of(context);
             var scheme = theme.ColorScheme;
+            var l10n = MaterialLocalizations.Of(context);
 
             return new MediaBuilder(c, (ctx, p) =>
             {
@@ -50,8 +51,8 @@ public sealed class AudioPlayer(
                 string name = Widget.Title ?? MediaFormat.Name(p.Source ?? Widget.Source);
                 string? line2 = p.Status switch
                 {
-                    MediaStatus.Error => "This media can't be played",
-                    MediaStatus.Buffering => $"Buffering {p.BufferingProgress:0}%",
+                    MediaStatus.Error => l10n.MediaErrorLabel,
+                    MediaStatus.Buffering => l10n.BufferingLabel(p.BufferingProgress),
                     _ => Widget.Subtitle,
                 };
                 var muted = new TextStyle(Color: scheme.OnSurfaceVariant);
@@ -71,7 +72,7 @@ public sealed class AudioPlayer(
                             new SizedBox(width: 56, height: 56, child: new ClipRRect(BorderRadius.Circular(12), art)),
                             new Expanded(new Column(mainAxisSize: MainAxisSize.Min, crossAxisAlignment: CrossAxisAlignment.Start, children:
                             [
-                                new Text(name.Length > 0 ? name : "No media", style: theme.TextTheme.TitleMedium, maxLines: 1, overflow: TextOverflow.Ellipsis),
+                                new Text(name.Length > 0 ? name : l10n.NoMediaLabel, style: theme.TextTheme.TitleMedium, maxLines: 1, overflow: TextOverflow.Ellipsis),
                                 ..line2 is { Length: > 0 } ? [new Text(line2, style: theme.TextTheme.BodyMedium.Merge(muted), maxLines: 1, overflow: TextOverflow.Ellipsis)] : Array.Empty<Widget>(),
                             ])),
                             new IconButton(new Icon(playing ? Icons.Pause : Icons.PlayArrow), p.TogglePlay, IconButtonVariant.Filled),
