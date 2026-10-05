@@ -2,9 +2,11 @@
   <Project Path="Sway.Widgets/Sway.Widgets.csproj" />
   <Project Path="Sway.Platform.Desktop/Sway.Platform.Desktop.csproj" />
   <Project Path="Sway.Platform.Android/Sway.Platform.Android.csproj" />
+  <Project Path="Sway.Platform.Headless/Sway.Platform.Headless.csproj" />
   <Project Path="Sway.Media/Sway.Media.csproj" />
   <Project Path="Sway.Example/Sway.Example.csproj" />
   <Project Path="Sway.Example.Desktop/Sway.Example.Desktop.csproj" />
+  <Project Path="Sway.Example.Headless/Sway.Example.Headless.csproj" />
   <Project Path="Sway.Example.Android/Sway.Example.Android.csproj" />
   <Project Path="Sway.Widgets.Tests/Sway.Widgets.Tests.csproj" />
 </Solution>

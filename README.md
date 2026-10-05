@@ -50,10 +50,12 @@ class CounterState : State<CounterPage>
 | --- | --- |
 | `Sway.Widgets` | The platform-neutral library: Foundation, Rendering and Widgets. Depends only on SkiaSharp and HarfBuzz. |
 | `Sway.Platform.Android` | Android host: GL surface, touch, soft keyboard, system theme. Subclass `SwayActivity`. |
+| `Sway.Platform.Headless` | Windowless host: renders to a PNG with a software surface (`Headless.Screenshot`). |
 | `Sway.Platform.Desktop` | Windows/Linux/macOS host: window, input, OS theme (Silk.NET). Provides `App.Run`. |
 | `Sway.Media` | Optional `MediaPlayerController` and `VideoPlayer` widget (LibVLCSharp). |
 | `Sway.Example` | The shared example UI (Material 3, pages for components, layout, forms, motion, effects, RTL, stress and media). No platform code. |
-| `Sway.Example.Desktop` | Runs the example on desktop; also the `--screenshot` and `--bench` tooling. |
+| `Sway.Example.Desktop` | Runs the example in a desktop window. |
+| `Sway.Example.Headless` | Runs the example without a window: the `--screenshot` and `--bench` tooling. |
 | `Sway.Example.Android` | Runs the example on Android. |
 | `Sway.Widgets.Tests` | xUnit tests that run the widget tree headlessly. |
 | `website/` | Documentation site (Docusaurus). |
@@ -75,9 +77,9 @@ dotnet run --project Sway.Example.Desktop         # the demo app
 ### Headless screenshots
 
 ```bash
-dotnet run --project Sway.Example.Desktop -- --screenshot out.png --page forms --dark
-dotnet run --project Sway.Example.Desktop -- --screenshot out.png --page forms --click 300,230 --type "hello" --key Tab
-dotnet run --project Sway.Example.Desktop -- --bench --page stress
+dotnet run --project Sway.Example.Headless -- --screenshot out.png --page forms --dark
+dotnet run --project Sway.Example.Headless -- --screenshot out.png --page forms --click 300,230 --type "hello" --key Tab
+dotnet run --project Sway.Example.Headless -- --bench --page stress
 ```
 
 Pages: `components`, `layout`, `forms`, `motion`, `effects`, `rtl`, `stress`, `media`. Options: `--dark`, `--rtl`,

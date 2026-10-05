@@ -21,6 +21,8 @@ Sway.Platform.Desktop/  # Windows/Linux/macOS host: window, input, OS theme (Sil
 Sway.Platform.Android/  # Android host: GL surface, touch, soft keyboard, system theme
 Sway.Example/           # the shared example UI (platform-neutral)
 Sway.Example.Desktop/   # desktop runner for the example
+Sway.Platform.Headless/ # windowless host: renders to a PNG
+Sway.Example.Headless/  # headless runner for the example (screenshots, bench)
 Sway.Example.Android/   # Android runner for the example
 ```
 
@@ -93,16 +95,16 @@ without opening a window, which is useful for checking layout changes or scripti
 
 ```bash
 # Render a page to PNG without opening a window
-dotnet run --project Sway.Example.Desktop -- --screenshot out.png --page layout
+dotnet run --project Sway.Example.Headless -- --screenshot out.png --page layout
 
 # Dark mode, right-to-left, custom size
-dotnet run --project Sway.Example.Desktop -- --screenshot out.png --page rtl --dark --size 1100x900
+dotnet run --project Sway.Example.Headless -- --screenshot out.png --page rtl --dark --size 1100x900
 
 # Script pointer and keyboard input before capturing
-dotnet run --project Sway.Example.Desktop -- --screenshot out.png --page forms --click 300,230 --type "hello" --key Tab
+dotnet run --project Sway.Example.Headless -- --screenshot out.png --page forms --click 300,230 --type "hello" --key Tab
 
 # Per-frame cost for scrolling and hovering a page (CPU raster)
-dotnet run --project Sway.Example.Desktop -- --bench --page stress
+dotnet run --project Sway.Example.Headless -- --bench --page stress
 ```
 
 Pages: `components`, `layout`, `forms`, `motion`, `effects`, `rtl`, `stress`. Steps: `--move x,y`, `--click x,y`,
