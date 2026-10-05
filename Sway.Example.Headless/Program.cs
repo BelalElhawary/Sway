@@ -166,6 +166,32 @@ if (bench)
         }
         Console.WriteLine($"textarea {label}, {doc.Length} chars: first layout {firstMs:F1} ms, keystroke frame avg {times.Average():F1} ms, max {times.Max():F1} ms (now {controller.Text.Length} chars)");
     }
+
+    // Optimizations 3.1 / 3.2: scrolling a 100k-item lazy list in small steps from the middle of the list.
+    foreach (var (label, extent, startOffset) in new (string, float?, float)[]
+    {
+        ("variable-height", null, 12_000_000f),
+        ("fixed-extent", 30f, 7_000_000f),
+    })
+    {
+        var scroll = new ScrollController();
+        var list = new WidgetsBinding();
+        list.UseManualClock();
+        list.AttachRoot(ListView.Builder(500_000,
+            (_, i) => new ColoredBox(Colors.Blue, new SizedBox(height: extent ?? 20 + i % 4 * 20)), itemExtent: extent, controller: scroll));
+        using (var first = list.RenderToBitmap(width, height)) { }
+        scroll.JumpTo(startOffset);
+        for (int i = 0; i < 4; i++) { using var settle = list.RenderToBitmap(width, height); }
+        times.Clear();
+        for (int i = 0; i < 120; i++)
+        {
+            scroll.JumpTo(scroll.Offset + 7);
+            sw.Restart();
+            using var bmp = list.RenderToBitmap(width, height);
+            times.Add(sw.Elapsed.TotalMilliseconds);
+        }
+        Console.WriteLine($"list {label}, 500k items, scroll step: avg {times.Average():F2} ms, max {times.Max():F2} ms");
+    }
     return;
 }
 

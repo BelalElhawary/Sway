@@ -26,6 +26,15 @@ public sealed class RenderLazyViewport : RenderBoxContainer, IScrollViewport
     int _anchorIndex;
     float _anchorOffset;
 
+    // Fenwick trees (1-based) over the measured extents and the measured flags, so the offset of any item and the item at
+    // any offset take O(log n) instead of a scan from item 0.
+    double[] _sumTree = Array.Empty<double>();
+    int[] _countTree = Array.Empty<int>();
+
+    // The range the last layout built; scrolling inside it only moves the existing children (see TryScrollWithoutLayout).
+    int _builtFirst = -1, _builtLast = -1;
+    internal int LayoutPasses;
+
     public Action<int, int>? BuildRange;
 
     public void Configure(Axis axis, ScrollPosition position, int itemCount, float? itemExtent, EdgeInsets padding)
@@ -41,7 +50,48 @@ public sealed class RenderLazyViewport : RenderBoxContainer, IScrollViewport
         MarkNeedsLayout();
     }
 
-    void OnScroll() => MarkNeedsLayout();
+    void OnScroll()
+    {
+        if (InLayout || NeedsLayoutInternal || !TryScrollWithoutLayout()) MarkNeedsLayout();
+    }
+
+    /// <summary>
+    /// Moves the built children to the new scroll offset without a layout pass when the range built last time still covers
+    /// the viewport. Returns false when items must be built or measured, which needs a real layout.
+    /// </summary>
+    bool TryScrollWithoutLayout()
+    {
+        if (_builtFirst < 0 || _itemCount == 0 || SizeOrNull is not { } size) return false;
+        float viewport = Vertical ? size.Height : size.Width;
+        float padStart = Vertical ? _padding.Top : _padding.Left;
+        float crossStart = Vertical ? _padding.Left : _padding.Top;
+        float scroll = _position.Pixels;
+
+        if (_itemExtent is { } extent && extent > 0)
+        {
+            int first = Math.Max(0, (int)MathF.Floor((scroll - padStart) / extent));
+            int last = Math.Min(_itemCount - 1, (int)MathF.Ceiling((scroll + viewport - padStart) / extent) - 1);
+            if (first < _builtFirst || last > _builtLast) return false;
+            foreach (var child in Children)
+            {
+                var pd = (LazyListParentData)child.ParentData!;
+                pd.Offset = Place(padStart + pd.Index * extent - scroll, crossStart);
+            }
+        }
+        else
+        {
+            if (_extents.Length != _itemCount) return false;
+            if (FindFirst(scroll, padStart) < _builtFirst) return false;
+            if (_builtLast < _itemCount - 1 && PrefixOffset(_builtLast + 1, padStart) < scroll + viewport) return false;
+            foreach (var child in Children)
+            {
+                var pd = (LazyListParentData)child.ParentData!;
+                pd.Offset = Place(PrefixOffset(pd.Index, padStart) - scroll, crossStart);
+            }
+        }
+        MarkNeedsPaint();
+        return true;
+    }
 
     Axis IScrollViewport.ScrollAxis => _axis;
     ScrollPosition IScrollViewport.Position => _position;
@@ -73,6 +123,8 @@ public sealed class RenderLazyViewport : RenderBoxContainer, IScrollViewport
         _knownCount = 0;
         _anchorIndex = 0;
         _anchorOffset = 0;
+        _sumTree = Array.Empty<double>();
+        _countTree = Array.Empty<int>();
     }
 
     void EnsureExtents(float cross)
@@ -92,32 +144,72 @@ public sealed class RenderLazyViewport : RenderBoxContainer, IScrollViewport
         _extents = resized;
         _knownSum = 0;
         _knownCount = 0;
+        _sumTree = new double[_itemCount + 1];
+        _countTree = new int[_itemCount + 1];
         for (int i = 0; i < keep; i++)
-            if (!float.IsNaN(resized[i])) { _knownSum += resized[i]; _knownCount++; }
+            if (!float.IsNaN(resized[i]))
+            {
+                _knownSum += resized[i]; _knownCount++;
+                _sumTree[i + 1] = resized[i]; _countTree[i + 1] = 1;
+            }
+        // Linear-time Fenwick build: push each node's total into its parent.
+        for (int i = 1; i <= _itemCount; i++)
+        {
+            int parent = i + (i & -i);
+            if (parent > _itemCount) continue;
+            _sumTree[parent] += _sumTree[i];
+            _countTree[parent] += _countTree[i];
+        }
     }
 
     float Estimate => _knownCount > 0 ? _knownSum / _knownCount : InitialEstimate;
 
-    float ExtentOf(int i) => float.IsNaN(_extents[i]) ? Estimate : _extents[i];
+    internal float ExtentOf(int i) => float.IsNaN(_extents[i]) ? Estimate : _extents[i];
 
     void Record(int i, float extent)
     {
-        if (!float.IsNaN(_extents[i])) { _knownSum -= _extents[i]; _knownCount--; }
+        double delta = extent;
+        int countDelta = 1;
+        if (!float.IsNaN(_extents[i])) { _knownSum -= _extents[i]; _knownCount--; delta -= _extents[i]; countDelta = 0; }
         _extents[i] = extent;
         _knownSum += extent;
         _knownCount++;
+        for (int node = i + 1; node <= _itemCount; node += node & -node)
+        {
+            _sumTree[node] += delta;
+            _countTree[node] += countDelta;
+        }
     }
 
     /// <summary>Content offset of the start of item <paramref name="index"/>, counting padding and estimating unmeasured items.</summary>
-    float PrefixOffset(int index, float padStart)
+    internal float PrefixOffset(int index, float padStart)
     {
-        float estimate = Estimate, offset = padStart;
-        for (int i = 0; i < index; i++) offset += float.IsNaN(_extents[i]) ? estimate : _extents[i];
-        return offset;
+        double known = 0;
+        int count = 0;
+        for (int node = index; node > 0; node -= node & -node)
+        {
+            known += _sumTree[node];
+            count += _countTree[node];
+        }
+        return (float)(padStart + known + (index - count) * (double)Estimate);
+    }
+
+    /// <summary>The item holding content offset <paramref name="scroll"/>: the first whose end lies past it, or the last item.</summary>
+    int FindFirst(float scroll, float padStart)
+    {
+        int low = 0, high = _itemCount - 1;
+        while (low < high)
+        {
+            int mid = low + (high - low) / 2;
+            if (PrefixOffset(mid + 1, padStart) <= scroll) low = mid + 1; else high = mid;
+        }
+        return low;
     }
 
     protected override void PerformLayout()
     {
+        LayoutPasses++;
+        _builtFirst = _builtLast = -1;
         var c = Constraints;
         float viewport = Vertical ? (c.HasBoundedHeight ? c.MaxHeight : 600) : (c.HasBoundedWidth ? c.MaxWidth : 600);
         float cross = Vertical ? (c.HasBoundedWidth ? c.MaxWidth : 300) : (c.HasBoundedHeight ? c.MaxHeight : 300);
@@ -163,6 +255,7 @@ public sealed class RenderLazyViewport : RenderBoxContainer, IScrollViewport
         int first = Math.Max(0, (int)MathF.Floor((scroll - padStart) / extent));
         int last = Math.Min(_itemCount - 1, (int)MathF.Ceiling((scroll + viewport - padStart) / extent) - 1);
         BuildRange?.Invoke(first, last);
+        _builtFirst = first; _builtLast = last;
 
         foreach (var child in Children)
         {
@@ -178,22 +271,17 @@ public sealed class RenderLazyViewport : RenderBoxContainer, IScrollViewport
         if (_anchorIndex >= _itemCount) { _anchorIndex = 0; _anchorOffset = padStart; }
 
         float scroll = _position.Pixels;
-        int first = 0;
+        int first = 0, last = 0;
 
         // A pass picks the visible range from the current estimates and measures it. Measuring changes the estimates, so
         // the anchor (the first item of the previous layout) is re-located and the scroll offset shifted to keep it still;
         // a second pass then lays out the range around the corrected offset.
         for (int pass = 0; pass < 4; pass++)
         {
-            first = 0;
-            float firstOffset = padStart;
-            while (first < _itemCount - 1 && firstOffset + ExtentOf(first) <= scroll)
-            {
-                firstOffset += ExtentOf(first);
-                first++;
-            }
+            first = FindFirst(scroll, padStart);
+            float firstOffset = PrefixOffset(first, padStart);
 
-            int last = Math.Min(_itemCount - 1, first + Math.Max(8, (int)MathF.Ceiling(viewport / Estimate) + 1));
+            last = Math.Min(_itemCount - 1, first + Math.Max(8, (int)MathF.Ceiling(viewport / Estimate) + 1));
             while (true)
             {
                 BuildRange?.Invoke(first, last);
@@ -225,11 +313,10 @@ public sealed class RenderLazyViewport : RenderBoxContainer, IScrollViewport
         foreach (var child in Children)
         {
             var pd = (LazyListParentData)child.ParentData!;
-            float itemMain = startOffset;
-            for (int i = first; i < pd.Index; i++) itemMain += ExtentOf(i);
-            pd.Offset = Place(itemMain - scroll, crossStart);
+            pd.Offset = Place(PrefixOffset(pd.Index, padStart) - scroll, crossStart);
         }
 
+        _builtFirst = first; _builtLast = last;
         _anchorIndex = first;
         _anchorOffset = startOffset;
     }
