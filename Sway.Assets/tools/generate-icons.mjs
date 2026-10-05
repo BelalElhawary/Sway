@@ -1,4 +1,4 @@
-// Regenerates Icons.Filled.cs, Icons.Outlined.cs, Icons.Sharp.cs and Icons.TwoTone.cs from Google's Material icon set (Apache 2.0).
+// Regenerates Icons.Filled.cs, Icons.Outlined.cs, Icons.Round.cs, Icons.Sharp.cs and Icons.TwoTone.cs from Google's Material icon set (Apache 2.0).
 //   npm i @material-design-icons/svg   (in any scratch folder)
 //   node generate-icons.mjs <path to node_modules/@material-design-icons/svg> <output dir>
 // Multi-shape icons are merged into one path; circles and ellipses become arcs. If any shape uses
@@ -35,7 +35,7 @@ function toPath(svg) {
   return { d: main.join(''), secondary: faint.join(''), evenOdd };
 }
 
-const RESERVED = ['Icons', 'Outlined', 'Sharp', 'TwoTone', 'Equals', 'ToString', 'GetType', 'GetHashCode', 'ReferenceEquals'];
+const RESERVED = ['Icons', 'Outlined', 'Round', 'Sharp', 'TwoTone', 'Equals', 'ToString', 'GetType', 'GetHashCode', 'ReferenceEquals'];
 
 function generate(style, indent) {
   const dir = join(src, style);
@@ -59,7 +59,7 @@ const counts = [];
 const filled = generate('filled', 4);
 writeFileSync(join(out, 'Icons.Filled.cs'), header + filled.body + '}\n');
 counts.push(`filled ${filled.count}`);
-for (const [style, cls, doc] of [['outlined', 'Outlined', 'outlined'], ['sharp', 'Sharp', 'sharp-cornered'], ['two-tone', 'TwoTone', 'two-tone']]) {
+for (const [style, cls, doc] of [['outlined', 'Outlined', 'outlined'], ['round', 'Round', 'rounded'], ['sharp', 'Sharp', 'sharp-cornered'], ['two-tone', 'TwoTone', 'two-tone']]) {
   const g = generate(style, 8);
   writeFileSync(join(out, `Icons.${cls}.cs`), header + `    /// <summary>The ${doc} variants of the Material icons.</summary>\n    public static class ${cls}\n    {\n` + g.body + '    }\n}\n');
   counts.push(`${style} ${g.count}`);

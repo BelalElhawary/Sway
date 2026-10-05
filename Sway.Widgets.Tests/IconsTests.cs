@@ -38,7 +38,7 @@ public class IconsTests
     public void EveryStyleMirrorsTheFilledSet()
     {
         var filled = All().Select(i => i.name).ToHashSet();
-        foreach (var style in new[] { typeof(Icons.Outlined), typeof(Icons.Sharp), typeof(Icons.TwoTone) })
+        foreach (var style in new[] { typeof(Icons.Outlined), typeof(Icons.Round), typeof(Icons.Sharp), typeof(Icons.TwoTone) })
         {
             var icons = Of(style).ToList();
             Assert.True(filled.SetEquals(icons.Select(i => i.name)), style.Name);
@@ -54,6 +54,7 @@ public class IconsTests
             }
         }
         Assert.NotEqual(Icons.Home.Path, Icons.Outlined.Home.Path);
+        Assert.NotEqual(Icons.Home.Path, Icons.Round.Home.Path);
         Assert.NotEqual(Icons.Home.Path, Icons.Sharp.Home.Path);
         Assert.NotNull(Icons.TwoTone.Home.Secondary);
         Assert.Null(Icons.Home.Secondary);
