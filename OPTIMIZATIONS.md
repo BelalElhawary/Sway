@@ -6,6 +6,8 @@ here has been profiled yet: the **Impact** column is an estimate from the code, 
 
 `LIMITS.md` already lists the whole-tree repaint and the cold start as known; they appear here with a concrete plan.
 
+Items marked ✅ are done and covered by tests (see **Completed** at the end).
+
 Legend: **High** = visible in normal use, **Med** = shows on large content or during animation, **Low** = allocation
 trimming.
 
@@ -15,7 +17,7 @@ trimming.
 
 | # | Impact | Where | Problem | Fix |
 | --- | --- | --- | --- | --- |
-| 1.1 | High | [GestureBinding.cs:38,64,77](Sway.Widgets/Widgets/Gestures/GestureBinding.cs) | `PointerMove` calls `RequestFrame()` unconditionally, so every mouse move repaints the whole tree even when nothing under the pointer reacts. | Request a frame only when something changed: hover set or cursor changed, a dispatched handler marked layout/paint, or a drag is active. Return a "dirty" flag from `Dispatch` and `UpdateHover`. |
+| 1.1 ✅ | High | [GestureBinding.cs:38,64,77](Sway.Widgets/Widgets/Gestures/GestureBinding.cs) | `PointerMove` calls `RequestFrame()` unconditionally, so every mouse move repaints the whole tree even when nothing under the pointer reacts. | Request a frame only when something changed: hover set or cursor changed, a dispatched handler marked layout/paint, or a drag is active. Return a "dirty" flag from `Dispatch` and `UpdateHover`. |
 | 1.2 | High | [Binding.cs:214](Sway.Widgets/Widgets/Binding.cs) `DrawFrameCore` | The whole tree is painted and cleared every frame. `MarkNeedsPaint` only calls `RequestFrame`, so a blinking caret or a hover colour repaints everything. | Add repaint boundaries: a `RenderRepaintBoundary` that records its subtree into an `SKPicture` (or an offscreen `SKSurface` for opacity/backdrop layers) and replays it while clean. Make `MarkNeedsPaint` walk up to the nearest boundary and flag it. Wrap scroll viewports, the caret/ripple/spinner leaves, and `Overlay` entries first, since they are the ones that animate on their own. |
 | 1.3 | Med | [Binding.cs:214](Sway.Widgets/Widgets/Binding.cs) | Even without layers, the canvas is cleared and redrawn in full. | Track a dirty rect from `MarkNeedsPaint` (union of the boundary bounds) and clip the frame to it. Needs a back buffer that survives the swap, so do it after 1.2. |
 | 1.4 | Med | [PaintingContext.cs](Sway.Widgets/Rendering/RenderObject/PaintingContext.cs) `PushOpacity` | Allocates an `SKPaint` per call and opens a `SaveLayer` for every partially transparent subtree. Nested fades (`AnimatedSwitcher`, ripples, menus) stack layers. | Reuse one paint instance per context. For a leaf child that draws a single primitive, fold the alpha into that primitive's colour instead of using a layer (`RenderOpacity` can ask the child via a `CanFoldOpacity` hook). |
@@ -63,7 +65,7 @@ trimming.
 
 | # | Impact | Where | Problem | Fix |
 | --- | --- | --- | --- | --- |
-| 4.1 | High | [GestureBinding.cs](Sway.Widgets/Widgets/Gestures/GestureBinding.cs) `PointerMove`, `AfterFrame` | A move triggers a hit test in `UpdateHover` (plus the stored path for dispatch). `AfterFrame` then hit-tests **again after every frame**, even during animation with a still pointer, and allocates two lists (`ToList`, `SequenceEqual`) each time. | Skip `AfterFrame` hover refresh unless layout ran this frame (`PipelineOwner` can expose a `DidLayout` flag). In `UpdateHover`, walk the path once with a `for` loop into a reusable list, and compare with the previous list without LINQ. |
+| 4.1 ✅ | High | [GestureBinding.cs](Sway.Widgets/Widgets/Gestures/GestureBinding.cs) `PointerMove`, `AfterFrame` | A move triggers a hit test in `UpdateHover` (plus the stored path for dispatch). `AfterFrame` then hit-tests **again after every frame**, even during animation with a still pointer, and allocates two lists (`ToList`, `SequenceEqual`) each time. | Skip `AfterFrame` hover refresh unless layout ran this frame (`PipelineOwner` can expose a `DidLayout` flag). In `UpdateHover`, walk the path once with a `for` loop into a reusable list, and compare with the previous list without LINQ. |
 | 4.2 | Med | [GestureBinding.cs](Sway.Widgets/Widgets/Gestures/GestureBinding.cs) `Dispatch`, `PointerScroll` | `path.ToArray()` per event copies the hit path each time. | Iterate by index; copy only if a handler can mutate the tree (the arena/handlers can re-enter, so snapshot into a pooled array, not a fresh one). |
 | 4.3 | Low | [RenderView.cs](Sway.Widgets/Rendering/RenderBox/RenderView.cs) `HitTestAt` | New `HitTestResult` (and path list) per call. | Pool one result per binding and `Clear()` it. |
 | 4.4 | Low | [RenderEditable.cs](Sway.Widgets/Rendering/RenderEditable.cs) `IndexAt` | Scans every grapheme boundary on the line for each pointer move while dragging a selection (and inherits 2.1). | Binary-search `XOf` over the line's monotonic positions (per bidi run), then refine with neighbours. |
@@ -99,7 +101,7 @@ selection drag does not scroll the parent, and collapsing the selection on blur)
 
 ## Suggested order
 
-1. **1.1, 4.1** (stop repainting and hit testing when nothing changed): small diffs, biggest idle and hover win.
+1. ✅ **1.1, 4.1** (stop repainting and hit testing when nothing changed): small diffs, biggest idle and hover win.
 2. **2.1, 2.2** (grapheme boundary cache, incremental line fitting): removes the quadratic behaviour in text fields.
 3. **3.1, 3.2** (lazy list prefix sums and scroll without layout): needed for lists beyond a few thousand rows.
 4. **1.2** (repaint boundaries): the large architectural change; do it once the cheap items are measured.
@@ -108,3 +110,29 @@ selection drag does not scroll the parent, and collapsing the selection on blur)
 Measure each step with `dotnet run --project Sway.Example.Headless -- --page stress --bench`, and extend the bench
 with a hover-only frame count, a 5k-character textarea edit, and a 100k-item variable-height scroll so these paths
 have numbers.
+
+---
+
+## Completed
+
+| # | What changed | Tests (`Sway.Widgets.Tests/HoverFrameTests.cs`) |
+| --- | --- | --- |
+| 1.1 | `PointerMove` requests a frame only when `UpdateHover` reports a hover-set or cursor change. State-changing handlers request their own frames. | `MovingOverNothingRequestsNoFrame`, `MovingInsideTheSameRegionRequestsNoFrame` (fail before, pass after); `EnteringAndLeavingARegionStillFiresCallbacksAndRequestsAFrame`, `CursorChangeRequestsAFrameSoTheHostCanApplyIt`, `OnHoverStillFiresOnEveryMoveInsideTheRegion` (pass before and after: behaviour that must not regress). |
+| 4.1 | `AfterFrame` re-hit-tests only when `PipelineOwner.DidLayout` is set; hover diffing uses loops instead of LINQ. | `AFrameWithoutLayoutDoesNotHitTestAgain` (fails before, passes after); `LayoutMovingAWidgetFromUnderAStillPointerStillRefreshesHover` (passes before and after). |
+
+### Measured
+
+`dotnet run -c Release --project Sway.Example.Headless -- --bench` ends with two scenarios on a static synthetic page
+(60 hoverable rows; the demo pages all animate, so they never go idle and cannot show these savings). Three runs each,
+CPU raster, 1100x760:
+
+| Scenario | Before | After |
+| --- | --- | --- |
+| Hover host loop, 1200 moves (frames drawn) | 1200 | 2 |
+| Hover host loop, cost per move | 1.14-1.16 ms | 0.009-0.011 ms (about 100x less) |
+| Still-pointer clock-only frame, avg | 0.91-0.98 ms | 0.98-1.11 ms (no measurable change) |
+
+4.1 shows no gain on this small page: its saved hit test is microseconds here. It matters on deep trees; add a
+large-tree scenario before claiming a number for it.
+
+Rule for the next items: add a bench scenario with before/after numbers, a test that fails on the old code and passes on the new, plus tests pinning the behaviour that must not change.

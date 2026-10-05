@@ -84,6 +84,43 @@ if (bench)
         times.Add(sw.Elapsed.TotalMilliseconds);
     }
     Console.WriteLine($"hover frame (CPU raster): avg {times.Average():F1} ms, max {times.Max():F1} ms");
+
+    // Optimizations 1.1 / 4.1 on a static synthetic page (the demo pages all animate, so they never go idle):
+    // 60 rows, each a hoverable region on the left half and plain space on the right.
+    var rows = Enumerable.Range(0, 60).Select(r => (Widget)new SizedBox(width, 12, new Row(new Widget[]
+    {
+        new SizedBox(width / 2f, 12, new MouseRegion(new Text($"Row {r} " + new string('x', 40)), cursor: MouseCursor.Click)),
+    }))).ToList();
+    var hb = new WidgetsBinding();
+    hb.UseManualClock();
+    hb.AttachRoot(new Column(rows));
+    using (var settle = hb.RenderToBitmap(width, height)) { }
+
+    // The windowed host only draws when NeedsFrame is true; model that loop. Moves stay inside one row's region,
+    // then travel through plain space, so after the first enter/leave nothing changes.
+    const int moves = 1200;
+    int drawn = 0;
+    sw.Restart();
+    for (int i = 0; i < moves; i++)
+    {
+        hb.Gestures.PointerMove(i < 600 ? 10 + i % 400 : width / 2f + 10 + i % 400, 5);
+        if (!hb.NeedsFrame(width, height)) continue;
+        using var bmp = hb.RenderToBitmap(width, height);
+        drawn++;
+    }
+    Console.WriteLine($"hover host loop: {moves} moves, {drawn} frames drawn, {sw.Elapsed.TotalMilliseconds / moves:F3} ms per move");
+
+    // Clock-only frames with a still pointer (caret blink, animation tick): AfterFrame's hit test shows here.
+    hb.Gestures.PointerMove(20, 5);
+    times.Clear();
+    for (int i = 0; i < 300; i++)
+    {
+        hb.AdvanceClock(TimeSpan.FromMilliseconds(16));
+        sw.Restart();
+        using var bmp = hb.RenderToBitmap(width, height);
+        times.Add(sw.Elapsed.TotalMilliseconds);
+    }
+    Console.WriteLine($"still-pointer frame (CPU raster): avg {times.Average():F3} ms, max {times.Max():F3} ms");
     return;
 }
 

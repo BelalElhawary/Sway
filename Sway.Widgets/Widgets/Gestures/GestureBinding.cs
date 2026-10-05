@@ -8,7 +8,6 @@ public sealed class GestureBinding(WidgetsBinding binding)
     readonly Dictionary<int, IReadOnlyList<HitTestEntry>> _paths = new();
     List<RenderMouseRegion> _hovered = new();
     Offset _lastPosition;
-    bool _hoverDirty;
 
     public GestureArena Arena { get; } = new();
     public PointerRouter Router { get; } = new();
@@ -60,8 +59,8 @@ public sealed class GestureBinding(WidgetsBinding binding)
             Dispatch(path, e);
             Router.Route(e);
         }
-        UpdateHover(p);
-        binding.RequestFrame();
+        // Handlers that change state request their own frame; only a hover or cursor change needs one here.
+        if (UpdateHover(p)) binding.RequestFrame();
     }
 
     public void PointerUp(float x, float y)
@@ -91,30 +90,44 @@ public sealed class GestureBinding(WidgetsBinding binding)
         binding.RequestFrame();
     }
 
-    void UpdateHover(Offset p)
+    /// <summary>Re-hit-tests at <paramref name="p"/>; returns true when the hovered regions or the cursor changed.</summary>
+    bool UpdateHover(Offset p)
     {
-        var result = HitTest(p);
-        var regions = result.Path.Select(h => h.Target).OfType<RenderMouseRegion>().ToList();
+        var path = HitTest(p).Path;
+        var regions = new List<RenderMouseRegion>();
+        for (int i = 0; i < path.Count; i++)
+            if (path[i].Target is RenderMouseRegion region) regions.Add(region);
 
-        foreach (var old in _hovered.Where(r => !regions.Contains(r)))
-            old.OnExit?.Invoke(new PointerEvent(PointerEventKind.Hover, MousePointer, p));
-        foreach (var added in regions.Where(r => !_hovered.Contains(r)))
-            added.OnEnter?.Invoke(new PointerEvent(PointerEventKind.Hover, MousePointer, p));
+        bool changed = regions.Count != _hovered.Count;
+        for (int i = 0; !changed && i < regions.Count; i++)
+            changed = regions[i] != _hovered[i];
+
+        if (changed)
+        {
+            foreach (var old in _hovered)
+                if (!regions.Contains(old)) old.OnExit?.Invoke(new PointerEvent(PointerEventKind.Hover, MousePointer, p));
+            foreach (var added in regions)
+                if (!_hovered.Contains(added)) added.OnEnter?.Invoke(new PointerEvent(PointerEventKind.Hover, MousePointer, p));
+        }
         foreach (var r in regions)
             r.OnHover?.Invoke(new PointerEvent(PointerEventKind.Hover, MousePointer, p));
         _hovered = regions;
 
         // The innermost region that asks for a cursor decides.
-        Cursor = regions.FirstOrDefault(r => r.Cursor != MouseCursor.Default)?.Cursor ?? MouseCursor.Default;
+        var cursor = MouseCursor.Default;
+        foreach (var r in regions)
+            if (r.Cursor != MouseCursor.Default) { cursor = r.Cursor; break; }
+        changed |= cursor != Cursor;
+        Cursor = cursor;
+        return changed;
     }
 
-    /// <summary>Layout can move widgets under a stationary pointer; refresh hover after each frame.</summary>
+    /// <summary>Layout can move widgets under a stationary pointer; refresh hover after a frame that laid out.</summary>
     internal void AfterFrame()
     {
         if (binding.RenderView is null) return;
-        var before = _hovered.ToList();
-        UpdateHover(_lastPosition);
-        _hoverDirty = !before.SequenceEqual(_hovered);
-        if (_hoverDirty) binding.RequestFrame();
+        if (!binding.PipelineOwner.DidLayout) return;
+        binding.PipelineOwner.DidLayout = false;
+        if (UpdateHover(_lastPosition)) binding.RequestFrame();
     }
 }
