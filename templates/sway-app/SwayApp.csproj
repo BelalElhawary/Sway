@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>TARGET_FRAMEWORK</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="SWAY_ROOT/Sway.Widgets/Sway.Widgets.csproj" />
+    <ProjectReference Include="SWAY_ROOT/Sway.Extras.Material3/Sway.Extras.Material3.csproj" />
+    <ProjectReference Include="SWAY_ROOT/Sway.Platform.Desktop/Sway.Platform.Desktop.csproj" />
+  </ItemGroup>
+
+</Project>
