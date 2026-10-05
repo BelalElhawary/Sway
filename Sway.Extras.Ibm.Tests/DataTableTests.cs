@@ -219,6 +219,170 @@ public class DataTableTests
         Assert.Equal(fill, after.GetPixel(19, (int)after_y));
     }
 
+    static Harness ShowWide(int width = 400, bool resizable = false, int sticky = 0, DataColumn<Item>[]? columns = null, bool selectable = false) =>
+        new(new CarbonApp(new Align(Alignment.TopLeft, new DataTable<Item>(columns ?? WideColumns, Items.Take(3).ToList(), size: TableSize.Medium,
+            resizable: resizable, stickyColumns: sticky, selectable: selectable)), theme: CarbonThemeData.White(), themeMode: CarbonThemeMode.Light), width, 300);
+
+    static readonly DataColumn<Item>[] WideColumns =
+        [new("A", r => r.Name, Width: 250), new("B", r => r.Name, Width: 250), new("C", r => r.Name, Width: 250)];
+
+    static float XOf(Harness h, string t) => Paragraphs(h).First(p => p.PlainText == t).LocalToGlobal(Offset.Zero).Dx;
+    static float YOf(Harness h, string t) { var p = Paragraphs(h).First(x => x.PlainText == t); return p.LocalToGlobal(Offset.Zero).Dy + p.Size.Height / 2; }
+
+    [Fact]
+    public void DraggingAHeaderEdgeResizesItsColumn()
+    {
+        var h = ShowWide(width: 900, resizable: true);
+        float bBefore = XOf(h, "B");
+        // A's right edge is at 250.
+        h.Gestures.PointerDown(247, YOf(h, "A"));
+        h.Gestures.PointerMove(277, YOf(h, "A"));
+        h.Gestures.PointerMove(307, YOf(h, "A"));
+        h.Gestures.PointerUp(307, YOf(h, "A"));
+        h.Pump();
+        Assert.Equal(bBefore + 60, XOf(h, "B"), 1);
+    }
+
+    [Fact]
+    public void ADraggedColumnNeverGetsNarrowerThanItsMinimum()
+    {
+        var h = ShowWide(width: 900, resizable: true);
+        float y = YOf(h, "A");
+        h.Gestures.PointerDown(247, y);
+        h.Gestures.PointerMove(100, y);
+        h.Gestures.PointerMove(-300, y);
+        h.Gestures.PointerUp(-300, y);
+        h.Pump();
+        Assert.Equal(48, XOf(h, "B") - XOf(h, "A"), 1);
+    }
+
+    [Fact]
+    public void WithoutResizableAHeaderEdgeDoesNotDrag()
+    {
+        var h = ShowWide(width: 900);
+        float bBefore = XOf(h, "B");
+        h.Gestures.PointerDown(247, YOf(h, "A"));
+        h.Gestures.PointerMove(307, YOf(h, "A"));
+        h.Gestures.PointerUp(307, YOf(h, "A"));
+        h.Pump();
+        Assert.Equal(bBefore, XOf(h, "B"), 1);
+    }
+
+    [Fact]
+    public void StickyColumnsStayInViewWhileTheRestScroll()
+    {
+        var h = ShowWide(sticky: 1);
+        Assert.Equal(16, XOf(h, "A"), 1);
+        h.Gestures.PointerScroll(300, 100, 300, 0);
+        h.Advance(600);
+        Assert.Equal(16, XOf(h, "A"), 1);
+        Assert.True(XOf(h, "C") < 400, "the last column scrolled into view");
+        Assert.True(XOf(h, "B") < 250, "the unpinned columns moved");
+    }
+
+    [Fact]
+    public void StickyColumnsKeepTheSelectionColumnPinnedToo()
+    {
+        var h = ShowWide(width: 600, sticky: 1, selectable: true);
+        float a = XOf(h, "A");
+        h.Gestures.PointerScroll(300, 100, 300, 0);
+        h.Advance(600);
+        Assert.Equal(a, XOf(h, "A"), 1);
+    }
+
+    [Fact]
+    public void AShiftedWheelAndATrackpadSidewaysSwipeBothScrollSideways()
+    {
+        // A mouse wheel with shift held reports its movement on the horizontal axis; a trackpad swipe reports both axes with the larger one dominant.
+        // The table only reads the deltas, so both reach it as a horizontal delta.
+        var h = ShowWide();
+        h.Gestures.PointerScroll(200, 100, 200, 0);
+        h.Advance(600);
+        float afterSideways = XOf(h, "A");
+        Assert.True(afterSideways < 16);
+
+        var h2 = ShowWide();
+        h2.Gestures.PointerScroll(200, 100, 200, 5);
+        h2.Advance(600);
+        Assert.True(XOf(h2, "A") < 16, "a mostly-horizontal swipe with a little vertical drift still scrolls sideways");
+    }
+
+    [Fact]
+    public void DoubleClickingAnEditableCellEditsItAndEnterCommits()
+    {
+        (Item, string)? edited = null;
+        DataColumn<Item>[] cols = [new("Name", r => r.Name, OnEdit: (r, t) => edited = (r, t)), DataColumn<Item>.By("Amount", r => r.Amount)];
+        var h = new Harness(new CarbonApp(new Align(Alignment.TopLeft, new DataTable<Item>(cols, Items.Take(3).ToList(), size: TableSize.Medium)),
+            theme: CarbonThemeData.White(), themeMode: CarbonThemeMode.Light), 600, 300);
+        var name = Names(h)[0];
+        float y = YOf(h, name);
+        h.Tap(40, y);
+        h.Tap(40, y);
+        h.Advance(100);
+        Assert.Single(h.Find<RenderEditable>());
+
+        h.Binding.TextInput("!");
+        h.Pump();
+        h.Binding.Focus.HandleKey(new KeyEvent("Enter", "Enter", true, false, false, false, false));
+        h.Pump();
+        Assert.NotNull(edited);
+        Assert.EndsWith("!", edited!.Value.Item2);
+        Assert.Empty(h.Find<RenderEditable>());
+    }
+
+    [Fact]
+    public void EscapeCancelsAnEdit()
+    {
+        bool edited = false;
+        DataColumn<Item>[] cols = [new("Name", r => r.Name, OnEdit: (_, _) => edited = true)];
+        var h = new Harness(new CarbonApp(new Align(Alignment.TopLeft, new DataTable<Item>(cols, Items.Take(3).ToList(), size: TableSize.Medium)),
+            theme: CarbonThemeData.White(), themeMode: CarbonThemeMode.Light), 600, 300);
+        float y = YOf(h, Names(h)[0]);
+        h.Tap(40, y);
+        h.Tap(40, y);
+        h.Advance(100);
+        h.Binding.TextInput("x");
+        h.Binding.Focus.HandleKey(new KeyEvent("Escape", "Escape", true, false, false, false, false));
+        h.Pump();
+        Assert.False(edited);
+        Assert.Empty(h.Find<RenderEditable>());
+    }
+
+    [Fact]
+    public void ColumnsWithoutOnEditCannotBeEdited()
+    {
+        var h = Show();
+        float y = YOf(h, Names(h)[0]);
+        h.Tap(40, y);
+        h.Tap(40, y);
+        h.Advance(100);
+        Assert.Empty(h.Find<RenderEditable>());
+    }
+
+    [Fact]
+    public void ADetailPanelWithoutAHeightSizesToItsContent()
+    {
+        var h = new Harness(new CarbonApp(new SingleChildScrollView(new DataTable<Item>(Columns, Items.Take(5).ToList(), size: TableSize.Medium,
+            rowDetail: r => new SizedBox(height: 120, child: new Text("detail of " + r.Name)))), theme: CarbonThemeData.White(), themeMode: CarbonThemeMode.Light), 900, 900);
+        float before = Paragraphs(h).Where(p => p.PlainText.StartsWith("row-")).Skip(1).First().LocalToGlobal(Offset.Zero).Dy;
+        var first = Paragraphs(h).First(p => p.PlainText.StartsWith("row-"));
+        h.Tap(24, first.LocalToGlobal(Offset.Zero).Dy + first.Size.Height / 2);
+        float after = Paragraphs(h).Where(p => p.PlainText.StartsWith("row-")).Skip(1).First().LocalToGlobal(Offset.Zero).Dy;
+        // 120 of content, 16 of padding top and bottom, and the divider.
+        Assert.Equal(120 + 32 + 1, after - before, 1);
+    }
+
+    [Fact]
+    public void ACappedBodyWithContentSizedDetailsStillShrinksToItsRows()
+    {
+        var h = new Harness(new CarbonApp(new Align(Alignment.TopLeft, new DataTable<Item>(Columns, Items.Take(2).ToList(), size: TableSize.Medium,
+            maxBodyHeight: 400, rowDetail: r => new Text("detail of " + r.Name))), theme: CarbonThemeData.White(), themeMode: CarbonThemeMode.Light), 600, 600);
+        var first = Paragraphs(h).First(p => p.PlainText.StartsWith("row-"));
+        h.Tap(24, first.LocalToGlobal(Offset.Zero).Dy + first.Size.Height / 2);
+        var table = h.Find<RenderViewport>().Last();
+        Assert.True(table.Size.Height < 400, "two rows and one short panel need far less than the cap");
+    }
+
     [Fact]
     public void CompactTagsAreShorter()
     {

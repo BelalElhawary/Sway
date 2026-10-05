@@ -25,7 +25,7 @@ public enum CarbonButtonSize { Small = 32, Medium = 40, Large = 48, ExtraLarge =
 /// A null <c>onPressed</c> disables it.
 /// </summary>
 public sealed class CarbonButton(Widget child, Action? onPressed = null, CarbonButtonKind kind = CarbonButtonKind.Primary,
-    CarbonButtonSize size = CarbonButtonSize.Large, IconData? icon = null, Key? key = null) : StatelessWidget(key)
+    CarbonButtonSize size = CarbonButtonSize.Large, IconData? icon = null, bool fill = false, Key? key = null) : StatelessWidget(key)
 {
     public override Widget Build(BuildContext context)
     {
@@ -80,11 +80,11 @@ public sealed class CarbonButton(Widget child, Action? onPressed = null, CarbonB
 
             float height = (float)size;
             Widget label = DefaultTextStyle.Merge(ctx, theme.Type.BodyCompact01.Merge(new TextStyle(Color: fg)), child);
-            Widget content = new Row(mainAxisSize: MainAxisSize.Min, crossAxisAlignment: CrossAxisAlignment.Center, children:
+            Widget content = new Row(mainAxisSize: fill ? MainAxisSize.Max : MainAxisSize.Min, crossAxisAlignment: CrossAxisAlignment.Center, children:
             [
                 label,
-                // Filled buttons keep Carbon's wide trailing gutter; the icon, when there is one, sits at the end of it.
-                new SizedBox(width: ghost ? (icon is null ? 0 : 8) : icon is null ? 47 : 32),
+                // Filled buttons keep Carbon's wide trailing gutter; the icon, when there is one, sits at the end of it. A full-width button lets the gutter grow.
+                fill ? new Expanded(new SizedBox()) : new SizedBox(width: ghost ? (icon is null ? 0 : 8) : icon is null ? 47 : 32),
                 ..icon is null ? Array.Empty<Widget>() : [new Icon(icon, 16, fg)],
             ]);
 

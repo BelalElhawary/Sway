@@ -15,7 +15,7 @@ class CarbonPage : StatefulWidget
     public override State CreateState() => new CarbonPageState();
 }
 
-class CarbonPageState : State<CarbonPage>
+partial class CarbonPageState : State<CarbonPage>
 {
     static readonly string[] Regions = ["us-south", "eu-de", "eu-gb", "jp-tok", "au-syd"];
     static readonly string[] States = ["Running", "Stopped", "Degraded", "Provisioning"];
@@ -116,7 +116,7 @@ class CarbonPageState : State<CarbonPage>
                 new DataTable<Server>(
                     columns:
                     [
-                        DataColumn<Server>.By("Name", r => r.Name, width: 160),
+                        DataColumn<Server>.By("Name", r => r.Name, width: 160, onEdit: (r, text) => SetState(() => { int i = Data.IndexOf(r); if (i >= 0) Data[i] = r with { Name = text }; })),
                         new DataColumn<Server>("Status", r => r.Status, Width: 140, Cell: r => new CarbonTag(r.Status, StatusColor(r.Status), compact: size <= CarbonButtonSize.Medium)),
                         new DataColumn<Server>("Region", r => r.Region),
                         DataColumn<Server>.By("CPU", r => r.Cpu, v => $"{v}%", width: 90, align: TextAlign.End),
@@ -135,8 +135,10 @@ class CarbonPageState : State<CarbonPage>
 
             Section(t, "Wide table", new DataTable<Server>(
                 columns: [..Enumerable.Range(1, 6).Select(i => (DataColumn<Server>)new($"Column {i}", r => $"{r.Name} / {i}", Width: 200))],
-                rows: Data.Take(40).ToList(), description: "Columns that do not fit scroll sideways; the header scrolls with them.",
-                size: TableSize.Small, maxBodyHeight: 200)),
+                rows: Data.Take(40).ToList(), description: "Columns that do not fit scroll sideways; the header scrolls with them. Drag a header edge to resize, and the first column stays put.",
+                size: TableSize.Small, maxBodyHeight: 200, resizable: true, stickyColumns: 1)),
+
+            MoreSections(t),
         ]);
     }
 }
