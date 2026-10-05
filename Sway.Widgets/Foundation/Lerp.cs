@@ -7,9 +7,15 @@ public static class Lerps
 {
     public static float Float(float a, float b, float t) => a + (b - a) * t;
 
-    public static SKColor Color(SKColor a, SKColor b, float t) => new(
-        (byte)Math.Clamp(Float(a.Red, b.Red, t), 0, 255), (byte)Math.Clamp(Float(a.Green, b.Green, t), 0, 255),
-        (byte)Math.Clamp(Float(a.Blue, b.Blue, t), 0, 255), (byte)Math.Clamp(Float(a.Alpha, b.Alpha, t), 0, 255));
+    public static SKColor Color(SKColor a, SKColor b, float t)
+    {
+        // A fully transparent colour has no hue of its own; borrow the other's so fades do not pass through black.
+        if (a.Alpha == 0 && b.Alpha != 0) a = b.WithAlpha(0);
+        else if (b.Alpha == 0 && a.Alpha != 0) b = a.WithAlpha(0);
+        return new(
+            (byte)Math.Clamp(Float(a.Red, b.Red, t), 0, 255), (byte)Math.Clamp(Float(a.Green, b.Green, t), 0, 255),
+            (byte)Math.Clamp(Float(a.Blue, b.Blue, t), 0, 255), (byte)Math.Clamp(Float(a.Alpha, b.Alpha, t), 0, 255));
+    }
 
     /// <summary>A missing colour fades in or out as the other colour with its alpha scaled.</summary>
     public static SKColor? Color(SKColor? a, SKColor? b, float t)
