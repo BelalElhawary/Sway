@@ -1,11 +1,13 @@
 using SkiaSharp;
+using Sway.Extras.Ibm;
 using Sway.Widgets;
 
 namespace Sway.Example;
 
 /// <summary>The demo app: a Material 3 shell with a navigation rail, theme-mode, seed-colour and text-direction switches.</summary>
-public class DemoRoot(string page = "components", bool dark = false, bool rtl = false) : StatefulWidget
+public class DemoRoot(string page = "components", bool dark = false, bool rtl = false, bool carbon = false) : StatefulWidget
 {
+    public bool Carbon => carbon;
     public string Page => page;
     public bool Dark => dark;
     public bool Rtl => rtl;
@@ -36,9 +38,13 @@ class DemoRootState : State<DemoRoot>
         _page = Widget.Page;
         _mode = Widget.Dark ? ThemeMode.Dark : ThemeMode.Light;
         _rtl = Widget.Rtl;
+        if (Widget.Carbon) _seed = Seeds.Length;
     }
 
-    ThemeData Theme(Brightness b) => Seeds[_seed] is { } seed ? ThemeData.FromSeed(seed, b) : b == Brightness.Dark ? ThemeData.Dark() : ThemeData.Light();
+    /// <summary>The star button cycles the seed colours and then Carbon, IBM's design system.</summary>
+    bool Carbon => _seed == Seeds.Length;
+
+    ThemeData Theme(Brightness b) => Carbon ? IbmTheme.For(b) : Seeds[_seed] is { } seed ? ThemeData.FromSeed(seed, b) : b == Brightness.Dark ? ThemeData.Dark() : ThemeData.Light();
 
     Widget Body() => _page switch
     {
@@ -66,7 +72,7 @@ class DemoRootState : State<DemoRoot>
                 return new Scaffold(
                     appBar: new AppBar(title: new Text("Sway Widgets"), actions:
                     [
-                        new IconButton(new Icon(Icons.Star), () => SetState(() => _seed = (_seed + 1) % Seeds.Length)),
+                        new IconButton(new Icon(Icons.Star), () => SetState(() => _seed = (_seed + 1) % (Seeds.Length + 1))),
                         new IconButton(new Icon(dark ? Icons.LightMode : Icons.DarkMode), () => SetState(() => _mode = dark ? ThemeMode.Light : ThemeMode.Dark)),
                         new TextButton(new Text(_rtl ? "LTR" : "RTL"), () => SetState(() => _rtl = !_rtl)),
                     ]),

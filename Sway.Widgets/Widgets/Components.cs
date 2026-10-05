@@ -129,13 +129,13 @@ sealed class SliderState : State<Slider>
                 decoration: new BoxDecoration(Color: showHalo ? active.WithOpacity(_dragging ? 0.16f : 0.10f) : Colors.Transparent, Shape: BoxShape.Circle))),
                 left: thumbCenter - 20, top: 0, width: 40, height: 40));
             children.Add(new Positioned(new IgnorePointer(new DecoratedBox(new BoxDecoration(Color: active, Shape: BoxShape.Circle,
-                BoxShadow: enabled ? Elevation.Shadows(1, s.Shadow) : null))),
+                BoxShadow: enabled ? theme.Shape.Shadows(1, s.Shadow) : null))),
                 left: thumbCenter - ThumbRadius, top: 20 - ThumbRadius, width: ThumbRadius * 2, height: ThumbRadius * 2));
 
             if (_dragging && Widget.Label is { } label)
             {
                 children.Add(new Positioned(new IgnorePointer(new OverflowBox(
-                    new DecoratedBox(new BoxDecoration(Color: s.InverseSurface, BorderRadius: BorderRadius.Circular(Shapes.Small)),
+                    new DecoratedBox(new BoxDecoration(Color: s.InverseSurface, BorderRadius: BorderRadius.Circular(theme.Shape.Small)),
                         new Padding(EdgeInsets.Symmetric(10, 4), new Text(label(Current),
                             style: theme.TextTheme.LabelMedium.Merge(new TextStyle(Color: s.OnInverseSurface))))),
                     alignment: Alignment.BottomCenter, minWidth: 0, maxWidth: 200, minHeight: 0, maxHeight: 40)),
@@ -196,7 +196,7 @@ public sealed class SegmentedButton<T>(IReadOnlyList<ButtonSegment<T>> segments,
     {
         var theme = Theme.Of(context);
         var s = theme.ColorScheme;
-        var radius = BorderRadius.Circular(20);
+        var radius = BorderRadius.Circular(theme.Shape.Button);
         var cells = new List<Widget>();
 
         for (int i = 0; i < segments.Count; i++)
@@ -336,7 +336,7 @@ sealed class TooltipState : State<Tooltip>
         {
             var theme = Theme.Of(owner);
             var s = theme.ColorScheme;
-            Widget bubble = new DecoratedBox(new BoxDecoration(Color: s.InverseSurface, BorderRadius: BorderRadius.Circular(Shapes.ExtraSmall)),
+            Widget bubble = new DecoratedBox(new BoxDecoration(Color: s.InverseSurface, BorderRadius: BorderRadius.Circular(theme.Shape.ExtraSmall)),
                 new Padding(EdgeInsets.Symmetric(8, 4), new Text(message, style: theme.TextTheme.BodySmall.Merge(new TextStyle(Color: s.OnInverseSurface)))));
             return Dialogs.Wrap(owner, new Stack([
                 new Positioned(new IgnorePointer(new OverflowBox(bubble, alignment: above ? Alignment.BottomCenter : Alignment.TopCenter,
@@ -384,8 +384,8 @@ sealed class SearchBarState : State<SearchBar>
     {
         var theme = Theme.Of(context);
         var s = theme.ColorScheme;
-        return new DecoratedBox(new BoxDecoration(Color: s.SurfaceContainerHigh, BorderRadius: BorderRadius.Circular(28),
-                BoxShadow: Elevation.Shadows(1, s.Shadow)),
+        return new DecoratedBox(new BoxDecoration(Color: s.SurfaceContainerHigh, BorderRadius: BorderRadius.Circular(theme.Shape.ExtraLarge),
+                BoxShadow: theme.Shape.Shadows(1, s.Shadow)),
             new ConstrainedBox(new BoxConstraints(360, 720, 56, 56), new Padding(EdgeInsets.Symmetric(horizontal: 16),
                 new Row(spacing: 16, children:
                 [

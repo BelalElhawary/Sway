@@ -54,6 +54,40 @@ Roboto is used when installed, with Segoe UI as the fallback. To change a style,
 `Shapes` holds the corner scale (`ExtraSmall` 4, `Small` 8, `Medium` 12, `Large` 16, `ExtraLarge` 28, `Full`).
 `Elevation.Shadows(level, color)` returns the two-layer Material shadow for levels 0 to 5; `Material` and `Card` use it.
 
+## Shape and density
+
+`ThemeData.Shape` is a `ShapeTheme`: the corner radii (`ExtraSmall` to `ExtraLarge`, plus `Button` and `Round`), the
+`ControlHeight` of buttons, the `FieldHeight` of text fields, the `ButtonPadding`, `Flat`, which removes every drop
+shadow, and the checkbox and switch settings below. The defaults are Material 3. Widgets read these instead of constants, so a theme can change the whole look:
+
+```csharp
+var compact = ThemeData.Light() with { Shape = new ShapeTheme { ControlHeight = 32, Button = 4 } };
+```
+
+## IBM Carbon
+
+The optional `Sway.Extras.Ibm` package adds [Carbon](https://carbondesignsystem.com), IBM's design system, as a theme:
+the four Carbon colour themes (`White`, `Gray10`, `Gray90`, `Gray100`), the IBM Plex type scale and Carbon's square,
+flat, 40px shape. The IBM Plex fonts are embedded (SIL Open Font License), so the text looks the same everywhere.
+
+```csharp
+using Sway.Extras.Ibm;
+
+App.Run(new MaterialApp(
+    home: new MyHome(),
+    theme: IbmTheme.White(),
+    darkTheme: IbmTheme.Gray100()), "App", 900, 700);
+```
+
+`IbmTheme.For(brightness, gray: true)` picks the tinted variant.
+
+Carbon needs a few things Material does not, and each is a general theme setting you can use yourself:
+
+- `ColorScheme.Accent` is the colour for primary-coloured text, outlines and icons (text and outlined buttons).
+  It defaults to `Primary`. Carbon's dark themes set it to a lighter blue, because the button blue is too dim as text.
+- `ShapeTheme.CheckboxRadius`, `ControlHalo` and `CompactSwitch` give square checkboxes, a focus border instead of
+  the round hover halo, and a flat 48x24 switch.
+
 ## Components
 
 | Group | Widgets |

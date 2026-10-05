@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Sway.Widgets\Sway.Widgets.csproj" />
     <ProjectReference Include="..\Sway.Platform.Desktop\Sway.Platform.Desktop.csproj" />
+    <ProjectReference Include="..\Sway.Extras.Ibm\Sway.Extras.Ibm.csproj" />
   </ItemGroup>
 
 </Project>

@@ -124,11 +124,12 @@ public sealed class Material(Widget? child = null, SKColor? color = null, int el
 {
     public override Widget Build(BuildContext context)
     {
-        var scheme = Theme.Of(context).ColorScheme;
+        var theme = Theme.Of(context);
+        var scheme = theme.ColorScheme;
         var fill = color ?? scheme.Surface;
         Widget inner = child ?? new SizedBox();
         if (clip && borderRadius is { IsZero: false } r) inner = new ClipRRect(r, inner);
-        return new DecoratedBox(new BoxDecoration(Color: fill, BorderRadius: borderRadius, Border: border, BoxShadow: Elevation.Shadows(elevation, scheme.Shadow)), inner);
+        return new DecoratedBox(new BoxDecoration(Color: fill, BorderRadius: borderRadius, Border: border, BoxShadow: theme.Shape.Shadows(elevation, scheme.Shadow)), inner);
     }
 }
 
@@ -146,8 +147,9 @@ public sealed class Card(Widget? child = null, CardVariant variant = CardVariant
 {
     public override Widget Build(BuildContext context)
     {
-        var s = Theme.Of(context).ColorScheme;
-        var radius = BorderRadius.Circular(Shapes.Medium);
+        var theme = Theme.Of(context);
+        var s = theme.ColorScheme;
+        var radius = BorderRadius.Circular(theme.Shape.Medium);
         var (bg, elev, border) = variant switch
         {
             CardVariant.Filled => (s.SurfaceContainerHighest, 0, (Border?)null),
@@ -159,7 +161,7 @@ public sealed class Card(Widget? child = null, CardVariant variant = CardVariant
             ? new Material(child, bg, elev, radius, border)
             : new Interactive((ctx, st) => new AnimatedContainer(TimeSpan.FromMilliseconds(120),
                     decoration: new BoxDecoration(Color: StateLayer.Blend(bg, s.OnSurface, StateLayer.Opacity(st)), BorderRadius: radius, Border: border,
-                        BoxShadow: Elevation.Shadows(st.Hover && variant == CardVariant.Elevated ? 2 : elev, s.Shadow)),
+                        BoxShadow: theme.Shape.Shadows(st.Hover && variant == CardVariant.Elevated ? 2 : elev, s.Shadow)),
                     child: new ClipRRect(radius, child ?? new SizedBox())), onTap);
         return new Padding(margin ?? EdgeInsets.All(4), card);
     }
@@ -198,7 +200,7 @@ public sealed class Chip(Widget label, Action? onPressed = null, bool selected =
     {
         var theme = Theme.Of(context);
         var s = theme.ColorScheme;
-        var radius = BorderRadius.Circular(Shapes.Small);
+        var radius = BorderRadius.Circular(theme.Shape.Small);
         return new Interactive((ctx, st) =>
         {
             var fg = selected ? s.OnSecondaryContainer : s.OnSurfaceVariant;
@@ -269,14 +271,14 @@ public sealed class FloatingActionButton(Widget? child = null, Action? onPressed
     {
         var theme = Theme.Of(context);
         var s = theme.ColorScheme;
-        var radius = BorderRadius.Circular(Shapes.Large);
+        var radius = BorderRadius.Circular(theme.Shape.Large);
         bool extended = label is not null;
         return new Interactive((ctx, st) =>
         {
             var bg = StateLayer.Blend(s.PrimaryContainer, s.OnPrimaryContainer, StateLayer.Opacity(st));
             Widget body = new AnimatedContainer(TimeSpan.FromMilliseconds(120), height: 56, constraints: new BoxConstraints(56, float.PositiveInfinity, 56, 56),
                 padding: EdgeInsets.Symmetric(horizontal: extended ? 16 : 0),
-                decoration: new BoxDecoration(Color: bg, BorderRadius: radius, BoxShadow: Elevation.Shadows(st.Hover ? 4 : 3, s.Shadow)),
+                decoration: new BoxDecoration(Color: bg, BorderRadius: radius, BoxShadow: theme.Shape.Shadows(st.Hover ? 4 : 3, s.Shadow)),
                 child: new IconTheme(s.OnPrimaryContainer, 24, new Row(mainAxisSize: MainAxisSize.Min, mainAxisAlignment: MainAxisAlignment.Center, spacing: 8, children:
                 [
                     child ?? new SizedBox(),
@@ -294,7 +296,8 @@ public sealed class IconButton(Widget icon, Action? onPressed = null, IconButton
 {
     public override Widget Build(BuildContext context)
     {
-        var s = Theme.Of(context).ColorScheme;
+        var theme = Theme.Of(context);
+        var s = theme.ColorScheme;
         bool enabled = onPressed is not null;
         return new Interactive((ctx, st) =>
         {
@@ -312,8 +315,8 @@ public sealed class IconButton(Widget icon, Action? onPressed = null, IconButton
             if (!enabled) { fg = s.OnSurface.WithOpacity(0.38f); bg = bg.Alpha == 0 ? bg : s.OnSurface.WithOpacity(0.12f); }
             var layered = StateLayer.Blend(bg, fg, enabled ? StateLayer.Opacity(st) : 0);
             Widget body = new AnimatedContainer(TimeSpan.FromMilliseconds(120), width: 40, height: 40, alignment: Alignment.Center,
-                decoration: new BoxDecoration(Color: layered, Shape: BoxShape.Circle, Border: border), child: new IconTheme(fg, 24, icon));
-            return FocusRing.Around(st.FocusVisible, BorderRadius.Circular(100), body, s.Primary);
+                decoration: new BoxDecoration(Color: layered, BorderRadius: BorderRadius.Circular(theme.Shape.Round), Border: border), child: new IconTheme(fg, 24, icon));
+            return FocusRing.Around(st.FocusVisible, BorderRadius.Circular(theme.Shape.Round), body, s.Primary);
         }, onPressed);
     }
 }
@@ -460,7 +463,7 @@ public sealed class NavigationRail(int selectedIndex, IReadOnlyList<NavigationDe
                 new AnimatedContainer(TimeSpan.FromMilliseconds(200), width: 56, height: 32, alignment: Alignment.Center, curve: Curves.EaseOutCubic,
                     decoration: new BoxDecoration(
                         Color: sel ? s.SecondaryContainer.WithOpacity(1) : StateLayer.Blend(Colors.Transparent, s.OnSurface, StateLayer.Opacity(st)),
-                        BorderRadius: BorderRadius.Circular(16)),
+                        BorderRadius: BorderRadius.Circular(theme.Shape.Large)),
                     child: new Icon(sel ? d.SelectedIcon ?? d.Icon : d.Icon, 24, sel ? s.OnSecondaryContainer : s.OnSurfaceVariant)),
                 new Text(d.Label, style: new TextStyle(Color: sel ? s.OnSurface : s.OnSurfaceVariant, FontWeight: sel ? FontWeight.W600 : FontWeight.W500)
                     .Merge(new TextStyle(FontSize: theme.TextTheme.LabelMedium.FontSize, LetterSpacing: theme.TextTheme.LabelMedium.LetterSpacing))),
@@ -483,7 +486,7 @@ public sealed class NavigationBar(int selectedIndex, IReadOnlyList<NavigationDes
             return (Widget)new Expanded(new Interactive((ctx, st) => new Column(mainAxisAlignment: MainAxisAlignment.Center, spacing: 4, children:
             [
                 new AnimatedContainer(TimeSpan.FromMilliseconds(200), width: 64, height: 32, alignment: Alignment.Center,
-                    decoration: new BoxDecoration(Color: sel ? s.SecondaryContainer : StateLayer.Blend(Colors.Transparent, s.OnSurface, StateLayer.Opacity(st)), BorderRadius: BorderRadius.Circular(16)),
+                    decoration: new BoxDecoration(Color: sel ? s.SecondaryContainer : StateLayer.Blend(Colors.Transparent, s.OnSurface, StateLayer.Opacity(st)), BorderRadius: BorderRadius.Circular(theme.Shape.Large)),
                     child: new Icon(sel ? d.SelectedIcon ?? d.Icon : d.Icon, 24, sel ? s.OnSecondaryContainer : s.OnSurfaceVariant)),
                 new Text(d.Label, style: new TextStyle(Color: sel ? s.OnSurface : s.OnSurfaceVariant, FontWeight: sel ? FontWeight.W600 : FontWeight.W500, FontSize: 12)),
             ]), () => onDestinationSelected?.Invoke(i)));
@@ -603,7 +606,7 @@ public static class Dialogs
                         [
                             new Expanded(new Text(message, style: theme.TextTheme.BodyMedium.Merge(new TextStyle(Color: s.OnInverseSurface)))),
                             ..actionLabel is null ? Array.Empty<Widget>() : [new TextButton(new Text(actionLabel), () => { onAction?.Invoke(); Close(); }, color: s.InversePrimary)],
-                        ]))), s.InverseSurface, 3, BorderRadius.Circular(Shapes.ExtraSmall))))), curve: Curves.EaseOutCubic))),
+                        ]))), s.InverseSurface, 3, BorderRadius.Circular(theme.Shape.ExtraSmall))))), curve: Curves.EaseOutCubic))),
                 left: 0, top: 0, right: 0, bottom: 0));
         });
         overlay.Insert(entry);
@@ -626,6 +629,6 @@ public sealed class AlertDialog(Widget? title = null, Widget? content = null, IR
                     DefaultTextStyle.Merge(context, theme.TextTheme.HeadlineSmall.Merge(new TextStyle(Color: s.OnSurface)), title))],
                 ..content is null ? Array.Empty<Widget>() : [DefaultTextStyle.Merge(context, theme.TextTheme.BodyMedium.Merge(new TextStyle(Color: s.OnSurfaceVariant)), content)],
                 ..actions is null ? Array.Empty<Widget>() : [new Padding(EdgeInsets.Only(top: 24), new Align(Alignment.CenterRight, new Row(mainAxisSize: MainAxisSize.Min, spacing: 8, children: actions)))],
-            ])), s.SurfaceContainerHigh, 3, BorderRadius.Circular(Shapes.ExtraLarge)));
+            ])), s.SurfaceContainerHigh, 3, BorderRadius.Circular(theme.Shape.ExtraLarge)));
     }
 }

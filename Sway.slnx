@@ -8,6 +8,7 @@
   <Project Path="Sway.Media/Sway.Media.csproj" />
   <Project Path="Sway.Media.LibVlc/Sway.Media.LibVlc.csproj" />
   <Project Path="Sway.Media.Web/Sway.Media.Web.csproj" />
+  <Project Path="Sway.Extras.Ibm/Sway.Extras.Ibm.csproj" />
   <Project Path="Sway.Example/Sway.Example.csproj" />
   <Project Path="Sway.Example.Desktop/Sway.Example.Desktop.csproj" />
   <Project Path="Sway.Example.Headless/Sway.Example.Headless.csproj" />

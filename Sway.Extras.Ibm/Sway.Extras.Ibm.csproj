@@ -4,12 +4,15 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>Sway.Extras.Ibm</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Fonts\*.ttf" LogicalName="Sway.Extras.Ibm.Fonts.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Sway.Widgets\Sway.Widgets.csproj" />
-    <ProjectReference Include="..\Sway.Media\Sway.Media.csproj" />
-    <ProjectReference Include="..\Sway.Extras.Ibm\Sway.Extras.Ibm.csproj" />
   </ItemGroup>
 
 </Project>

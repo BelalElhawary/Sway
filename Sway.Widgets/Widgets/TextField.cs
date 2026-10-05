@@ -351,9 +351,10 @@ sealed class InputDecoratorState : TickerProviderState<InputDecorator>
         float startPad = d.Prefix is null ? 16 : 12;
         float labelStart = Lerps.Float(d.Prefix is null ? 16 : 52, 16, t);
 
+        float vpad = (theme.Shape.FieldHeight - 24) / 2;
         var padding = d.ContentPadding ?? (filled
-            ? new EdgeInsets(startPad, hasLabel ? 24 : 16, d.Suffix is null ? 16 : 12, hasLabel ? 8 : 16)
-            : new EdgeInsets(startPad, 16, d.Suffix is null ? 16 : 12, 16));
+            ? new EdgeInsets(startPad, hasLabel ? 24 : vpad, d.Suffix is null ? 16 : 12, hasLabel ? 8 : vpad)
+            : new EdgeInsets(startPad, vpad, d.Suffix is null ? 16 : 12, vpad));
         if (rtl) padding = new EdgeInsets(padding.Right, padding.Top, padding.Left, padding.Bottom);
 
         Widget content = new Row(crossAxisAlignment: CrossAxisAlignment.Center, children:
@@ -368,8 +369,8 @@ sealed class InputDecoratorState : TickerProviderState<InputDecorator>
         {
             Positioned.Fill(new CustomPaint(new FieldBorderPainter(filled, borderColor, borderWidth,
                 filled ? (enabled ? fill : s.OnSurface.WithOpacity(0.04f)) : Colors.Transparent,
-                labelStart - 4, hasLabel && !filled ? (labelWidth * 0.75f + 8) * t : 0, rtl))),
-            new ConstrainedBox(new BoxConstraints(0, float.PositiveInfinity, 56, float.PositiveInfinity), new Padding(padding, content)),
+                labelStart - 4, hasLabel && !filled ? (labelWidth * 0.75f + 8) * t : 0, rtl, theme.Shape.ExtraSmall))),
+            new ConstrainedBox(new BoxConstraints(0, float.PositiveInfinity, theme.Shape.FieldHeight, float.PositiveInfinity), new Padding(padding, content)),
         };
 
         if (hasLabel)
@@ -392,14 +393,14 @@ sealed class InputDecoratorState : TickerProviderState<InputDecorator>
     }
 }
 
-sealed class FieldBorderPainter(bool filled, SKColor color, float width, SKColor fill, float gapStart, float gapWidth, bool rtl) : CustomPainter
+sealed class FieldBorderPainter(bool filled, SKColor color, float width, SKColor fill, float gapStart, float gapWidth, bool rtl, float radius = 4) : CustomPainter
 {
     public override void Paint(SKCanvas canvas, Size size)
     {
         if (filled)
         {
             var rr = new SKRoundRect();
-            rr.SetRectRadii(new SKRect(0, 0, size.Width, size.Height), new[] { new SKPoint(4, 4), new SKPoint(4, 4), new SKPoint(0, 0), new SKPoint(0, 0) });
+            rr.SetRectRadii(new SKRect(0, 0, size.Width, size.Height), new[] { new SKPoint(radius, radius), new SKPoint(radius, radius), new SKPoint(0, 0), new SKPoint(0, 0) });
             using var fp = new SKPaint { Color = fill, IsAntialias = true };
             canvas.DrawRoundRect(rr, fp);
             using var lp = new SKPaint { Color = color, IsAntialias = false };
@@ -414,7 +415,7 @@ sealed class FieldBorderPainter(bool filled, SKColor color, float width, SKColor
             canvas.ClipRect(new SKRect(gs, -20, gs + gapWidth, width + 2), SKClipOperation.Difference);
         }
         using var p = new SKPaint { Color = color, IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = width };
-        canvas.DrawRoundRect(new SKRect(width / 2, width / 2, size.Width - width / 2, size.Height - width / 2), 4, 4, p);
+        canvas.DrawRoundRect(new SKRect(width / 2, width / 2, size.Width - width / 2, size.Height - width / 2), radius, radius, p);
         canvas.Restore();
     }
 

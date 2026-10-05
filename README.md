@@ -57,6 +57,7 @@ class CounterState : State<CounterPage>
 | `Sway.Media` | Platform-neutral media: `MediaPlayerController`, `VideoPlayer`, `AudioPlayer`, and the `IMediaBackend` interface. |
 | `Sway.Media.LibVlc` | The LibVLC backend for Windows, Linux, macOS and Android (`LibVlcMediaBackend.Install()`). |
 | `Sway.Media.Web` | The browser backend (`await BrowserMediaBackend.InstallAsync()`). |
+| `Sway.Extras.Ibm` | Optional: the IBM Carbon theme (`IbmTheme.White()`, `Gray10`, `Gray90`, `Gray100`) with embedded IBM Plex fonts. |
 | `Sway.Example` | The shared example UI (Material 3, pages for components, layout, forms, motion, effects, RTL, stress and media). No platform code. |
 | `Sway.Example.Desktop` | Runs the example in a desktop window. |
 | `Sway.Example.Headless` | Runs the example without a window: the `--screenshot` and `--bench` tooling. |

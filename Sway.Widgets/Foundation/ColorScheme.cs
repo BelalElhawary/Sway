@@ -82,6 +82,9 @@ public sealed record ColorScheme
     public SKColor OnPrimary { get; init; } = Colors.FromRgb(0xFFFFFF);
     public SKColor PrimaryContainer { get; init; } = Colors.FromRgb(0xEADDFF);
     public SKColor OnPrimaryContainer { get; init; } = Colors.FromRgb(0x21005D);
+    /// <summary>Primary-coloured text, outlines and icons on the surface (text and outlined buttons). Defaults to <see cref="Primary"/>; a theme sets it when the fill colour is too dim to read as text.</summary>
+    public SKColor? Accent { get; init; }
+    public SKColor AccentColor => Accent ?? Primary;
     public SKColor Secondary { get; init; } = Colors.FromRgb(0x625B71);
     public SKColor OnSecondary { get; init; } = Colors.FromRgb(0xFFFFFF);
     public SKColor SecondaryContainer { get; init; } = Colors.FromRgb(0xE8DEF8);
@@ -228,6 +231,42 @@ public static class Shapes
     public const float None = 0, ExtraSmall = 4, Small = 8, Medium = 12, Large = 16, ExtraLarge = 28, Full = 1000;
 }
 
+/// <summary>
+/// The shape and density of a theme: corner radii, the standard control height and whether surfaces cast shadows.
+/// The defaults are Material 3; other design systems supply their own through <see cref="ThemeData.Shape"/>.
+/// </summary>
+public sealed record ShapeTheme
+{
+    public float ExtraSmall { get; init; } = Shapes.ExtraSmall;
+    public float Small { get; init; } = Shapes.Small;
+    public float Medium { get; init; } = Shapes.Medium;
+    public float Large { get; init; } = Shapes.Large;
+    public float ExtraLarge { get; init; } = Shapes.ExtraLarge;
+    /// <summary>Corner radius of buttons.</summary>
+    public float Button { get; init; } = 20;
+    /// <summary>Corner radius of icon buttons, the floating action button and similar round controls.</summary>
+    public float Round { get; init; } = Shapes.Full;
+    /// <summary>Corner radius of the checkbox box.</summary>
+    public float CheckboxRadius { get; init; } = 2;
+    /// <summary>Whether checkboxes, radios and switches draw a round hover/press halo. Without it they show a focus border instead.</summary>
+    public bool ControlHalo { get; init; } = true;
+    /// <summary>A flat 48x24 switch with no outline and a fixed thumb, instead of the Material 52x32 switch.</summary>
+    public bool CompactSwitch { get; init; }
+    /// <summary>Height of buttons.</summary>
+    public float ControlHeight { get; init; } = 40;
+    /// <summary>Horizontal padding inside text-only buttons.</summary>
+    public float ButtonPadding { get; init; } = 24;
+    /// <summary>Minimum height of text fields and dropdowns.</summary>
+    public float FieldHeight { get; init; } = 56;
+    /// <summary>When true, surfaces draw no drop shadows and rely on fills and borders for separation.</summary>
+    public bool Flat { get; init; }
+
+    public static readonly ShapeTheme Material3 = new();
+
+    /// <summary>The shadow for an elevation level, or null for a flat theme.</summary>
+    public IReadOnlyList<BoxShadow>? Shadows(int level, SKColor shadow) => Flat ? null : Elevation.Shadows(level, shadow);
+}
+
 /// <summary>Material 3 elevation: the two-layer shadow for each level (0 to 5).</summary>
 public static class Elevation
 {
@@ -252,6 +291,7 @@ public sealed record ThemeData
     public ColorScheme ColorScheme { get; init; } = ColorScheme.Light;
     public TextTheme TextTheme { get; init; } = new TextTheme().Apply(ColorScheme.Light.OnSurface);
     public bool UseMaterial3 { get; init; } = true;
+    public ShapeTheme Shape { get; init; } = ShapeTheme.Material3;
     public Brightness Brightness => ColorScheme.Brightness;
 
     /// <summary>App-defined theme data, looked up by type with <see cref="Extension{T}"/>.</summary>
