@@ -11,6 +11,35 @@ public static class FontCache
     static readonly List<(string family, int weight, bool italic, SKTypeface face)> Registered = new();
     static readonly Dictionary<(string, int, bool), SKTypeface> Typefaces = new();
 
+    // Faces shipped inside the assembly so text looks the same on every platform, including ones without system fonts.
+    static readonly (string File, string Family, int Weight, bool Italic, bool ArabicFallback)[] Bundled =
+    [
+        ("Roboto-Light.ttf", "Roboto", 300, false, false),
+        ("Roboto-Regular.ttf", "Roboto", 400, false, false),
+        ("Roboto-Italic.ttf", "Roboto", 400, true, false),
+        ("Roboto-Medium.ttf", "Roboto", 500, false, false),
+        ("Roboto-Bold.ttf", "Roboto", 700, false, false),
+        ("NotoSansArabic-Regular.ttf", "Noto Sans Arabic", 400, false, true),
+        ("NotoSansArabic-Bold.ttf", "Noto Sans Arabic", 700, false, true),
+    ];
+
+    static FontCache()
+    {
+        var asm = typeof(FontCache).Assembly;
+        foreach (var (file, family, weight, italic, arabic) in Bundled)
+        {
+            using var stream = asm.GetManifestResourceStream("Sway.Fonts." + file);
+            if (stream is null) continue;
+            var face = SKTypeface.FromData(SKData.Create(stream));
+            if (face is null) continue;
+            Registered.Add((family, weight, italic, face));
+            if (arabic) TextShaper.RegisterFallback(face);
+        }
+    }
+
+    /// <summary>Forces the bundled faces to load.</summary>
+    internal static void EnsureLoaded() { }
+
     public static SKFont Get(string family, float size, int weight, bool italic)
     {
         var key = new Key(family, size, weight, italic);

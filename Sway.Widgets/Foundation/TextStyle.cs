@@ -29,7 +29,7 @@ public sealed record TextStyle(
     IReadOnlyList<BoxShadow>? Shadows = null)
 {
     public const float DefaultFontSize = 14;
-    public const string DefaultFontFamily = "Segoe UI";
+    public const string DefaultFontFamily = "Roboto";
 
     /// <summary>Fully-specified style used as the root of every merge.</summary>
     public static readonly TextStyle Fallback = new(

@@ -24,6 +24,111 @@ public static class TextShaper
         }
     }
 
+    // Shaping is the expensive step (HarfBuzz, and much slower under WASM), and layout, caret mapping and painting all
+    // shape the same strings every frame. Results are kept per (typeface, size, text) and drawn from a cached blob.
+    readonly record struct ShapeKey(SKTypeface Face, float Size, float ScaleX, string Text);
+    sealed class Shaped
+    {
+        public SKShaper.Result Result = null!;
+        public SKFont Font = null!;
+        public SKTextBlob? Blob;
+    }
+
+    static readonly List<SKTypeface> Fallbacks = new();
+    static readonly Dictionary<(SKTypeface, SKFont), SKFont> FallbackFonts = new();
+    static readonly Dictionary<(SKTypeface, int), SKTypeface?> FaceForChar = new();
+
+    /// <summary>
+    /// Registers a typeface used for characters the requested font has no glyph for (e.g. Arabic on a platform
+    /// without system fonts, such as WebAssembly).
+    /// </summary>
+    public static void RegisterFallback(SKTypeface face)
+    {
+        lock (Fallbacks) { Fallbacks.Add(face); FaceForChar.Clear(); }
+    }
+
+    /// <summary>The font to shape with: the requested one when it covers the text's first RTL character, else a fallback that does.</summary>
+    static SKFont Resolve(string text, SKFont font)
+    {
+        FontCache.EnsureLoaded();
+        int cp = 0;
+        foreach (var rune in text.EnumerateRunes())
+            if (rune.Value <= 0xFFFF && IsRtlChar((char)rune.Value)) { cp = rune.Value; break; }
+        if (cp == 0 || font.Typeface.ContainsGlyph(cp)) return font;
+
+        SKTypeface? face;
+        lock (Fallbacks)
+        {
+            if (!FaceForChar.TryGetValue((font.Typeface, cp), out face))
+            {
+                face = Fallbacks.Where(f => f.ContainsGlyph(cp)).OrderBy(f => Math.Abs(f.FontWeight - font.Typeface.FontWeight)).FirstOrDefault();
+                face ??= SKFontManager.Default.MatchCharacter(font.Typeface.FamilyName, font.Typeface.FontStyle, null, cp);
+                FaceForChar[(font.Typeface, cp)] = face;
+            }
+        }
+        if (face is null) return font;
+
+        lock (Fallbacks)
+        {
+            if (!FallbackFonts.TryGetValue((face, font), out var f))
+            {
+                f = new SKFont(face, font.Size, font.ScaleX, font.SkewX) { Edging = font.Edging, Subpixel = font.Subpixel };
+                FallbackFonts[(face, font)] = f;
+            }
+            return f;
+        }
+    }
+
+    const int MaxCached = 2048;
+    static readonly Dictionary<ShapeKey, Shaped> ShapeCache = new();
+
+    // If the native HarfBuzz library cannot load (e.g. missing WASM asset), shaping is disabled for good. Retrying would
+    // throw on every measure and paint, which is extremely slow.
+    static bool _unavailable;
+
+    static Shaped GetShaped(string text, SKFont font)
+    {
+        if (_unavailable) return new Shaped();
+        font = Resolve(text, font);
+        var key = new ShapeKey(font.Typeface, font.Size, font.ScaleX, text);
+        lock (ShapeCache)
+        {
+            if (ShapeCache.TryGetValue(key, out var hit)) return hit;
+            if (ShapeCache.Count >= MaxCached)
+            {
+                foreach (var old in ShapeCache.Values) old.Blob?.Dispose();
+                ShapeCache.Clear();
+            }
+            try
+            {
+                var shaped = new Shaped { Result = GetShaper(font.Typeface).Shape(text, font), Font = font };
+                ShapeCache[key] = shaped;
+                return shaped;
+            }
+            catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException or TypeInitializationException)
+            {
+                _unavailable = true;
+                Console.Error.WriteLine($"HarfBuzz unavailable, falling back to unshaped text: {e.Message}");
+                return new Shaped();
+            }
+        }
+    }
+
+    static SKTextBlob? BuildBlob(SKShaper.Result r, SKFont font)
+    {
+        if (r.Codepoints.Length == 0) return null;
+        using var builder = new SKTextBlobBuilder();
+        var run = builder.AllocatePositionedRun(font, r.Codepoints.Length);
+        var glyphs = run.Glyphs;
+        var positions = run.Positions;
+        for (int i = 0; i < r.Codepoints.Length; i++)
+        {
+            glyphs[i] = (ushort)r.Codepoints[i];
+            positions[i] = new SKPoint(r.Points[i].X, r.Points[i].Y);
+        }
+        return builder.Build();
+    }
+
     /// <summary>Checks if a character belongs to an RTL script (Arabic, Hebrew, Syriac, Thaana, etc.).</summary>
     public static bool IsRtlChar(char c)
     {
@@ -59,9 +164,7 @@ public static class TextShaper
         if (string.IsNullOrEmpty(text)) return 0;
         if (!ContainsRtl(text)) return font.MeasureText(text);
 
-        var shaper = GetShaper(font.Typeface);
-        var result = shaper.Shape(text, font);
-        return result?.Width ?? font.MeasureText(text);
+        return GetShaped(text, font).Result?.Width ?? font.MeasureText(text);
     }
 
     /// <summary>
@@ -73,7 +176,7 @@ public static class TextShaper
         var offsets = new float[text.Length + 1];
         if (text.Length == 0) return offsets;
 
-        var shaped = ContainsRtl(text) ? GetShaper(font.Typeface).Shape(text, font) : null;
+        var shaped = ContainsRtl(text) ? GetShaped(text, font).Result : null;
         if (shaped is null || shaped.Clusters.Length == 0)
         {
             for (int i = 1; i <= text.Length; i++) offsets[i] = font.MeasureText(text.AsSpan(0, i));
@@ -133,7 +236,15 @@ public static class TextShaper
             return;
         }
 
-        var shaper = GetShaper(font.Typeface);
-        canvas.DrawShapedText(shaper, text, x, baseline, textAlign, font, paint);
+        var shaped = GetShaped(text, font);
+        if (shaped.Result is null)
+        {
+            canvas.DrawText(text, x, baseline, textAlign, font, paint);
+            return;
+        }
+        float dx = textAlign switch { SKTextAlign.Center => -shaped.Result.Width / 2, SKTextAlign.Right => -shaped.Result.Width, _ => 0 };
+        SKTextBlob? blob;
+        lock (ShapeCache) blob = shaped.Blob ??= BuildBlob(shaped.Result, shaped.Font);
+        if (blob is not null) canvas.DrawText(blob, x + dx, baseline, paint);
     }
 }

@@ -186,7 +186,7 @@ public sealed record ColorScheme
 /// <summary>The Material 3 type scale. Fonts fall back to Segoe UI when Roboto is not installed.</summary>
 public sealed record TextTheme
 {
-    const string Family = "Roboto, Segoe UI, sans-serif";
+    const string Family = "Roboto, sans-serif";
 
     static TextStyle S(float size, float line, int weight, float tracking) =>
         new(FontSize: size, Height: line / size, FontWeight: weight, LetterSpacing: tracking, FontFamily: Family);
