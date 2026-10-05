@@ -1,7 +1,7 @@
 using SkiaSharp;
 using Sway.Widgets;
 
-namespace Sway.Widgets.Demo;
+namespace Sway.Example;
 
 /// <summary>Large trees: a lazy list of rich rows, a huge Wrap and a big Grid, to see how scrolling and relayout hold up.</summary>
 class StressPage : StatefulWidget

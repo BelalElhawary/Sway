@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using SkiaSharp;
 using Sway.Widgets;
-using Sway.Widgets.Demo;
+using Sway.Example;
 
 // `--screenshot out.png` renders headlessly. Scripted steps run in order before each capture:
 //   --move x,y  --click x,y  --wheel x,y,delta  --type text  --key [ctrl+][shift+]Name  --advance ms

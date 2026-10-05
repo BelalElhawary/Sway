@@ -1,7 +1,7 @@
 using SkiaSharp;
 using Sway.Widgets;
 
-namespace Sway.Widgets.Demo;
+namespace Sway.Example;
 
 class FormsPage : StatefulWidget
 {

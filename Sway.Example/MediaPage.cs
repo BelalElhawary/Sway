@@ -1,7 +1,7 @@
 using Sway.Media;
 using Sway.Widgets;
 
-namespace Sway.Widgets.Demo;
+namespace Sway.Example;
 
 /// <summary>Plays an audio or video file or URL: set SWAY_MEDIA to preload one.</summary>
 class MediaPage : StatefulWidget
@@ -11,6 +11,8 @@ class MediaPage : StatefulWidget
 
 sealed class MediaPageState : State<MediaPage>
 {
+    static MediaPageState() => MediaPlayerController.Preload();
+
     readonly MediaPlayerController _player = new();
     readonly TextEditingController _source = new(Environment.GetEnvironmentVariable("SWAY_MEDIA") ?? "");
 
@@ -41,11 +43,11 @@ sealed class MediaPageState : State<MediaPage>
                     new Slider(total > 0 ? (float)p.Position.TotalSeconds : 0, v => p.Position = TimeSpan.FromSeconds(v), 0, Math.Max(total, 1)),
                     new Row(spacing: 8, children:
                     [
-                        new IconButton(new Icon(p.Status == MediaStatus.Playing ? Icons.Pause : Icons.PlayArrow), p.TogglePlay, IconButtonVariant.Filled),
+                        new IconButton(new Icon(p.Status is MediaStatus.Playing or MediaStatus.Buffering ? Icons.Pause : Icons.PlayArrow), p.TogglePlay, IconButtonVariant.Filled),
                         new IconButton(new Icon(Icons.Stop), p.Stop),
                         new Text($"{Format(p.Position)} / {Format(p.Duration)}"),
                         new Spacer(),
-                        new Text(p.Status.ToString()),
+                        new Text(p.Status == MediaStatus.Buffering ? $"Buffering {p.BufferingProgress:0}%" : p.Status.ToString()),
                     ]),
                 ]);
             }),

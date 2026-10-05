@@ -1,10 +1,10 @@
 using SkiaSharp;
 using Sway.Widgets;
 
-namespace Sway.Widgets.Demo;
+namespace Sway.Example;
 
 /// <summary>The demo app: a Material 3 shell with a navigation rail, theme-mode, seed-colour and text-direction switches.</summary>
-class DemoRoot(string page = "components", bool dark = false, bool rtl = false) : StatefulWidget
+public class DemoRoot(string page = "components", bool dark = false, bool rtl = false) : StatefulWidget
 {
     public string Page => page;
     public bool Dark => dark;

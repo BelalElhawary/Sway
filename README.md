@@ -49,13 +49,16 @@ class CounterState : State<CounterPage>
 | Project | Purpose |
 | --- | --- |
 | `Sway.Widgets` | The platform-neutral library: Foundation, Rendering and Widgets. Depends only on SkiaSharp and HarfBuzz. |
+| `Sway.Platform.Android` | Android host: GL surface, touch, soft keyboard, system theme. Subclass `SwayActivity`. |
 | `Sway.Platform.Desktop` | Windows/Linux/macOS host: window, input, OS theme (Silk.NET). Provides `App.Run`. |
 | `Sway.Media` | Optional `MediaPlayerController` and `VideoPlayer` widget (LibVLCSharp). |
-| `Sway.Widgets.Demo` | A Material 3 demo app with pages for components, layout, forms, motion, effects, RTL, stress and media. |
+| `Sway.Example` | The shared example UI (Material 3, pages for components, layout, forms, motion, effects, RTL, stress and media). No platform code. |
+| `Sway.Example.Desktop` | Runs the example on desktop; also the `--screenshot` and `--bench` tooling. |
+| `Sway.Example.Android` | Runs the example on Android. |
 | `Sway.Widgets.Tests` | xUnit tests that run the widget tree headlessly. |
 | `website/` | Documentation site (Docusaurus). |
 
-An app references `Sway.Widgets` and a platform project. Other platforms (for example Android) would add their own
+An app references `Sway.Widgets` and a platform project. Other platforms add their own
 `Sway.Platform.*` project that feeds the same `WidgetsBinding`.
 
 ## Getting started
@@ -66,15 +69,15 @@ no GPU.
 ```bash
 dotnet build Sway.slnx
 dotnet test                                    # headless widget tests
-dotnet run --project Sway.Widgets.Demo         # the demo app
+dotnet run --project Sway.Example.Desktop         # the demo app
 ```
 
 ### Headless screenshots
 
 ```bash
-dotnet run --project Sway.Widgets.Demo -- --screenshot out.png --page forms --dark
-dotnet run --project Sway.Widgets.Demo -- --screenshot out.png --page forms --click 300,230 --type "hello" --key Tab
-dotnet run --project Sway.Widgets.Demo -- --bench --page stress
+dotnet run --project Sway.Example.Desktop -- --screenshot out.png --page forms --dark
+dotnet run --project Sway.Example.Desktop -- --screenshot out.png --page forms --click 300,230 --type "hello" --key Tab
+dotnet run --project Sway.Example.Desktop -- --bench --page stress
 ```
 
 Pages: `components`, `layout`, `forms`, `motion`, `effects`, `rtl`, `stress`, `media`. Options: `--dark`, `--rtl`,
