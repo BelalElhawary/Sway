@@ -1,3 +1,4 @@
+using Sway.Assets;
 using SkiaSharp;
 
 namespace Sway.Widgets;
@@ -11,7 +12,7 @@ public static class FontCache
     static readonly List<(string family, int weight, bool italic, SKTypeface face)> Registered = new();
     static readonly Dictionary<(string, int, bool), SKTypeface> Typefaces = new();
 
-    // Faces shipped inside the assembly so text looks the same on every platform, including ones without system fonts.
+    // Faces shipped inside Sway.Assets so text looks the same on every platform, including ones without system fonts.
     static readonly (string File, string Family, int Weight, bool Italic, bool ArabicFallback)[] Bundled =
     [
         ("Roboto-Light.ttf", "Roboto", 300, false, false),
@@ -25,10 +26,9 @@ public static class FontCache
 
     static FontCache()
     {
-        var asm = typeof(FontCache).Assembly;
         foreach (var (file, family, weight, italic, arabic) in Bundled)
         {
-            using var stream = asm.GetManifestResourceStream("Sway.Fonts." + file);
+            using var stream = BundledFonts.Open(file);
             if (stream is null) continue;
             var face = SKTypeface.FromData(SKData.Create(stream));
             if (face is null) continue;
