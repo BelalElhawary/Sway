@@ -26,6 +26,8 @@ Sway.Platform.Headless/ # windowless host: renders to a PNG
 Sway.Example.Headless/  # headless runner for the example (screenshots, bench)
 Sway.Example.Android/   # Android runner for the example
 Sway.Example.Web/       # Browser runner for the example (needs the wasm-tools workload)
+Sway.Media/             # optional video and audio playback (LibVLCSharp)
+Sway.Widgets.Tests/     # xUnit tests that run the widget tree headlessly
 ```
 
 `Sway.Widgets` is the library. It depends only on SkiaSharp and SkiaSharp.HarfBuzz, so it carries no windowing or OS
@@ -40,6 +42,20 @@ dotnet run --project Sway.Example.Desktop
 
 This opens a window with a navigation rail and pages for components, layout, forms, motion, effects, right-to-left
 and a stress test. The app bar has switches for light/dark mode, the seed colour and text direction.
+
+Run the tests with `dotnet test`.
+
+### Run in the browser
+
+The browser host needs the `wasm-tools` workload (`dotnet workload install wasm-tools`), which relinks the .NET runtime
+with SkiaSharp's native code:
+
+```bash
+dotnet run --project Sway.Example.Web
+```
+
+To host Sway in your own Blazor WebAssembly app, add `<SwayView Root="new MyApp()" />`. The soft keyboard on touch
+devices and `Sway.Media` are not supported on the web yet.
 
 ## Your first app
 
@@ -109,7 +125,7 @@ dotnet run --project Sway.Example.Headless -- --screenshot out.png --page forms 
 dotnet run --project Sway.Example.Headless -- --bench --page stress
 ```
 
-Pages: `components`, `layout`, `forms`, `motion`, `effects`, `rtl`, `stress`. Steps: `--move x,y`, `--click x,y`,
+Pages: `components`, `layout`, `forms`, `motion`, `effects`, `rtl`, `stress`, `media`. Options: `--dark`, `--rtl`, `--size WxH`. Steps: `--move x,y`, `--click x,y`,
 `--wheel x,y,delta`, `--key [ctrl+][shift+]Name`, `--type text`, `--advance ms` (advances the manual animation
 clock). Steps run in order and each one re-renders the PNG, so the file ends up showing the final state.
 

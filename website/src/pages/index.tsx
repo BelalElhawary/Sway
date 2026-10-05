@@ -11,8 +11,9 @@ import styles from './index.module.css';
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
   return (
-    <header className={clsx('hero hero--primary', styles.heroBanner)}>
+    <header className={clsx('hero', styles.heroBanner)}>
       <div className="container">
+        <img className={styles.heroLogo} src="/img/sway-mark.svg" alt="Sway logo" />
         <Heading as="h1" className="hero__title">
           {siteConfig.title}
         </Heading>
@@ -22,6 +23,11 @@ function HomepageHeader() {
             className="button button--secondary button--lg"
             to="/docs/intro">
             Read the docs
+          </Link>
+          <Link
+            className="button button--outline button--secondary button--lg margin-left--md"
+            to="/docs/getting-started">
+            Get started
           </Link>
         </div>
       </div>

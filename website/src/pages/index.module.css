@@ -4,6 +4,8 @@
  */
 
 .heroBanner {
+  background: var(--sway-gradient);
+  color: #fff;
   padding: 4rem 0;
   text-align: center;
   position: relative;
@@ -20,4 +22,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.heroLogo {
+  height: 120px;
+  width: 120px;
+  margin-bottom: 1rem;
+  border-radius: 28px;
+  box-shadow: 0 12px 40px rgba(11, 16, 32, 0.35);
 }

@@ -51,8 +51,10 @@ Sway follows Flutter's three trees:
   (selection, clipboard, undo), scrolling with fling and lazy lists.
 - Animation: `AnimationController`, curves, tweens, transitions and implicit widgets such as `AnimatedContainer`.
 - Effects: shadows, gradients, clips, transforms, blur and colour filters.
-- A real window via [Silk.NET](https://github.com/dotnet/Silk.NET), and a headless mode that renders straight to PNG
-  for screenshot-based checks.
+- Platform hosts: a desktop window via [Silk.NET](https://github.com/dotnet/Silk.NET) (`Sway.Platform.Desktop`),
+  Android (`Sway.Platform.Android`), the browser (`Sway.Platform.Web`) and a headless mode that renders straight to
+  PNG for screenshot-based checks (`Sway.Platform.Headless`).
+- Optional video and audio playback through LibVLC (`Sway.Media`).
 
 ## What is not (yet)
 

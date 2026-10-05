@@ -7,7 +7,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 const config: Config = {
   title: 'Sway',
   tagline: 'Flutter-style widgets for .NET, rendered natively with Skia and Material 3',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/favicon.svg',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {
@@ -47,16 +47,15 @@ const config: Config = {
   ],
 
   themeConfig: {
-    // Replace with your project's social card
-    image: 'img/docusaurus-social-card.jpg',
+    image: 'img/sway-social-card.png',
     colorMode: {
       respectPrefersColorScheme: true,
     },
     navbar: {
       title: 'Sway',
       logo: {
-        alt: 'Sway Logo',
-        src: 'img/logo.svg',
+        alt: 'Sway logo',
+        src: 'img/sway-mark.svg',
       },
       items: [
         {
