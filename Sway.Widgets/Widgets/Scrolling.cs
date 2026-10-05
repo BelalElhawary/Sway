@@ -118,10 +118,15 @@ public sealed class ScrollController
     public void AnimateTo(float offset, TimeSpan duration, Curve? curve = null) => Position.AnimateTo(offset, duration, curve);
 }
 
-/// <summary>Handles wheel and drag input for a scrollable and builds its viewport.</summary>
+/// <summary>
+/// Handles wheel and drag input for a scrollable and builds its viewport. By default the wheel also scrolls along the
+/// other axis when it has no movement of its own, so a mouse can scroll a horizontal strip; pass
+/// <paramref name="wheelScrollsOtherAxis"/> false to let a vertical wheel pass through to an outer scrollable.
+/// </summary>
 public sealed class Scrollable(Axis axis, Func<BuildContext, ScrollPosition, Widget> viewportBuilder,
-    ScrollController? controller = null, Key? key = null) : StatefulWidget(key)
+    ScrollController? controller = null, bool wheelScrollsOtherAxis = true, Key? key = null) : StatefulWidget(key)
 {
+    internal bool WheelScrollsOtherAxis => wheelScrollsOtherAxis;
     internal Axis Axis => axis;
     internal ScrollController? Controller => controller;
     internal Func<BuildContext, ScrollPosition, Widget> ViewportBuilder => viewportBuilder;
@@ -136,8 +141,8 @@ sealed class ScrollableState : State<Scrollable>
     void OnWheel(PointerEvent e)
     {
         float delta = Widget.Axis == Axis.Vertical
-            ? (e.ScrollDelta.Dy != 0 ? e.ScrollDelta.Dy : e.ScrollDelta.Dx)
-            : (e.ScrollDelta.Dx != 0 ? e.ScrollDelta.Dx : e.ScrollDelta.Dy);
+            ? (e.ScrollDelta.Dy != 0 || !Widget.WheelScrollsOtherAxis ? e.ScrollDelta.Dy : e.ScrollDelta.Dx)
+            : (e.ScrollDelta.Dx != 0 || !Widget.WheelScrollsOtherAxis ? e.ScrollDelta.Dx : e.ScrollDelta.Dy);
         // Only consume the wheel if this scrollable can move, so an outer one can take over at the edge.
         if (Position.ScrollBy(delta)) PointerSignal.Consume();
     }
@@ -178,11 +183,11 @@ sealed class ScrollableState : State<Scrollable>
 }
 
 public sealed class SingleChildScrollView(Widget child, Axis scrollDirection = Axis.Vertical, ScrollController? controller = null,
-    EdgeInsets? padding = null, Key? key = null) : StatelessWidget(key)
+    EdgeInsets? padding = null, Key? key = null, bool wheelScrollsOtherAxis = true) : StatelessWidget(key)
 {
     public override Widget Build(BuildContext context) =>
         new Scrollable(scrollDirection, (_, position) =>
-            new Viewport(scrollDirection, position, padding is { } p ? new Padding(p, child) : child), controller);
+            new Viewport(scrollDirection, position, padding is { } p ? new Padding(p, child) : child), controller, wheelScrollsOtherAxis);
 }
 
 public sealed class Viewport(Axis axis, ScrollPosition position, Widget? child, Key? key = null) : SingleChildRenderObjectWidget(child, key)

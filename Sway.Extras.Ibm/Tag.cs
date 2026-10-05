@@ -5,8 +5,8 @@ namespace Sway.Extras.Ibm;
 
 public enum TagColor { Gray, Red, Magenta, Purple, Blue, Cyan, Teal, Green, Outline }
 
-/// <summary>A Carbon tag: a small pill that labels or categorises something. Optionally dismissible.</summary>
-public sealed class Tag(string label, TagColor color = TagColor.Gray, Action? onClose = null, Key? key = null) : StatelessWidget(key)
+/// <summary>A Carbon tag: a small pill that labels or categorises something. Optionally dismissible. <paramref name="compact"/> makes it 18px tall, for dense table rows.</summary>
+public sealed class Tag(string label, TagColor color = TagColor.Gray, Action? onClose = null, bool compact = false, Key? key = null) : StatelessWidget(key)
 {
     // Carbon tag tokens: (light background, light text, dark background, dark text).
     static (uint Back, uint Text, uint DarkBack, uint DarkText) Palette(TagColor c) => c switch
@@ -40,16 +40,17 @@ public sealed class Tag(string label, TagColor color = TagColor.Gray, Action? on
         }
 
         Widget text = new Text(label, softWrap: false, overflow: TextOverflow.Ellipsis, maxLines: 1,
-            style: theme.TextTheme.LabelMedium.Merge(new TextStyle(Color: fore)));
+            style: (compact ? theme.TextTheme.LabelSmall : theme.TextTheme.LabelMedium).Merge(new TextStyle(Color: fore)));
         Widget content = onClose is null
             ? text
             : new Row(mainAxisSize: MainAxisSize.Min, spacing: 4, children:
             [
                 text,
-                new GestureDetector(onTap: onClose, behavior: HitTestBehavior.Opaque, child: new Icon(Icons.Close, 14, fore)),
+                new GestureDetector(onTap: onClose, behavior: HitTestBehavior.Opaque, child: new Icon(Icons.Close, compact ? 12 : 14, fore)),
             ]);
         // widthFactor makes the Center shrink-wrap the label; an alignment on the Container would stretch the tag to fill its parent.
-        return new Container(height: 24, padding: EdgeInsets.Symmetric(horizontal: 8),
-            decoration: new BoxDecoration(Color: back, BorderRadius: BorderRadius.Circular(12), Border: border), child: new Center(content, 1));
+        float height = compact ? 18 : 24;
+        return new Container(height: height, padding: EdgeInsets.Symmetric(horizontal: compact ? 6 : 8),
+            decoration: new BoxDecoration(Color: back, BorderRadius: BorderRadius.Circular(height / 2), Border: border), child: new Center(content, 1));
     }
 }

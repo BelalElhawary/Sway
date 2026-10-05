@@ -44,7 +44,7 @@ class DataPageState : State<DataPage>
                     columns:
                     [
                         DataColumn<Server>.By("Name", r => r.Name, width: 160),
-                        new DataColumn<Server>("Status", r => r.Status, Width: 140, Cell: r => new Tag(r.Status, StatusColor(r.Status))),
+                        new DataColumn<Server>("Status", r => r.Status, Width: 140, Cell: r => new Tag(r.Status, StatusColor(r.Status), compact: _size <= TableSize.Small)),
                         new DataColumn<Server>("Region", r => r.Region),
                         DataColumn<Server>.By("CPU", r => r.Cpu, v => $"{v}%", width: 90, align: TextAlign.End),
                         DataColumn<Server>.By("Updated", r => r.Updated, v => v.ToString("yyyy-MM-dd HH:mm")),
@@ -53,9 +53,15 @@ class DataPageState : State<DataPage>
                     size: _size, selectable: true, searchable: true, pageSize: 10, maxBodyHeight: 480,
                     batchActions: [new BatchAction<Server>("Delete", rows => Dialogs.ShowSnackBar(context, $"Delete {rows.Count} servers?"), Icons.Delete)],
                     onSelectionChanged: rows => SetState(() => _selected = rows.Count),
+                    rowDetail: r => new Text($"{r.Name} runs in {r.Region} and was last updated {r.Updated:yyyy-MM-dd HH:mm}. Click the arrow again to collapse.",
+                        style: theme.TextTheme.BodyMedium),
                     onRowTap: r => SetState(() => _tapped = r.Name)),
                 new Text($"{_selected} selected, last row tapped: {_tapped}", style: theme.TextTheme.BodySmall),
             ])),
+            Ui.Section(context, "Wide table", new DataTable<Server>(
+                columns: [..Enumerable.Range(1, 6).Select(i => (DataColumn<Server>)new($"Column {i}", r => $"{r.Name} / {i}", Width: 200))],
+                rows: Data.Take(40).ToList(), description: "Columns that do not fit scroll sideways; the header scrolls with them.",
+                size: TableSize.Small, maxBodyHeight: 200)),
         ]);
     }
 }

@@ -144,6 +144,84 @@ public class DataTableTests
     }
 
     [Fact]
+    public void ColumnsThatDoNotFitScrollSidewaysInsteadOfSqueezing()
+    {
+        DataColumn<Item>[] wide = [new("A", r => r.Name, Width: 250), new("B", r => r.Name, Width: 250), new("C", r => r.Name, Width: 250)];
+        var h = new Harness(new MaterialApp(new Align(Alignment.TopLeft, new DataTable<Item>(wide, Items.Take(3).ToList(), size: TableSize.Medium)),
+            theme: IbmTheme.White(), themeMode: ThemeMode.Light), 400, 300);
+        float XOf(string t) => Paragraphs(h).First(p => p.PlainText == t).LocalToGlobal(Offset.Zero).Dx;
+        Assert.True(XOf("C") > 400, "the third column starts off screen");
+        h.Gestures.PointerScroll(200, 100, 300, 0);
+        h.Advance(600); // wheel scrolling is animated
+        Assert.True(XOf("C") < 400, "scrolling sideways brings it into view");
+        Assert.True(XOf("A") < 0, "and moves the first column out");
+    }
+
+    [Fact]
+    public void AVerticalWheelOverAWideTableDoesNotScrollItSideways()
+    {
+        DataColumn<Item>[] wide = [new("A", r => r.Name, Width: 250), new("B", r => r.Name, Width: 250), new("C", r => r.Name, Width: 250)];
+        var h = new Harness(new MaterialApp(new Align(Alignment.TopLeft, new DataTable<Item>(wide, Items.Take(3).ToList(), size: TableSize.Medium)),
+            theme: IbmTheme.White(), themeMode: ThemeMode.Light), 400, 300);
+        h.Gestures.PointerScroll(200, 100, 0, 200);
+        h.Advance(600);
+        Assert.Equal(16, Paragraphs(h).First(p => p.PlainText == "A").LocalToGlobal(Offset.Zero).Dx, 1);
+    }
+
+    [Fact]
+    public void ColumnsThatFitDoNotScroll()
+    {
+        var h = Show();
+        h.Gestures.PointerScroll(200, 100, 300, 0);
+        h.Advance(600);
+        // Still at the left edge: just the cell padding.
+        Assert.Equal(16, Paragraphs(h).First(p => p.PlainText == "Name").LocalToGlobal(Offset.Zero).Dx, 1);
+    }
+
+    [Fact]
+    public void ExpandingARowShowsItsDetail()
+    {
+        var h = new Harness(new MaterialApp(new SingleChildScrollView(new DataTable<Item>(Columns, Items.Take(5).ToList(), size: TableSize.Medium,
+            rowDetail: r => new Text("detail of " + r.Name), detailHeight: 60)), theme: IbmTheme.White(), themeMode: ThemeMode.Light), 900, 700);
+        var first = Paragraphs(h).First(p => p.PlainText.StartsWith("row-"));
+        float y = first.LocalToGlobal(Offset.Zero).Dy + first.Size.Height / 2;
+        float before = Paragraphs(h).Where(p => p.PlainText.StartsWith("row-")).Skip(1).First().LocalToGlobal(Offset.Zero).Dy;
+        Assert.DoesNotContain(Texts(h), t => t.StartsWith("detail of"));
+
+        h.Tap(24, y);
+        Assert.Single(Texts(h), t => t.StartsWith("detail of"));
+        // The row below moved down by the detail panel and its divider.
+        float after = Paragraphs(h).Where(p => p.PlainText.StartsWith("row-")).Skip(1).First().LocalToGlobal(Offset.Zero).Dy;
+        Assert.Equal(61, after - before, 1);
+
+        h.Tap(24, y);
+        Assert.DoesNotContain(Texts(h), t => t.StartsWith("detail of"));
+    }
+
+    [Fact]
+    public void HeaderCheckboxShowsAPartialSelection()
+    {
+        var h = Show(selectable: true);
+        var header = Paragraphs(h).First(p => p.PlainText == "Name");
+        float hy = header.LocalToGlobal(Offset.Zero).Dy + header.Size.Height / 2;
+        var primary = IbmTheme.White().ColorScheme.Primary;
+        using (var before = h.Render()) Assert.NotEqual(primary, before.GetPixel(16, (int)hy));
+
+        var first = Paragraphs(h).First(p => p.PlainText.StartsWith("row-"));
+        h.Tap(24, first.LocalToGlobal(Offset.Zero).Dy + first.Size.Height / 2);
+        using var after = h.Render();
+        Assert.Equal(primary, after.GetPixel(16, (int)hy));
+    }
+
+    [Fact]
+    public void CompactTagsAreShorter()
+    {
+        var h = new Harness(new MaterialApp(new Align(Alignment.TopLeft, new Tag("Running", TagColor.Green, compact: true)),
+            theme: IbmTheme.White(), themeMode: ThemeMode.Light), 300, 100);
+        Assert.Equal(18, h.Find<RenderDecoratedBox>().Last().Size.Height, 1);
+    }
+
+    [Fact]
     public void TagsUseTheirLabelAndCanBeDismissed()
     {
         bool closed = false;

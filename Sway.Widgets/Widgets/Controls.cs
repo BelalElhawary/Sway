@@ -78,6 +78,16 @@ sealed class CheckPainter(SKColor color, float strokeWidth = 2) : CustomPainter
     public override bool ShouldRepaint(CustomPainter old) => true;
 }
 
+sealed class DashPainter(SKColor color) : CustomPainter
+{
+    public override void Paint(SKCanvas canvas, Size size)
+    {
+        using var p = new SKPaint { Color = color, IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 2, StrokeCap = SKStrokeCap.Butt };
+        canvas.DrawLine(size.Width * 0.2f, size.Height / 2, size.Width * 0.8f, size.Height / 2, p);
+    }
+    public override bool ShouldRepaint(CustomPainter old) => true;
+}
+
 sealed class ChevronPainter(SKColor color, bool up = false) : CustomPainter
 {
     public override void Paint(SKCanvas canvas, Size size)
@@ -133,7 +143,8 @@ static class Halo
     }
 }
 
-public sealed class Checkbox(bool value, Action<bool>? onChanged = null, SKColor? activeColor = null, Key? key = null) : StatelessWidget(key)
+/// <summary>A checkbox. <paramref name="indeterminate"/> shows the "some selected" dash for a parent of a partly checked group; tapping it still reports <c>!value</c>.</summary>
+public sealed class Checkbox(bool value, Action<bool>? onChanged = null, SKColor? activeColor = null, bool indeterminate = false, Key? key = null) : StatelessWidget(key)
 {
     public override Widget Build(BuildContext context)
     {
@@ -145,12 +156,14 @@ public sealed class Checkbox(bool value, Action<bool>? onChanged = null, SKColor
         return new Interactive((ctx, st) =>
         {
             var off = s.OnSurface.WithOpacity(0.38f);
-            var boxColor = value ? (enabled ? active : off) : Colors.Transparent;
-            var border = value ? boxColor : enabled ? s.OnSurfaceVariant : off;
+            bool marked = value || indeterminate;
+            var boxColor = marked ? (enabled ? active : off) : Colors.Transparent;
+            var border = marked ? boxColor : enabled ? s.OnSurfaceVariant : off;
             Widget box = new AnimatedContainer(TimeSpan.FromMilliseconds(120), width: 18, height: 18,
                 decoration: new BoxDecoration(Color: boxColor, BorderRadius: radius, Border: Border.All(border, 2)),
-                child: value ? new CustomPaint(new CheckPainter(s.OnPrimary), size: new Size(14, 14)) : null);
-            return Halo.Wrap(st, value ? active : s.OnSurface, enabled, box, theme, radius);
+                child: indeterminate ? new CustomPaint(new DashPainter(s.OnPrimary), size: new Size(14, 14))
+                    : value ? new CustomPaint(new CheckPainter(s.OnPrimary), size: new Size(14, 14)) : null);
+            return Halo.Wrap(st, marked ? active : s.OnSurface, enabled, box, theme, radius);
         }, enabled ? () => onChanged!(!value) : null);
     }
 }

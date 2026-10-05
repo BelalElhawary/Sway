@@ -27,26 +27,31 @@ public sealed class Pagination(int totalItems, int page, int pageSize, Action<in
 
         Widget Divider() => new Container(width: 1, height: 24, color: s.OutlineVariant);
 
-        return new Container(height: Math.Max(48, theme.Shape.FieldHeight), color: s.SurfaceContainerHigh, child: new Column(
-            crossAxisAlignment: CrossAxisAlignment.Stretch, children:
-        [
-            new Container(height: 1, color: s.OutlineVariant),
-            new Expanded(new Row(crossAxisAlignment: CrossAxisAlignment.Center, spacing: 12, children:
+        // Narrow bars give up the wordy parts first: the "Items per page" label, then the page count.
+        return new LayoutBuilder((ctx, box) =>
+        {
+            bool roomy = box.MaxWidth >= 600, medium = box.MaxWidth >= 440;
+            return new Container(height: Math.Max(48, theme.Shape.FieldHeight), color: s.SurfaceContainerHigh, child: new Column(
+                crossAxisAlignment: CrossAxisAlignment.Stretch, children:
             [
-                new SizedBox(width: 4),
-                ..onPageSizeChanged is null ? Array.Empty<Widget>() :
+                new Container(height: 1, color: s.OutlineVariant),
+                new Expanded(new Row(crossAxisAlignment: CrossAxisAlignment.Center, spacing: 12, children:
                 [
-                    new Text("Items per page:", style: secondary),
-                    new SizedBox(width: 88, child: new DropdownButton<int>(
-                        sizes.Select(n => new DropdownMenuItem<int>(n, new Text(n.ToString()))).ToList(), pageSize, onPageSizeChanged)),
-                    Divider(),
-                ],
-                new Text($"{first}–{last} of {totalItems} item{(totalItems == 1 ? "" : "s")}", style: secondary),
-                new Expanded(new SizedBox()),
-                new Text($"{current + 1} of {pages} page{(pages == 1 ? "" : "s")}", style: secondary),
-                new IconButton(new Icon(Icons.ChevronLeft), current > 0 ? () => onPageChanged(current - 1) : null),
-                new IconButton(new Icon(Icons.ChevronRight), current < pages - 1 ? () => onPageChanged(current + 1) : null),
-            ])),
-        ]));
+                    new SizedBox(width: 4),
+                    ..onPageSizeChanged is null ? Array.Empty<Widget>() :
+                    [
+                        ..roomy ? [new Text("Items per page:", style: secondary)] : Array.Empty<Widget>(),
+                        new SizedBox(width: 88, child: new DropdownButton<int>(
+                            sizes.Select(n => new DropdownMenuItem<int>(n, new Text(n.ToString()))).ToList(), pageSize, onPageSizeChanged)),
+                        Divider(),
+                    ],
+                    new Expanded(new Text($"{first}–{last} of {totalItems}{(roomy ? $" item{(totalItems == 1 ? "" : "s")}" : "")}",
+                        style: secondary, softWrap: false, overflow: TextOverflow.Ellipsis, maxLines: 1)),
+                    ..medium ? [new Text($"{current + 1} of {pages} page{(pages == 1 ? "" : "s")}", style: secondary)] : Array.Empty<Widget>(),
+                    new IconButton(new Icon(Icons.ChevronLeft), current > 0 ? () => onPageChanged(current - 1) : null),
+                    new IconButton(new Icon(Icons.ChevronRight), current < pages - 1 ? () => onPageChanged(current + 1) : null),
+                ])),
+            ]));
+        });
     }
 }

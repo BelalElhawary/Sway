@@ -14,14 +14,15 @@ public enum TableSize { ExtraSmall = 24, Small = 32, Medium = 40, Large = 48, Ex
 /// <param name="Compare">How to order two rows; by default their <paramref name="Value"/> text is compared.</param>
 /// <param name="Align">Horizontal alignment of the header and cells. Use <see cref="TextAlign.End"/> for numbers.</param>
 /// <param name="Cell">A custom cell, such as a <see cref="Tag"/>. Search and sorting still use <paramref name="Value"/>.</param>
+/// <param name="MinWidth">The narrowest a flexible column may get. When the columns cannot all fit, the table scrolls sideways instead of squeezing them.</param>
 public sealed record DataColumn<T>(string Header, Func<T, string> Value, float? Width = null, bool Sortable = true,
-    Comparison<T>? Compare = null, TextAlign Align = TextAlign.Start, Func<T, Widget>? Cell = null)
+    Comparison<T>? Compare = null, TextAlign Align = TextAlign.Start, Func<T, Widget>? Cell = null, float MinWidth = 120)
 {
     /// <summary>A column sorted by a comparable key (numbers, dates) rather than by its text.</summary>
     public static DataColumn<T> By<TKey>(string header, Func<T, TKey> key, Func<TKey, string>? format = null, float? width = null,
-        TextAlign align = TextAlign.Start, Func<T, Widget>? cell = null) where TKey : IComparable<TKey> =>
+        TextAlign align = TextAlign.Start, Func<T, Widget>? cell = null, float minWidth = 120) where TKey : IComparable<TKey> =>
         new(header, row => format is null ? key(row)?.ToString() ?? "" : format(key(row)), width, true,
-            (a, b) => Comparer<TKey>.Default.Compare(key(a), key(b)), align, cell);
+            (a, b) => Comparer<TKey>.Default.Compare(key(a), key(b)), align, cell, minWidth);
 }
 
 /// <summary>An action shown in the batch bar while rows are selected.</summary>
@@ -34,11 +35,12 @@ public sealed record BatchAction<T>(string Label, Action<IReadOnlyList<T>> OnPre
 /// </summary>
 /// <param name="maxBodyHeight">The most height the rows may take before they scroll under the header. Null shows every row of the page.</param>
 /// <param name="pageSize">Rows per page, or null for no pagination.</param>
+/// <param name="rowDetail">Makes rows expandable: builds the panel shown under an expanded row, which is <paramref name="detailHeight"/> tall.</param>
 public sealed class DataTable<T>(IReadOnlyList<DataColumn<T>> columns, IReadOnlyList<T> rows, string? title = null, string? description = null,
     TableSize size = TableSize.Large, bool selectable = false, bool searchable = false, bool zebra = false, int? pageSize = null,
     IReadOnlyList<int>? pageSizes = null, float? maxBodyHeight = null, IReadOnlyList<Widget>? toolbarActions = null,
     IReadOnlyList<BatchAction<T>>? batchActions = null, Action<IReadOnlyList<T>>? onSelectionChanged = null, Action<T>? onRowTap = null,
-    Key? key = null) : StatefulWidget(key) where T : notnull
+    Func<T, Widget>? rowDetail = null, float detailHeight = 96, Key? key = null) : StatefulWidget(key) where T : notnull
 {
     internal IReadOnlyList<DataColumn<T>> Columns => columns;
     internal IReadOnlyList<T> Rows => rows;
@@ -55,16 +57,20 @@ public sealed class DataTable<T>(IReadOnlyList<DataColumn<T>> columns, IReadOnly
     internal IReadOnlyList<BatchAction<T>>? BatchActions => batchActions;
     internal Action<IReadOnlyList<T>>? OnSelectionChanged => onSelectionChanged;
     internal Action<T>? OnRowTap => onRowTap;
+    internal Func<T, Widget>? RowDetail => rowDetail;
+    internal float DetailHeight => detailHeight;
     public override State CreateState() => new DataTableState<T>();
 }
 
 sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
 {
     const float SelectWidth = 48;
+    const float ExpandWidth = 48;
     const float CellPadding = 16;
 
     readonly TextEditingController _search = new();
     readonly HashSet<T> _selected = new();
+    readonly HashSet<T> _expanded = new();
     int _sortColumn = -1;
     bool _descending;
     int _page;
@@ -77,6 +83,7 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
         if (Widget.PageSize != old.PageSize) { _pageSize = Widget.PageSize ?? int.MaxValue; _page = 0; }
         // Rows that are gone cannot stay selected.
         if (_selected.RemoveWhere(r => !Widget.Rows.Contains(r)) > 0) NotifySelection();
+        _expanded.RemoveWhere(r => !Widget.Rows.Contains(r));
     }
 
     // Rows after search and sort, before paging.
@@ -130,6 +137,14 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
         SetState(_selected.Clear);
         NotifySelection();
     }
+
+    bool Expandable => Widget.RowDetail is not null;
+
+    // The fixed-width columns before the data: the expand chevron and the selection checkbox.
+    float LeadingWidth => (Expandable ? ExpandWidth : 0) + (Widget.Selectable ? SelectWidth : 0);
+
+    // The width the columns need before the table has to scroll sideways.
+    float MinContentWidth => LeadingWidth + Widget.Columns.Sum(c => c.Width ?? c.MinWidth);
 
     Widget Cell(DataColumn<T> col, Widget child)
     {
@@ -202,12 +217,17 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
             : Widget.Zebra && index % 2 == 1 ? s.SurfaceContainerHigh : s.SurfaceContainerLow;
         var style = theme.TextTheme.BodyMedium.Merge(new TextStyle(Color: s.OnSurface));
 
-        return new Interactive((ctx, st) => new Container(
+        Widget line = new Interactive((ctx, st) => new Container(
             color: StateLayer.Blend(back, s.OnSurface, StateLayer.Opacity(st) * (tappable ? 1 : 0.6f)),
             child: new Column(children:
             [
                 new SizedBox(height: rowHeight - 1, child: new Row(crossAxisAlignment: CrossAxisAlignment.Center, children:
                 [
+                    ..Expandable
+                        ? [new SizedBox(width: ExpandWidth, height: rowHeight - 1, child: new GestureDetector(
+                            onTap: () => SetState(() => { if (!_expanded.Remove(row)) _expanded.Add(row); }), behavior: HitTestBehavior.Opaque,
+                            child: new Center(new Icon(_expanded.Contains(row) ? Icons.ExpandLess : Icons.ExpandMore, 20, s.OnSurface))))]
+                        : Array.Empty<Widget>(),
                     ..Widget.Selectable
                         ? [new SizedBox(width: SelectWidth, height: rowHeight - 1, child: new OverflowBox(new Checkbox(picked, v => ToggleRow(row, v))))]
                         : Array.Empty<Widget>(),
@@ -217,6 +237,15 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
                 new Container(height: 1, color: s.OutlineVariant),
             ])),
             tappable ? () => Widget.OnRowTap!(row) : () => { }, cursor: tappable ? MouseCursor.Click : MouseCursor.Default, focusable: false);
+
+        if (!Expandable || !_expanded.Contains(row)) return line;
+        // The detail sits outside the hover layer so only the row itself lights up.
+        return new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, children:
+        [
+            line,
+            new Container(height: Widget.DetailHeight, color: s.SurfaceContainer, padding: EdgeInsets.All(16), child: Widget.RowDetail!(row)),
+            new Container(height: 1, color: s.OutlineVariant),
+        ]);
     }
 
     public override Widget Build(BuildContext context)
@@ -231,16 +260,20 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
         _page = Math.Clamp(_page, 0, pages - 1);
         var visible = Widget.PageSize is null ? view : view.Skip(_page * _pageSize).Take(_pageSize).ToList();
 
-        float contentHeight = visible.Count * rowHeight;
+        int openRows = Expandable ? visible.Count(_expanded.Contains) : 0;
+        float contentHeight = visible.Count * rowHeight + openRows * (Widget.DetailHeight + 1);
         float bodyHeight = Widget.MaxBodyHeight is { } max ? Math.Min(contentHeight, max) : contentHeight;
         bool allPicked = visible.Count > 0 && visible.All(_selected.Contains);
+        bool somePicked = !allPicked && visible.Any(_selected.Contains);
         var headBack = s.SecondaryContainer;
 
         Widget body = visible.Count == 0
             ? new Container(height: rowHeight * 2, color: s.SurfaceContainerLow, alignment: Alignment.Center,
                 child: new Text(_search.Text.Trim().Length > 0 ? "No matching results" : "No data",
                     style: theme.TextTheme.BodyMedium.Merge(new TextStyle(Color: s.OnSurfaceVariant))))
-            : new SizedBox(height: bodyHeight, child: ListView.Builder(visible.Count, (ctx, i) => BuildRow(ctx, i, visible[i], rowHeight, theme), rowHeight));
+            : new SizedBox(height: bodyHeight, child: ListView.Builder(visible.Count, (ctx, i) => BuildRow(ctx, i, visible[i], rowHeight, theme),
+                // Expanded rows are taller, so the extent is only fixed while nothing is open.
+                openRows == 0 ? rowHeight : null));
 
         return new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, mainAxisSize: MainAxisSize.Min, children:
         [
@@ -255,14 +288,25 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
                 ])),
             },
             ..Widget.Searchable || Widget.ToolbarActions is { Count: > 0 } || _selected.Count > 0 ? [Toolbar(theme, barHeight)] : Array.Empty<Widget>(),
-            new Container(color: headBack, height: rowHeight, child: new Row(children:
-            [
-                ..Widget.Selectable
-                    ? [new SizedBox(width: SelectWidth, height: rowHeight, child: new OverflowBox(new Checkbox(allPicked, v => ToggleAll(visible, v))))]
-                    : Array.Empty<Widget>(),
-                ..Widget.Columns.Select((c, i) => HeaderCell(i, c, theme, headBack)),
-            ])),
-            body,
+            new LayoutBuilder((ctx, box) =>
+            {
+                Widget grid = new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, mainAxisSize: MainAxisSize.Min, children:
+                [
+                    new Container(color: headBack, height: rowHeight, child: new Row(children:
+                    [
+                        ..Expandable ? [new SizedBox(width: ExpandWidth)] : Array.Empty<Widget>(),
+                        ..Widget.Selectable
+                            ? [new SizedBox(width: SelectWidth, height: rowHeight, child: new OverflowBox(new Checkbox(allPicked, v => ToggleAll(visible, v), indeterminate: somePicked)))]
+                            : Array.Empty<Widget>(),
+                        ..Widget.Columns.Select((c, i) => HeaderCell(i, c, theme, headBack)),
+                    ])),
+                    body,
+                ]);
+                // When the columns do not fit, the header and rows scroll sideways together; the toolbar and pager stay put.
+                return box.MaxWidth < MinContentWidth
+                    ? new SingleChildScrollView(new SizedBox(width: MinContentWidth, child: grid), Axis.Horizontal, wheelScrollsOtherAxis: false)
+                    : grid;
+            }),
             ..Widget.PageSize is null ? Array.Empty<Widget>() :
             [
                 new Pagination(view.Count, _page, _pageSize, p => SetState(() => _page = p),

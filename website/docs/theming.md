@@ -113,10 +113,20 @@ new DataTable<Server>(
 - `TableSize` is Carbon's row height: `ExtraSmall` 24, `Small` 32, `Medium` 40, `Large` 48, `ExtraLarge` 64.
 - Rows are virtualised and the header stays put. Without `maxBodyHeight` the table is as tall as the rows on the page.
 - Selecting a row swaps the toolbar for a blue batch bar with your `batchActions` and a Cancel button.
-- A table does not scroll sideways yet, so give wide tables fixed `Width`s that fit.
+- Pass `rowDetail` to make rows expandable: a chevron appears in front of each row and the panel you build shows
+  under the open row, `detailHeight` tall (96 by default).
+- Columns that cannot all fit make the table scroll sideways, header and rows together, while the toolbar and pager stay
+  put. A flexible column never gets narrower than its `MinWidth` (120 by default). A vertical mouse wheel over the table
+  still scrolls the page.
+- The header checkbox shows a dash when only some rows are selected.
 
-`Pagination` also works alone (`totalItems`, zero-based `page`, `pageSize`, and callbacks), and `Tag` has the Carbon colours
-(`TagColor`), an outline style and an optional close button.
+`Pagination` also works alone (`totalItems`, zero-based `page`, `pageSize`, and callbacks) and drops its wordier parts
+on narrow screens. `Tag` has the Carbon colours (`TagColor`), an outline style, an optional close button and a `compact`
+18px size for dense rows.
+
+Two small additions to the core widgets came with this: `Checkbox(indeterminate: true)` for the dash, and
+`SingleChildScrollView(wheelScrollsOtherAxis: false)`, which stops a horizontal scroller from taking a vertical mouse
+wheel meant for the page.
 
 ## Components
 
