@@ -144,4 +144,26 @@ public class ScrollingTests
         Assert.InRange(controller.Offset, 2300, 2400);
         h.Gestures.PointerUp(395, 146);
     }
+
+    [Fact]
+    public void PressingTheContentDoesNotScroll()
+    {
+        var (h, c) = Scroller();
+        h.Gestures.PointerDown(200, 150);
+        h.Gestures.PointerMove(200, 250);
+        h.Gestures.PointerUp(200, 250);
+        h.Advance(400);
+        Assert.Equal(0, c.Offset, 1);
+    }
+
+    [Fact]
+    public void DraggingTheGutterThumbScrolls()
+    {
+        var (h, c) = Scroller();
+        h.Gestures.PointerDown(396, 6);
+        h.Gestures.PointerMove(396, 60);
+        h.Gestures.PointerUp(396, 60);
+        h.Advance(400);
+        Assert.True(c.Offset > 100, $"offset was {c.Offset}");
+    }
 }

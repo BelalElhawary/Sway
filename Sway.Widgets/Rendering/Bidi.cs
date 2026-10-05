@@ -116,7 +116,9 @@ public static class Bidi
                     break;
                 case BidiClass.WS or BidiClass.ON or BidiClass.ES or BidiClass.ET or BidiClass.CS or BidiClass.S or BidiClass.B:
                     // Look ahead for next strong direction
-                    TextDirection nextStrong = baseDirection;
+                    // Trailing neutrals (e.g. a space just typed after English) keep the preceding direction, so the
+                    // caret and the text do not jump to the other side of the line while typing.
+                    TextDirection nextStrong = current;
                     for (int j = i + 1; j < n; j++)
                     {
                         if (types[j] is BidiClass.AL or BidiClass.R) { nextStrong = TextDirection.Rtl; break; }

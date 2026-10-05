@@ -205,6 +205,8 @@ sealed class EditableTextState : State<EditableText>
         {
             case "Backspace" when !ro: Changed(edit.DeleteBackward(cmd)); return true;
             case "Delete" when !ro: Changed(edit.DeleteForward(cmd)); return true;
+            case "ArrowLeft" when _render is not null: _render.MoveVisualHorizontal(-1, cmd, e.Shift); Moved(); return true;
+            case "ArrowRight" when _render is not null: _render.MoveVisualHorizontal(1, cmd, e.Shift); Moved(); return true;
             case "ArrowLeft": edit.MoveHorizontal(-1, cmd, e.Shift); Moved(); return true;
             case "ArrowRight": edit.MoveHorizontal(1, cmd, e.Shift); Moved(); return true;
             case "ArrowUp" when Multiline: _render?.MoveVertical(-1, e.Shift); Changed(false); return true;

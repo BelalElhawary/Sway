@@ -199,7 +199,7 @@ sealed class ScrollbarInteraction
 {
     const float Thickness = 6, HoverThickness = 10, Margin = 2, Gutter = 14, Visible = 1.0f, Fade = 0.3f, MinThumb = 24;
 
-    bool _dragging;
+    bool _pressed, _dragging;
     float _grab;
 
     static float Viewport(Size size, Axis axis) => axis == Axis.Vertical ? size.Height : size.Width;
@@ -228,7 +228,9 @@ sealed class ScrollbarInteraction
         float main = Main(e.LocalPosition, axis);
         switch (e.Kind)
         {
-            case PointerEventKind.Down:
+            // Only presses in the gutter belong to the scrollbar; the viewport also receives presses on its content.
+            case PointerEventKind.Down when InGutter(size, axis, e.LocalPosition):
+                _pressed = true;
                 p.ScrollbarActive = true;
                 p.StopActivity();
                 var (start, length) = Thumb(size, axis, p);
@@ -250,7 +252,8 @@ sealed class ScrollbarInteraction
                 p.StopActivity();
                 p.JumpTo((main - _grab - Margin) / travel * p.MaxScrollExtent);
                 break;
-            case PointerEventKind.Up or PointerEventKind.Cancel:
+            case PointerEventKind.Up or PointerEventKind.Cancel when _pressed:
+                _pressed = false;
                 _dragging = false;
                 p.ScrollbarActive = false;
                 break;
