@@ -1,4 +1,6 @@
 using Sway.Media;
+using Sway.Extras.Material3;
+using Sway.Extras.Material3.Media;
 using Sway.Widgets;
 
 namespace Sway.Example;

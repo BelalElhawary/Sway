@@ -1,4 +1,5 @@
 using SkiaSharp;
+using Sway.Extras.Material3;
 using Sway.Widgets;
 
 namespace Sway.Example;

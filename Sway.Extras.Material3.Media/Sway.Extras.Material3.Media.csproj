@@ -4,14 +4,12 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>Sway.Extras.Material3.Media</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Sway.Widgets\Sway.Widgets.csproj" />
     <ProjectReference Include="..\Sway.Extras.Material3\Sway.Extras.Material3.csproj" />
-    <ProjectReference Include="..\Sway.Extras.Material3.Media\Sway.Extras.Material3.Media.csproj" />
     <ProjectReference Include="..\Sway.Media\Sway.Media.csproj" />
-    <ProjectReference Include="..\Sway.Extras.Ibm\Sway.Extras.Ibm.csproj" />
   </ItemGroup>
 
 </Project>

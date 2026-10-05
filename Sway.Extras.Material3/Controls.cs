@@ -1,65 +1,8 @@
 using SkiaSharp;
 
-namespace Sway.Widgets;
+using Sway.Widgets;
 
-public readonly record struct InteractionState(bool Hover, bool Pressed, bool Focused, bool FocusVisible);
-
-/// <summary>
-/// Hover, press and keyboard-focus tracking for custom controls. Space and Enter activate it.
-/// Pass a null <c>onTap</c> to disable it.
-/// </summary>
-public sealed class Interactive(Func<BuildContext, InteractionState, Widget> builder, Action? onTap = null,
-    MouseCursor cursor = MouseCursor.Click, bool focusable = true, FocusNode? focusNode = null, bool autofocus = false, Key? key = null) : StatefulWidget(key)
-{
-    internal Func<BuildContext, InteractionState, Widget> Builder => builder;
-    internal Action? OnTap => onTap;
-    internal MouseCursor Cursor => cursor;
-    internal bool Focusable => focusable;
-    internal FocusNode? FocusNode => focusNode;
-    internal bool Autofocus => autofocus;
-    public override State CreateState() => new InteractiveState();
-}
-
-sealed class InteractiveState : State<Interactive>
-{
-    bool _hover, _pressed, _focused;
-
-    void Set(Action a) { if (Mounted) SetState(a); }
-
-    bool OnKey(KeyEvent e)
-    {
-        if (!e.IsDown || Widget.OnTap is null) return false;
-        if (e.Key is " " or "Enter" && !e.Command) { Widget.OnTap(); return true; }
-        return false;
-    }
-
-    public override Widget Build(BuildContext context)
-    {
-        bool enabled = Widget.OnTap is not null;
-        Widget child = new Builder(ctx => Widget.Builder(ctx,
-            new InteractionState(_hover && enabled, _pressed && enabled, _focused, _focused && WidgetsBinding.Instance.Focus.FocusVisible)));
-
-        child = new GestureDetector(
-            onTap: Widget.OnTap,
-            onTapDown: enabled ? _ => Set(() => _pressed = true) : null,
-            onTapUp: enabled ? _ => Set(() => _pressed = false) : null,
-            onTapCancel: enabled ? () => Set(() => _pressed = false) : null,
-            behavior: HitTestBehavior.Opaque,
-            child: child);
-
-        child = new MouseRegion(
-            cursor: enabled ? Widget.Cursor : MouseCursor.Default,
-            onEnter: _ => Set(() => _hover = true),
-            onExit: _ => Set(() => { _hover = false; _pressed = false; }),
-            opaque: false,
-            child: child);
-
-        if (Widget.Focusable)
-            child = new Focus(child, Widget.FocusNode, Widget.Autofocus, onKey: OnKey, onFocusChange: f => Set(() => _focused = f),
-                canRequestFocus: enabled);
-        return child;
-    }
-}
+namespace Sway.Extras.Material3;
 
 // ---- painters and helpers ----
 
@@ -74,16 +17,6 @@ sealed class CheckPainter(SKColor color, float strokeWidth = 2) : CustomPainter
         path.LineTo(size.Width * 0.42f, size.Height * 0.74f);
         path.LineTo(size.Width * 0.80f, size.Height * 0.28f);
         canvas.DrawPath(path, p);
-    }
-    public override bool ShouldRepaint(CustomPainter old) => true;
-}
-
-sealed class DashPainter(SKColor color) : CustomPainter
-{
-    public override void Paint(SKCanvas canvas, Size size)
-    {
-        using var p = new SKPaint { Color = color, IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 2, StrokeCap = SKStrokeCap.Butt };
-        canvas.DrawLine(size.Width * 0.2f, size.Height / 2, size.Width * 0.8f, size.Height / 2, p);
     }
     public override bool ShouldRepaint(CustomPainter old) => true;
 }
@@ -115,55 +48,32 @@ static class FocusRing
             : child;
 }
 
-/// <summary>Makes its subtree invisible to hit testing.</summary>
-public sealed class IgnorePointer(Widget? child = null, bool ignoring = true, Key? key = null) : SingleChildRenderObjectWidget(child, key)
-{
-    public override RenderObject CreateRenderObject(BuildContext context) => new RenderIgnorePointer(ignoring);
-    public override void UpdateRenderObject(BuildContext context, RenderObject ro) => ((RenderIgnorePointer)ro).Ignoring = ignoring;
-}
-
-sealed class RenderIgnorePointer(bool ignoring) : RenderProxyBox
-{
-    public bool Ignoring { get; set; } = ignoring;
-    public override bool HitTest(HitTestResult result, Offset position) => !Ignoring && base.HitTest(result, position);
-}
-
 // ---- checkbox / radio / switch (Material 3) ----
 
 /// <summary>The 40px round hover/press/focus halo behind a toggle's mark.</summary>
 static class Halo
 {
-    public static Widget Wrap(InteractionState s, SKColor color, bool enabled, Widget mark, ThemeData theme, BorderRadius markRadius, float size = 40)
-    {
-        // Themes without a halo mark keyboard focus with a border around the mark instead.
-        if (!theme.Shape.ControlHalo)
-            return new SizedBox(size, size, new Center(FocusRing.Around(s.FocusVisible, markRadius, mark, theme.ColorScheme.Primary, -2)));
-        return new AnimatedContainer(TimeSpan.FromMilliseconds(100), width: size, height: size, alignment: Alignment.Center,
+    public static Widget Wrap(InteractionState s, SKColor color, bool enabled, Widget mark, float size = 40) =>
+        new AnimatedContainer(TimeSpan.FromMilliseconds(100), width: size, height: size, alignment: Alignment.Center,
             decoration: new BoxDecoration(Color: color.WithOpacity(enabled ? StateLayer.Opacity(s) : 0), Shape: BoxShape.Circle), child: mark);
-    }
 }
 
-/// <summary>A checkbox. <paramref name="indeterminate"/> shows the "some selected" dash for a parent of a partly checked group; tapping it still reports <c>!value</c>.</summary>
-public sealed class Checkbox(bool value, Action<bool>? onChanged = null, SKColor? activeColor = null, bool indeterminate = false, Key? key = null) : StatelessWidget(key)
+public sealed class Checkbox(bool value, Action<bool>? onChanged = null, SKColor? activeColor = null, Key? key = null) : StatelessWidget(key)
 {
     public override Widget Build(BuildContext context)
     {
-        var theme = Theme.Of(context);
-        var s = theme.ColorScheme;
-        var radius = BorderRadius.Circular(theme.Shape.CheckboxRadius);
+        var s = Theme.Of(context).ColorScheme;
         var active = activeColor ?? s.Primary;
         bool enabled = onChanged is not null;
         return new Interactive((ctx, st) =>
         {
             var off = s.OnSurface.WithOpacity(0.38f);
-            bool marked = value || indeterminate;
-            var boxColor = marked ? (enabled ? active : off) : Colors.Transparent;
-            var border = marked ? boxColor : enabled ? s.OnSurfaceVariant : off;
+            var boxColor = value ? (enabled ? active : off) : Colors.Transparent;
+            var border = value ? boxColor : enabled ? s.OnSurfaceVariant : off;
             Widget box = new AnimatedContainer(TimeSpan.FromMilliseconds(120), width: 18, height: 18,
-                decoration: new BoxDecoration(Color: boxColor, BorderRadius: radius, Border: Border.All(border, 2)),
-                child: indeterminate ? new CustomPaint(new DashPainter(s.OnPrimary), size: new Size(14, 14))
-                    : value ? new CustomPaint(new CheckPainter(s.OnPrimary), size: new Size(14, 14)) : null);
-            return Halo.Wrap(st, marked ? active : s.OnSurface, enabled, box, theme, radius);
+                decoration: new BoxDecoration(Color: boxColor, BorderRadius: BorderRadius.Circular(2), Border: Border.All(border, 2)),
+                child: value ? new CustomPaint(new CheckPainter(s.OnPrimary), size: new Size(14, 14)) : null);
+            return Halo.Wrap(st, value ? active : s.OnSurface, enabled, box);
         }, enabled ? () => onChanged!(!value) : null);
     }
 }
@@ -173,8 +83,7 @@ public sealed class Radio<T>(T value, T? groupValue, Action<T>? onChanged = null
 {
     public override Widget Build(BuildContext context)
     {
-        var theme = Theme.Of(context);
-        var s = theme.ColorScheme;
+        var s = Theme.Of(context).ColorScheme;
         bool selected = EqualityComparer<T>.Default.Equals(value, groupValue);
         var active = activeColor ?? s.Primary;
         bool enabled = onChanged is not null;
@@ -186,7 +95,7 @@ public sealed class Radio<T>(T value, T? groupValue, Action<T>? onChanged = null
                 decoration: new BoxDecoration(Shape: BoxShape.Circle, Border: Border.All(ring, 2)),
                 child: new AnimatedContainer(TimeSpan.FromMilliseconds(120), width: selected ? 10 : 0, height: selected ? 10 : 0,
                     decoration: new BoxDecoration(Color: enabled ? active : off, Shape: BoxShape.Circle)));
-            return Halo.Wrap(st, selected ? active : s.OnSurface, enabled, mark, theme, BorderRadius.Circular(10));
+            return Halo.Wrap(st, selected ? active : s.OnSurface, enabled, mark);
         }, enabled ? () => onChanged!(value) : null);
     }
 }
@@ -195,11 +104,9 @@ public sealed class Switch(bool value, Action<bool>? onChanged = null, SKColor? 
 {
     public override Widget Build(BuildContext context)
     {
-        var theme = Theme.Of(context);
-        var s = theme.ColorScheme;
+        var s = Theme.Of(context).ColorScheme;
         bool enabled = onChanged is not null;
         var ms = TimeSpan.FromMilliseconds(180);
-        if (theme.Shape.CompactSwitch) return Compact(s, enabled, ms);
         return new Interactive((ctx, st) =>
         {
             var trackOn = activeColor ?? s.Primary;
@@ -229,19 +136,6 @@ public sealed class Switch(bool value, Action<bool>? onChanged = null, SKColor? 
                 child: new AnimatedAlign(value ? Alignment.CenterRight : Alignment.CenterLeft, ms, thumb, Curves.EaseOutCubic));
         }, enabled ? () => onChanged!(!value) : null);
     }
-
-    // A flat 48x24 track with an 18px thumb that slides inside it, as in Carbon.
-    Widget Compact(ColorScheme s, bool enabled, TimeSpan ms) => new Interactive((ctx, st) =>
-    {
-        var track = !enabled ? s.OnSurface.WithOpacity(0.12f) : value ? activeColor ?? s.Primary : s.Outline;
-        var thumb = !enabled ? s.OnSurface.WithOpacity(0.38f) : s.OnPrimary;
-        var radius = BorderRadius.Circular(12);
-        Widget body = new AnimatedContainer(ms, width: 48, height: 24, padding: EdgeInsets.Symmetric(horizontal: 3, vertical: 0), curve: Curves.EaseOutCubic,
-            decoration: new BoxDecoration(Color: StateLayer.Blend(track, s.OnSurface, enabled ? StateLayer.Opacity(st) : 0), BorderRadius: radius),
-            child: new AnimatedAlign(value ? Alignment.CenterRight : Alignment.CenterLeft, ms,
-                new SizedBox(18, 18, new DecoratedBox(new BoxDecoration(Color: thumb, Shape: BoxShape.Circle))), Curves.EaseOutCubic));
-        return FocusRing.Around(st.FocusVisible, radius, body, s.Primary, -2);
-    }, enabled ? () => onChanged!(!value) : null);
 }
 
 // ---- buttons (Material 3) ----
@@ -255,9 +149,9 @@ public sealed class Button(Widget child, Action? onPressed = null, ButtonVariant
     {
         var theme = Theme.Of(context);
         var s = theme.ColorScheme;
-        var accent = color ?? s.AccentColor;
+        var accent = color ?? s.Primary;
         bool enabled = onPressed is not null;
-        var radius = BorderRadius.Circular(theme.Shape.Button);
+        var radius = BorderRadius.Circular(20);
 
         return new Interactive((ctx, st) =>
         {
@@ -288,16 +182,15 @@ public sealed class Button(Widget child, Action? onPressed = null, ButtonVariant
             }
 
             bool text = variant == ButtonVariant.Text;
-            float wide = theme.Shape.ButtonPadding;
-            var pad = padding ?? EdgeInsets.Only(left: icon is not null ? (text ? 12 : wide - 8) : (text ? 12 : wide), right: text ? 12 : wide);
+            var pad = padding ?? EdgeInsets.Only(left: icon is not null ? (text ? 12 : 16) : (text ? 12 : 24), right: text ? 12 : 24);
             var layered = StateLayer.Blend(bg, fg, enabled ? StateLayer.Opacity(st) : 0);
 
             Widget label = DefaultTextStyle.Merge(ctx, theme.TextTheme.LabelLarge.Merge(new TextStyle(Color: fg)), child);
             Widget content = icon is null ? label : new Row(mainAxisSize: MainAxisSize.Min, spacing: 8, children: [new Icon(icon, 18, fg), label]);
 
             return new AnimatedContainer(TimeSpan.FromMilliseconds(120),
-                constraints: new BoxConstraints(64, float.PositiveInfinity, theme.Shape.ControlHeight, theme.Shape.ControlHeight), padding: pad,
-                decoration: new BoxDecoration(Color: layered, BorderRadius: radius, Border: border, BoxShadow: theme.Shape.Shadows(elevation, s.Shadow)),
+                constraints: new BoxConstraints(64, float.PositiveInfinity, 40, 40), padding: pad,
+                decoration: new BoxDecoration(Color: layered, BorderRadius: radius, Border: border, BoxShadow: Elevation.Shadows(elevation, s.Shadow)),
                 child: new Row(mainAxisSize: MainAxisSize.Min, mainAxisAlignment: MainAxisAlignment.Center, children: [content]));
         }, onPressed);
     }
@@ -480,9 +373,9 @@ sealed class DropdownMenuState<T> : State<DropdownMenu<T>> where T : notnull
         return new Focus(autofocus: true, onKey: OnKey, child: new Container(
             height: Widget.Height,
             padding: EdgeInsets.Symmetric(vertical: 8),
-            decoration: new BoxDecoration(Color: s.SurfaceContainer, BorderRadius: BorderRadius.Circular(theme.Shape.ExtraSmall),
-                BoxShadow: theme.Shape.Shadows(2, s.Shadow)),
-            child: new ClipRRect(BorderRadius.Circular(theme.Shape.ExtraSmall), new SingleChildScrollView(
+            decoration: new BoxDecoration(Color: s.SurfaceContainer, BorderRadius: BorderRadius.Circular(Shapes.ExtraSmall),
+                BoxShadow: Elevation.Shadows(2, s.Shadow)),
+            child: new ClipRRect(BorderRadius.Circular(Shapes.ExtraSmall), new SingleChildScrollView(
                 new Column(rows, mainAxisSize: MainAxisSize.Min, crossAxisAlignment: CrossAxisAlignment.Stretch), controller: _scroll))));
     }
 }

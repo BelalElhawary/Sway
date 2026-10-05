@@ -1,7 +1,9 @@
 using SkiaSharp;
+using Sway.Extras.Material3;
+using Sway.Media;
 using Sway.Widgets;
 
-namespace Sway.Media;
+namespace Sway.Extras.Material3.Media;
 
 /// <summary>
 /// A complete video player: the picture, a buffering or error indicator, tap-to-pause and a control bar (play, seek,

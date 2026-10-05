@@ -1,7 +1,9 @@
 using Sway.Extras.Ibm;
+using Sway.Widgets;
+using Sway.Widgets.Tests;
 using Xunit;
 
-namespace Sway.Widgets.Tests;
+namespace Sway.Extras.Ibm.Tests;
 
 public class DataTableTests
 {
@@ -18,9 +20,9 @@ public class DataTableTests
 
     static Harness Show(IReadOnlyList<Item>? rows = null, bool selectable = false, bool searchable = false, int? pageSize = null,
         Action<IReadOnlyList<Item>>? onSelection = null, IReadOnlyList<BatchAction<Item>>? batch = null) =>
-        new(new MaterialApp(new SingleChildScrollView(new DataTable<Item>(Columns, rows ?? Items, title: "Things", size: TableSize.Medium,
+        new(new CarbonApp(new SingleChildScrollView(new DataTable<Item>(Columns, rows ?? Items, title: "Things", size: TableSize.Medium,
                 selectable: selectable, searchable: searchable, pageSize: pageSize, onSelectionChanged: onSelection, batchActions: batch)),
-            theme: IbmTheme.White(), themeMode: ThemeMode.Light), 900, 900);
+            theme: CarbonThemeData.White(), themeMode: CarbonThemeMode.Light), 900, 900);
 
     static List<RenderParagraph> Paragraphs(Harness h) => h.Find<RenderParagraph>();
     static List<string> Texts(Harness h) => Paragraphs(h).Select(p => p.PlainText).ToList();
@@ -137,8 +139,8 @@ public class DataTableTests
     [Fact]
     public void RowHeightFollowsTheTableSize()
     {
-        var h = new Harness(new MaterialApp(new Align(Alignment.TopLeft, new DataTable<Item>(Columns, Items.Take(3).ToList(), size: TableSize.ExtraSmall)),
-            theme: IbmTheme.White(), themeMode: ThemeMode.Light), 600, 400);
+        var h = new Harness(new CarbonApp(new Align(Alignment.TopLeft, new DataTable<Item>(Columns, Items.Take(3).ToList(), size: TableSize.ExtraSmall)),
+            theme: CarbonThemeData.White(), themeMode: CarbonThemeMode.Light), 600, 400);
         var ys = Paragraphs(h).Where(p => p.PlainText.StartsWith("row-")).Select(p => p.LocalToGlobal(Offset.Zero).Dy).ToList();
         Assert.Equal(24, ys[1] - ys[0], 1);
     }
@@ -147,8 +149,8 @@ public class DataTableTests
     public void ColumnsThatDoNotFitScrollSidewaysInsteadOfSqueezing()
     {
         DataColumn<Item>[] wide = [new("A", r => r.Name, Width: 250), new("B", r => r.Name, Width: 250), new("C", r => r.Name, Width: 250)];
-        var h = new Harness(new MaterialApp(new Align(Alignment.TopLeft, new DataTable<Item>(wide, Items.Take(3).ToList(), size: TableSize.Medium)),
-            theme: IbmTheme.White(), themeMode: ThemeMode.Light), 400, 300);
+        var h = new Harness(new CarbonApp(new Align(Alignment.TopLeft, new DataTable<Item>(wide, Items.Take(3).ToList(), size: TableSize.Medium)),
+            theme: CarbonThemeData.White(), themeMode: CarbonThemeMode.Light), 400, 300);
         float XOf(string t) => Paragraphs(h).First(p => p.PlainText == t).LocalToGlobal(Offset.Zero).Dx;
         Assert.True(XOf("C") > 400, "the third column starts off screen");
         h.Gestures.PointerScroll(200, 100, 300, 0);
@@ -161,8 +163,8 @@ public class DataTableTests
     public void AVerticalWheelOverAWideTableDoesNotScrollItSideways()
     {
         DataColumn<Item>[] wide = [new("A", r => r.Name, Width: 250), new("B", r => r.Name, Width: 250), new("C", r => r.Name, Width: 250)];
-        var h = new Harness(new MaterialApp(new Align(Alignment.TopLeft, new DataTable<Item>(wide, Items.Take(3).ToList(), size: TableSize.Medium)),
-            theme: IbmTheme.White(), themeMode: ThemeMode.Light), 400, 300);
+        var h = new Harness(new CarbonApp(new Align(Alignment.TopLeft, new DataTable<Item>(wide, Items.Take(3).ToList(), size: TableSize.Medium)),
+            theme: CarbonThemeData.White(), themeMode: CarbonThemeMode.Light), 400, 300);
         h.Gestures.PointerScroll(200, 100, 0, 200);
         h.Advance(600);
         Assert.Equal(16, Paragraphs(h).First(p => p.PlainText == "A").LocalToGlobal(Offset.Zero).Dx, 1);
@@ -181,8 +183,8 @@ public class DataTableTests
     [Fact]
     public void ExpandingARowShowsItsDetail()
     {
-        var h = new Harness(new MaterialApp(new SingleChildScrollView(new DataTable<Item>(Columns, Items.Take(5).ToList(), size: TableSize.Medium,
-            rowDetail: r => new Text("detail of " + r.Name), detailHeight: 60)), theme: IbmTheme.White(), themeMode: ThemeMode.Light), 900, 700);
+        var h = new Harness(new CarbonApp(new SingleChildScrollView(new DataTable<Item>(Columns, Items.Take(5).ToList(), size: TableSize.Medium,
+            rowDetail: r => new Text("detail of " + r.Name), detailHeight: 60)), theme: CarbonThemeData.White(), themeMode: CarbonThemeMode.Light), 900, 700);
         var first = Paragraphs(h).First(p => p.PlainText.StartsWith("row-"));
         float y = first.LocalToGlobal(Offset.Zero).Dy + first.Size.Height / 2;
         float before = Paragraphs(h).Where(p => p.PlainText.StartsWith("row-")).Skip(1).First().LocalToGlobal(Offset.Zero).Dy;
@@ -204,20 +206,24 @@ public class DataTableTests
         var h = Show(selectable: true);
         var header = Paragraphs(h).First(p => p.PlainText == "Name");
         float hy = header.LocalToGlobal(Offset.Zero).Dy + header.Size.Height / 2;
-        var primary = IbmTheme.White().ColorScheme.Primary;
-        using (var before = h.Render()) Assert.NotEqual(primary, before.GetPixel(16, (int)hy));
+        var fill = CarbonColors.White.IconPrimary;
+        // Inside the 16px box, clear of its border and of the dash.
+        using (var before = h.Render()) Assert.NotEqual(fill, before.GetPixel(19, (int)hy));
 
         var first = Paragraphs(h).First(p => p.PlainText.StartsWith("row-"));
         h.Tap(24, first.LocalToGlobal(Offset.Zero).Dy + first.Size.Height / 2);
+        // Selecting a row opens the batch bar above the table, so the header has moved down.
+        var movedHeader = Paragraphs(h).First(p => p.PlainText == "Name");
+        float after_y = movedHeader.LocalToGlobal(Offset.Zero).Dy + movedHeader.Size.Height / 2;
         using var after = h.Render();
-        Assert.Equal(primary, after.GetPixel(16, (int)hy));
+        Assert.Equal(fill, after.GetPixel(19, (int)after_y));
     }
 
     [Fact]
     public void CompactTagsAreShorter()
     {
-        var h = new Harness(new MaterialApp(new Align(Alignment.TopLeft, new Tag("Running", TagColor.Green, compact: true)),
-            theme: IbmTheme.White(), themeMode: ThemeMode.Light), 300, 100);
+        var h = new Harness(new CarbonApp(new Align(Alignment.TopLeft, new CarbonTag("Running", CarbonTagColor.Green, compact: true)),
+            theme: CarbonThemeData.White(), themeMode: CarbonThemeMode.Light), 300, 100);
         Assert.Equal(18, h.Find<RenderDecoratedBox>().Last().Size.Height, 1);
     }
 
@@ -225,8 +231,8 @@ public class DataTableTests
     public void TagsUseTheirLabelAndCanBeDismissed()
     {
         bool closed = false;
-        var h = new Harness(new MaterialApp(new Align(Alignment.TopLeft, new Tag("Running", TagColor.Green, () => closed = true)),
-            theme: IbmTheme.White(), themeMode: ThemeMode.Light), 300, 100);
+        var h = new Harness(new CarbonApp(new Align(Alignment.TopLeft, new CarbonTag("Running", CarbonTagColor.Green, () => closed = true)),
+            theme: CarbonThemeData.White(), themeMode: CarbonThemeMode.Light), 300, 100);
         Assert.Contains("Running", Texts(h));
         var box = h.Find<RenderDecoratedBox>().Last();
         Assert.Equal(24, box.Size.Height, 1);

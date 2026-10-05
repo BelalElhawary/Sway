@@ -1,10 +1,12 @@
 # Sway
 
 Flutter-style widgets for .NET, rendered natively with SkiaSharp and Silk.NET. You build UI from immutable widgets,
-keep mutable state in `State` objects and call `SetState` to rebuild. Layout uses box constraints, theming is Material 3
-by default, and there is no browser, WebView, HTML, CSS or XAML involved.
+keep mutable state in `State` objects and call `SetState` to rebuild. Layout uses box constraints, and there is no
+browser, WebView, HTML, CSS or XAML involved. The core library has no look of its own: design systems are optional
+packages (`Sway.Extras.Material3`, `Sway.Extras.Ibm`).
 
 ```csharp
+using Sway.Extras.Material3;
 using Sway.Widgets;
 
 App.Run(new MaterialApp(home: new CounterPage()), "Counter", 800, 600);
@@ -31,8 +33,9 @@ class CounterState : State<CounterPage>
 - **Flutter's model**: `Widget` -> `Element` -> `RenderObject`, `StatelessWidget`, `StatefulWidget`, `BuildContext`,
   `BoxConstraints` layout with incremental relayout, and Flutter's vocabulary (`Row`, `Column`, `Stack`,
   `MainAxisAlignment`, `EdgeInsets`, ...).
-- **Material 3**: `MaterialApp`, `Scaffold`, `ColorScheme` from a seed colour, light/dark, `TextTheme`, and the
-  common components (buttons, switches, sliders, dialogs, menus, snack bars, ...).
+- **Design systems as packages**: `Sway.Extras.Material3` (`MaterialApp`, `Scaffold`, `ColorScheme` from a seed colour,
+  light/dark, `TextTheme`, buttons, switches, sliders, dialogs, menus, snack bars, ...) and `Sway.Extras.Ibm` (IBM
+  Carbon: its own theme tokens, IBM Plex, buttons, fields, dropdown, tags, `DataTable<T>`). The core knows about neither.
 - **Layout**: flex, `Stack`, `Wrap`, `Grid`, lazy `ListView.Builder` and `GridView.Builder`, scrolling with physics,
   `LayoutBuilder`.
 - **Animation**: `AnimationController`, curves, tweens and implicit `Animated*` widgets.
@@ -40,7 +43,7 @@ class CounterState : State<CounterPage>
   (selection, clipboard, undo).
 - **Input**: gestures, hover, focus traversal and keyboard handling.
 - **Painting effects**: shadows, gradients, transforms, clipping and backdrop filters.
-- **Media**: `VideoPlayer` and `AudioPlayer` widgets with controls, on LibVLC (Windows, Linux, macOS, Android) or an HTML media element (browser).
+- **Media**: a `MediaPlayerController` and `VideoSurface` in the core media package, Material 3 `VideoPlayer` and `AudioPlayer` widgets with controls in `Sway.Extras.Material3.Media`, on LibVLC (Windows, Linux, macOS, Android) or an HTML media element (browser).
 - **File pickers**: native open-file and open-folder dialogs on every host (`FilePicker`).
 - **Headless rendering**: render any widget tree to a PNG on the CPU, with scripted input. This is used by the tests
   and the demo's screenshot mode.
@@ -49,24 +52,28 @@ class CounterState : State<CounterPage>
 
 | Project | Purpose |
 | --- | --- |
-| `Sway.Widgets` | The platform-neutral library: Foundation, Rendering and Widgets. Depends only on SkiaSharp and HarfBuzz. |
+| `Sway.Widgets` | The platform-neutral, design-neutral library: Foundation, Rendering and Widgets (layout, text, gestures, focus, scrolling, animation, `EditableText`, `Icon`, `Interactive`). Depends only on SkiaSharp and HarfBuzz. |
 | `Sway.Platform.Android` | Android host: GL surface, touch, soft keyboard, system theme. Subclass `SwayActivity`. |
 | `Sway.Platform.Web` | Browser host: Blazor WebAssembly component (`SwayView`) on `SkiaSharp.Views.Blazor` (WebGL), pointer, keyboard, clipboard and theme. |
 | `Sway.Platform.Headless` | Windowless host: renders to a PNG with a software surface (`Headless.Screenshot`). |
 | `Sway.Platform.Desktop` | Windows/Linux/macOS host: window, input, OS theme (Silk.NET). Provides `App.Run`. |
-| `Sway.Media` | Platform-neutral media: `MediaPlayerController`, `VideoPlayer`, `AudioPlayer`, and the `IMediaBackend` interface. |
+| `Sway.Media` | Platform- and design-neutral media: `MediaPlayerController`, `VideoSurface`, `MediaBuilder`, and the `IMediaBackend` interface. |
 | `Sway.Media.LibVlc` | The LibVLC backend for Windows, Linux, macOS and Android (`LibVlcMediaBackend.Install()`). |
 | `Sway.Media.Web` | The browser backend (`await BrowserMediaBackend.InstallAsync()`). |
-| `Sway.Extras.Ibm` | Optional: the IBM Carbon theme (`IbmTheme.White()`, `Gray10`, `Gray90`, `Gray100`) with embedded IBM Plex fonts, plus `DataTable<T>`, `Pagination` and `Tag`. |
-| `Sway.Example` | The shared example UI (Material 3, pages for components, layout, forms, motion, effects, RTL, stress and media). No platform code. |
+| `Sway.Extras.Material3` | Optional: Material 3. `MaterialApp`, `ThemeData`, `ColorScheme`, `TextTheme`, and the components (buttons, fields, switches, sliders, dialogs, menus, navigation, ...). |
+| `Sway.Extras.Material3.Media` | Optional: the Material 3 `VideoPlayer`, `AudioPlayer` and their controls. Needs `Sway.Extras.Material3` and `Sway.Media`. |
+| `Sway.Extras.Ibm` | Optional: IBM Carbon. `CarbonApp`, `CarbonThemeData` (White, Gray 10, Gray 90, Gray 100), embedded IBM Plex fonts, `CarbonButton`, `CarbonTextInput`, `CarbonDropdown`, `CarbonCheckbox`, `CarbonTag`, `DataTable<T>`, `Pagination`. Does not use Material 3. |
+| `Sway.Example` | The shared example UI (a Material 3 app with pages for components, layout, forms, motion, effects, RTL, stress, media, icons and an IBM Carbon page). No platform code. |
 | `Sway.Example.Desktop` | Runs the example in a desktop window. |
 | `Sway.Example.Headless` | Runs the example without a window: the `--screenshot` and `--bench` tooling. |
 | `Sway.Example.Android` | Runs the example on Android. |
 | `Sway.Example.Web` | Runs the example in the browser (Blazor WebAssembly). |
-| `Sway.Widgets.Tests` | xUnit tests that run the widget tree headlessly. |
+| `Sway.Widgets.Tests` | xUnit tests for the core library, run headlessly. |
+| `Sway.Extras.Material3.Tests` | Tests for the Material 3 components. |
+| `Sway.Extras.Ibm.Tests` | Tests for the Carbon components and data table. |
 | `website/` | Documentation site (Docusaurus). |
 
-An app references `Sway.Widgets` and a platform project. Other platforms add their own
+An app references `Sway.Widgets`, a platform project and the design system it wants (`Sway.Extras.Material3`, `Sway.Extras.Ibm`, or its own). Other platforms add their own
 `Sway.Platform.*` project that feeds the same `WidgetsBinding`.
 
 ## Getting started

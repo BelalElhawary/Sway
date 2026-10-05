@@ -1,6 +1,8 @@
 using SkiaSharp;
 
-namespace Sway.Widgets;
+using Sway.Widgets;
+
+namespace Sway.Extras.Material3;
 
 // ---- Slider ----
 
@@ -129,13 +131,13 @@ sealed class SliderState : State<Slider>
                 decoration: new BoxDecoration(Color: showHalo ? active.WithOpacity(_dragging ? 0.16f : 0.10f) : Colors.Transparent, Shape: BoxShape.Circle))),
                 left: thumbCenter - 20, top: 0, width: 40, height: 40));
             children.Add(new Positioned(new IgnorePointer(new DecoratedBox(new BoxDecoration(Color: active, Shape: BoxShape.Circle,
-                BoxShadow: enabled ? theme.Shape.Shadows(1, s.Shadow) : null))),
+                BoxShadow: enabled ? Elevation.Shadows(1, s.Shadow) : null))),
                 left: thumbCenter - ThumbRadius, top: 20 - ThumbRadius, width: ThumbRadius * 2, height: ThumbRadius * 2));
 
             if (_dragging && Widget.Label is { } label)
             {
                 children.Add(new Positioned(new IgnorePointer(new OverflowBox(
-                    new DecoratedBox(new BoxDecoration(Color: s.InverseSurface, BorderRadius: BorderRadius.Circular(theme.Shape.Small)),
+                    new DecoratedBox(new BoxDecoration(Color: s.InverseSurface, BorderRadius: BorderRadius.Circular(Shapes.Small)),
                         new Padding(EdgeInsets.Symmetric(10, 4), new Text(label(Current),
                             style: theme.TextTheme.LabelMedium.Merge(new TextStyle(Color: s.OnInverseSurface))))),
                     alignment: Alignment.BottomCenter, minWidth: 0, maxWidth: 200, minHeight: 0, maxHeight: 40)),
@@ -196,7 +198,7 @@ public sealed class SegmentedButton<T>(IReadOnlyList<ButtonSegment<T>> segments,
     {
         var theme = Theme.Of(context);
         var s = theme.ColorScheme;
-        var radius = BorderRadius.Circular(theme.Shape.Button);
+        var radius = BorderRadius.Circular(20);
         var cells = new List<Widget>();
 
         for (int i = 0; i < segments.Count; i++)
@@ -336,7 +338,7 @@ sealed class TooltipState : State<Tooltip>
         {
             var theme = Theme.Of(owner);
             var s = theme.ColorScheme;
-            Widget bubble = new DecoratedBox(new BoxDecoration(Color: s.InverseSurface, BorderRadius: BorderRadius.Circular(theme.Shape.ExtraSmall)),
+            Widget bubble = new DecoratedBox(new BoxDecoration(Color: s.InverseSurface, BorderRadius: BorderRadius.Circular(Shapes.ExtraSmall)),
                 new Padding(EdgeInsets.Symmetric(8, 4), new Text(message, style: theme.TextTheme.BodySmall.Merge(new TextStyle(Color: s.OnInverseSurface)))));
             return Dialogs.Wrap(owner, new Stack([
                 new Positioned(new IgnorePointer(new OverflowBox(bubble, alignment: above ? Alignment.BottomCenter : Alignment.TopCenter,
@@ -384,14 +386,15 @@ sealed class SearchBarState : State<SearchBar>
     {
         var theme = Theme.Of(context);
         var s = theme.ColorScheme;
-        return new DecoratedBox(new BoxDecoration(Color: s.SurfaceContainerHigh, BorderRadius: BorderRadius.Circular(theme.Shape.ExtraLarge),
-                BoxShadow: theme.Shape.Shadows(1, s.Shadow)),
+        return new DecoratedBox(new BoxDecoration(Color: s.SurfaceContainerHigh, BorderRadius: BorderRadius.Circular(28),
+                BoxShadow: Elevation.Shadows(1, s.Shadow)),
             new ConstrainedBox(new BoxConstraints(360, 720, 56, 56), new Padding(EdgeInsets.Symmetric(horizontal: 16),
                 new Row(spacing: 16, children:
                 [
                     new Icon(Icons.Search, 24, s.OnSurface),
                     new Expanded(new EditableText(Controller, style: theme.TextTheme.BodyLarge.Merge(new TextStyle(Color: s.OnSurface)),
                         hintStyle: theme.TextTheme.BodyLarge.Merge(new TextStyle(Color: s.OnSurfaceVariant)), hintText: Widget.Hint,
+                        cursorColor: s.Primary, selectionColor: s.Primary.WithOpacity(0.35f),
                         onChanged: Widget.OnChanged, onSubmitted: Widget.OnSubmitted)),
                     ..Widget.Trailing is null ? Array.Empty<Widget>() : [Widget.Trailing],
                 ]))));
@@ -421,6 +424,7 @@ sealed class SelectableTextState : State<SelectableText>
     {
         var theme = Theme.Of(context);
         var style = theme.TextTheme.BodyMedium.Merge(new TextStyle(Color: theme.ColorScheme.OnSurface)).Merge(Widget.Style ?? new TextStyle());
-        return new EditableText(_controller, style: style, maxLines: null, readOnly: true);
+        return new EditableText(_controller, style: style, maxLines: null, readOnly: true,
+            cursorColor: theme.ColorScheme.Primary, selectionColor: theme.ColorScheme.Primary.WithOpacity(0.35f));
     }
 }

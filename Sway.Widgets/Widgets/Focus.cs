@@ -9,7 +9,8 @@ public sealed record KeyEvent(string Key, string Code, bool IsDown, bool Ctrl, b
 
 public sealed class FocusNode
 {
-    internal Element? Element;
+    /// <summary>The element that owns this node, once it is mounted.</summary>
+    public Element? Element;
 
     public FocusNode? Parent { get; internal set; }
     public bool CanRequestFocus { get; set; } = true;

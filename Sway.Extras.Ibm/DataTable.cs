@@ -13,7 +13,7 @@ public enum TableSize { ExtraSmall = 24, Small = 32, Medium = 40, Large = 48, Ex
 /// <param name="Sortable">Whether clicking the header sorts by this column.</param>
 /// <param name="Compare">How to order two rows; by default their <paramref name="Value"/> text is compared.</param>
 /// <param name="Align">Horizontal alignment of the header and cells. Use <see cref="TextAlign.End"/> for numbers.</param>
-/// <param name="Cell">A custom cell, such as a <see cref="Tag"/>. Search and sorting still use <paramref name="Value"/>.</param>
+/// <param name="Cell">A custom cell, such as a <see cref="CarbonTag"/>. Search and sorting still use <paramref name="Value"/>.</param>
 /// <param name="MinWidth">The narrowest a flexible column may get. When the columns cannot all fit, the table scrolls sideways instead of squeezing them.</param>
 public sealed record DataColumn<T>(string Header, Func<T, string> Value, float? Width = null, bool Sortable = true,
     Comparison<T>? Compare = null, TextAlign Align = TextAlign.Start, Func<T, Widget>? Cell = null, float MinWidth = 120)
@@ -152,10 +152,10 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
         return col.Width is { } w ? new SizedBox(width: w, child: cell) : new Expanded(cell);
     }
 
-    Widget HeaderCell(int index, DataColumn<T> col, ThemeData theme, SKColor back)
+    Widget HeaderCell(int index, DataColumn<T> col, CarbonThemeData theme, SKColor back)
     {
-        var s = theme.ColorScheme;
-        var style = theme.TextTheme.LabelLarge.Merge(new TextStyle(Color: s.OnSurface, FontWeight: FontWeight.W600));
+        var k = theme.Colors;
+        var style = theme.Type.HeadingCompact01.Merge(new TextStyle(Color: k.TextPrimary));
         bool sorted = _sortColumn == index;
 
         Widget Label(bool hover)
@@ -164,61 +164,60 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
             return new Row(mainAxisSize: MainAxisSize.Min, spacing: 8, children:
             [
                 new Flexible(new Text(col.Header, style: style, softWrap: false, overflow: TextOverflow.Ellipsis, maxLines: 1, textAlign: col.Align)),
-                new SizedBox(width: 16, height: 16, child: icon is null ? null : new Icon(icon, 16, s.OnSurface)),
+                new SizedBox(width: 16, height: 16, child: icon is null ? null : new Icon(icon, 16, k.IconPrimary)),
             ]);
         }
 
         // The cell already sizes itself (fixed width or Expanded), so the header cell is a Row holding it.
         Widget header = col.Sortable
             ? new Interactive((ctx, st) => new Container(
-                color: StateLayer.Blend(sorted ? s.OutlineVariant : back, s.OnSurface, StateLayer.Opacity(st)),
-                child: new Row(children: [Cell(col, Label(st.Hover))])), () => Sort(index))
+                color: st.Pressed ? k.LayerAccentHover01 : st.Hover || sorted ? k.LayerAccentHover01 : back,
+                child: CarbonFocus.Around(st.FocusVisible, theme, new Row(children: [Cell(col, Label(st.Hover))]))), () => Sort(index))
             : new Row(children: [Cell(col, Label(false))]);
         return col.Width is { } w ? new SizedBox(width: w, child: header) : new Expanded(header);
     }
 
-    Widget Toolbar(ThemeData theme, float height)
+    Widget Toolbar(CarbonThemeData theme, float height)
     {
-        var s = theme.ColorScheme;
+        var k = theme.Colors;
         var picked = Widget.Rows.Where(_selected.Contains).ToList();
         if (picked.Count > 0)
         {
             // While rows are selected the toolbar becomes the batch bar.
-            return new Container(height: height, color: s.Primary, padding: EdgeInsets.Symmetric(horizontal: 16), child: new Row(
-                crossAxisAlignment: CrossAxisAlignment.Center, spacing: 8, children:
+            return new Container(height: height, color: k.ButtonPrimary, padding: EdgeInsets.Only(left: 16), child: new Row(
+                crossAxisAlignment: CrossAxisAlignment.Center, children:
             [
                 new Text($"{picked.Count} item{(picked.Count == 1 ? "" : "s")} selected",
-                    style: theme.TextTheme.BodyMedium.Merge(new TextStyle(Color: s.OnPrimary))),
+                    style: theme.Type.BodyCompact01.Merge(new TextStyle(Color: k.TextOnColor))),
                 new Expanded(new SizedBox()),
-                ..(Widget.BatchActions ?? []).Select(a => (Widget)new TextButton(new Text(a.Label), () => a.OnPressed(picked), a.Icon, s.OnPrimary)),
-                new TextButton(new Text("Cancel"), ClearSelection, color: s.OnPrimary),
+                ..(Widget.BatchActions ?? []).Select(a => (Widget)new CarbonButton(new Text(a.Label), () => a.OnPressed(picked),
+                    CarbonButtonKind.GhostOnColor, CarbonButtonSize.Large, a.Icon)),
+                new CarbonButton(new Text("Cancel"), ClearSelection, CarbonButtonKind.GhostOnColor, CarbonButtonSize.Large),
             ]));
         }
 
         Widget search = Widget.Searchable
             ? new Expanded(new Align(AlignmentDirectional.CenterStart, new ConstrainedBox(new BoxConstraints(0, 320, 0, float.PositiveInfinity),
-                new TextField(_search, decoration: new InputDecoration(HintText: "Search", Prefix: new Icon(Icons.Search, 20), Filled: true),
-                    onChanged: _ => SetState(() => _page = 0)))))
+                new CarbonSearch(_search, placeholder: "Search", size: CarbonFieldSize.Large, onLayer: true, onChanged: _ => SetState(() => _page = 0)))))
             : new Expanded(new SizedBox());
-        return new Container(height: height, color: s.SurfaceContainerHigh, child: new Row(crossAxisAlignment: CrossAxisAlignment.Center, spacing: 8, children:
+        return new Container(height: height, color: k.Layer01, child: new Row(crossAxisAlignment: CrossAxisAlignment.Center, children:
         [
             search,
             ..Widget.ToolbarActions ?? [],
-            new SizedBox(width: 8),
         ]));
     }
 
-    Widget BuildRow(BuildContext context, int index, T row, float rowHeight, ThemeData theme)
+    Widget BuildRow(BuildContext context, int index, T row, float rowHeight, CarbonThemeData theme)
     {
-        var s = theme.ColorScheme;
+        var k = theme.Colors;
         bool picked = _selected.Contains(row);
         bool tappable = Widget.OnRowTap is not null;
-        var back = picked ? Lerps.Color(s.SurfaceContainerLow, s.Primary, 0.12f)
-            : Widget.Zebra && index % 2 == 1 ? s.SurfaceContainerHigh : s.SurfaceContainerLow;
-        var style = theme.TextTheme.BodyMedium.Merge(new TextStyle(Color: s.OnSurface));
+        var back = picked ? k.LayerSelected01 : Widget.Zebra && index % 2 == 1 ? k.Layer02 : k.Layer01;
+        var hover = picked ? k.LayerSelectedHover01 : Widget.Zebra && index % 2 == 1 ? k.LayerHover02 : k.LayerHover01;
+        var style = theme.Type.BodyCompact01.Merge(new TextStyle(Color: k.TextPrimary));
 
         Widget line = new Interactive((ctx, st) => new Container(
-            color: StateLayer.Blend(back, s.OnSurface, StateLayer.Opacity(st) * (tappable ? 1 : 0.6f)),
+            color: st.Hover || st.Pressed ? hover : back,
             child: new Column(children:
             [
                 new SizedBox(height: rowHeight - 1, child: new Row(crossAxisAlignment: CrossAxisAlignment.Center, children:
@@ -226,15 +225,15 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
                     ..Expandable
                         ? [new SizedBox(width: ExpandWidth, height: rowHeight - 1, child: new GestureDetector(
                             onTap: () => SetState(() => { if (!_expanded.Remove(row)) _expanded.Add(row); }), behavior: HitTestBehavior.Opaque,
-                            child: new Center(new Icon(_expanded.Contains(row) ? Icons.ExpandLess : Icons.ExpandMore, 20, s.OnSurface))))]
+                            child: new Center(new Icon(_expanded.Contains(row) ? Icons.ExpandLess : Icons.ExpandMore, 16, k.IconPrimary))))]
                         : Array.Empty<Widget>(),
                     ..Widget.Selectable
-                        ? [new SizedBox(width: SelectWidth, height: rowHeight - 1, child: new OverflowBox(new Checkbox(picked, v => ToggleRow(row, v))))]
+                        ? [new SizedBox(width: SelectWidth, height: rowHeight - 1, child: new Center(new CarbonCheckbox(picked, v => ToggleRow(row, v), hitPadding: 8)))]
                         : Array.Empty<Widget>(),
                     ..Widget.Columns.Select(col => Cell(col, col.Cell?.Invoke(row)
                         ?? new Text(col.Value(row), style: style, softWrap: false, overflow: TextOverflow.Ellipsis, maxLines: 1, textAlign: col.Align))),
                 ])),
-                new Container(height: 1, color: s.OutlineVariant),
+                new Container(height: 1, color: k.BorderSubtle01),
             ])),
             tappable ? () => Widget.OnRowTap!(row) : () => { }, cursor: tappable ? MouseCursor.Click : MouseCursor.Default, focusable: false);
 
@@ -243,17 +242,17 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
         return new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, children:
         [
             line,
-            new Container(height: Widget.DetailHeight, color: s.SurfaceContainer, padding: EdgeInsets.All(16), child: Widget.RowDetail!(row)),
-            new Container(height: 1, color: s.OutlineVariant),
+            new Container(height: Widget.DetailHeight, color: k.Layer02, padding: EdgeInsets.All(16), child: Widget.RowDetail!(row)),
+            new Container(height: 1, color: k.BorderSubtle01),
         ]);
     }
 
     public override Widget Build(BuildContext context)
     {
-        var theme = Theme.Of(context);
-        var s = theme.ColorScheme;
+        var theme = CarbonTheme.Of(context);
+        var k = theme.Colors;
         float rowHeight = (float)Widget.Size;
-        float barHeight = Math.Max(48, theme.Shape.FieldHeight);
+        const float barHeight = 48;
 
         var view = View();
         int pages = Pagination.PageCount(view.Count, _pageSize);
@@ -265,12 +264,12 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
         float bodyHeight = Widget.MaxBodyHeight is { } max ? Math.Min(contentHeight, max) : contentHeight;
         bool allPicked = visible.Count > 0 && visible.All(_selected.Contains);
         bool somePicked = !allPicked && visible.Any(_selected.Contains);
-        var headBack = s.SecondaryContainer;
+        var headBack = k.LayerAccent01;
 
         Widget body = visible.Count == 0
-            ? new Container(height: rowHeight * 2, color: s.SurfaceContainerLow, alignment: Alignment.Center,
+            ? new Container(height: rowHeight * 2, color: k.Layer01, alignment: Alignment.Center,
                 child: new Text(_search.Text.Trim().Length > 0 ? "No matching results" : "No data",
-                    style: theme.TextTheme.BodyMedium.Merge(new TextStyle(Color: s.OnSurfaceVariant))))
+                    style: theme.Type.BodyCompact01.Merge(new TextStyle(Color: k.TextSecondary))))
             : new SizedBox(height: bodyHeight, child: ListView.Builder(visible.Count, (ctx, i) => BuildRow(ctx, i, visible[i], rowHeight, theme),
                 // Expanded rows are taller, so the extent is only fixed while nothing is open.
                 openRows == 0 ? rowHeight : null));
@@ -280,11 +279,11 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
             ..Widget.Title is null && Widget.Description is null ? Array.Empty<Widget>() :
             new Widget[]
             {
-                new Container(color: s.SurfaceContainerLow, padding: EdgeInsets.Only(left: 16, right: 16, top: 16, bottom: 16), child: new Column(
+                new Container(color: k.Layer01, padding: EdgeInsets.Only(left: 16, right: 16, top: 16, bottom: 16), child: new Column(
                     crossAxisAlignment: CrossAxisAlignment.Start, mainAxisSize: MainAxisSize.Min, spacing: 4, children:
                 [
-                    ..Widget.Title is null ? Array.Empty<Widget>() : [new Text(Widget.Title, style: theme.TextTheme.TitleLarge.Merge(new TextStyle(Color: s.OnSurface)))],
-                    ..Widget.Description is null ? Array.Empty<Widget>() : [new Text(Widget.Description, style: theme.TextTheme.BodyMedium.Merge(new TextStyle(Color: s.OnSurfaceVariant)))],
+                    ..Widget.Title is null ? Array.Empty<Widget>() : [new Text(Widget.Title, style: theme.Type.Heading03.Merge(new TextStyle(Color: k.TextPrimary)))],
+                    ..Widget.Description is null ? Array.Empty<Widget>() : [new Text(Widget.Description, style: theme.Type.BodyCompact01.Merge(new TextStyle(Color: k.TextSecondary)))],
                 ])),
             },
             ..Widget.Searchable || Widget.ToolbarActions is { Count: > 0 } || _selected.Count > 0 ? [Toolbar(theme, barHeight)] : Array.Empty<Widget>(),
@@ -296,9 +295,9 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
                     [
                         ..Expandable ? [new SizedBox(width: ExpandWidth)] : Array.Empty<Widget>(),
                         ..Widget.Selectable
-                            ? [new SizedBox(width: SelectWidth, height: rowHeight, child: new OverflowBox(new Checkbox(allPicked, v => ToggleAll(visible, v), indeterminate: somePicked)))]
+                            ? [new SizedBox(width: SelectWidth, height: rowHeight, child: new Center(new CarbonCheckbox(allPicked, v => ToggleAll(visible, v), indeterminate: somePicked, hitPadding: 8)))]
                             : Array.Empty<Widget>(),
-                        ..Widget.Columns.Select((c, i) => HeaderCell(i, c, theme, headBack)),
+                        ..Widget.Columns.Select((col, i) => HeaderCell(i, col, theme, headBack)),
                     ])),
                     body,
                 ]);

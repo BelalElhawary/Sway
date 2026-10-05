@@ -67,14 +67,13 @@ sealed class AnimatedPhysicalModelState : ImplicitlyAnimatedWidgetState<Animated
 
     public override Widget Build(BuildContext context)
     {
-        var scheme = Theme.Of(context).ColorScheme;
         var radius = _radius!.Evaluate(Animation);
         Widget inner = Widget.Child ?? new SizedBox();
         if (!radius.IsZero) inner = new ClipRRect(radius, inner);
         return new DecoratedBox(new BoxDecoration(
-            Color: _color?.Evaluate(Animation) ?? scheme.Surface,
+            Color: _color?.Evaluate(Animation) ?? Colors.Transparent,
             BorderRadius: radius,
-            BoxShadow: ShadowsFor(_elevation!.Evaluate(Animation), _shadow?.Evaluate(Animation) ?? scheme.Shadow)), inner);
+            BoxShadow: ShadowsFor(_elevation!.Evaluate(Animation), _shadow?.Evaluate(Animation) ?? Colors.Black)), inner);
     }
 }
 

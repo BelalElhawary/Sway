@@ -1,7 +1,9 @@
 using System.Globalization;
 using SkiaSharp;
 
-namespace Sway.Widgets;
+using Sway.Widgets;
+
+namespace Sway.Extras.Material3;
 
 // ---- menus ----
 
@@ -137,9 +139,9 @@ sealed class PopupMenuState<T> : State<PopupMenu<T>>
 
         return new Focus(autofocus: true, trapFocus: true, skipTraversal: true, onKey: OnKey, child: new ConstrainedBox(
             new BoxConstraints(Widget.MinWidth, Menus.MaxWidth, 0, float.PositiveInfinity),
-            new DecoratedBox(new BoxDecoration(Color: s.SurfaceContainer, BorderRadius: BorderRadius.Circular(theme.Shape.ExtraSmall),
-                BoxShadow: theme.Shape.Shadows(2, s.Shadow)),
-                new ClipRRect(BorderRadius.Circular(theme.Shape.ExtraSmall), new IntrinsicWidth(new Padding(EdgeInsets.Symmetric(vertical: Menus.VerticalPadding),
+            new DecoratedBox(new BoxDecoration(Color: s.SurfaceContainer, BorderRadius: BorderRadius.Circular(Shapes.ExtraSmall),
+                BoxShadow: Elevation.Shadows(2, s.Shadow)),
+                new ClipRRect(BorderRadius.Circular(Shapes.ExtraSmall), new IntrinsicWidth(new Padding(EdgeInsets.Symmetric(vertical: Menus.VerticalPadding),
                     new Column(rows, mainAxisSize: MainAxisSize.Min, crossAxisAlignment: CrossAxisAlignment.Stretch)))))));
     }
 }
@@ -288,7 +290,7 @@ public sealed class NavigationDrawer(int selectedIndex, IReadOnlyList<Navigation
     {
         var theme = Theme.Of(context);
         var s = theme.ColorScheme;
-        var radius = new BorderRadius(new Radius(0, 0), new Radius(theme.Shape.Large, theme.Shape.Large), new Radius(theme.Shape.Large, theme.Shape.Large), new Radius(0, 0));
+        var radius = new BorderRadius(new Radius(0, 0), new Radius(16, 16), new Radius(16, 16), new Radius(0, 0));
         var rows = new List<Widget>();
         if (header is not null)
             rows.Add(new Padding(EdgeInsets.Symmetric(28, 16), DefaultTextStyle.Merge(context, theme.TextTheme.TitleSmall.Merge(new TextStyle(Color: s.OnSurfaceVariant)), header)));
@@ -303,7 +305,7 @@ public sealed class NavigationDrawer(int selectedIndex, IReadOnlyList<Navigation
                 return new AnimatedContainer(TimeSpan.FromMilliseconds(150), height: 56, padding: EdgeInsets.Symmetric(horizontal: 16),
                     decoration: new BoxDecoration(
                         Color: StateLayer.Blend(selected ? s.SecondaryContainer : Colors.Transparent, fg, StateLayer.Opacity(st)),
-                        BorderRadius: BorderRadius.Circular(theme.Shape.ExtraLarge)),
+                        BorderRadius: BorderRadius.Circular(28)),
                     child: new Row(spacing: 12, children:
                     [
                         new Icon(selected ? d.SelectedIcon ?? d.Icon : d.Icon, 24, fg),
@@ -311,7 +313,7 @@ public sealed class NavigationDrawer(int selectedIndex, IReadOnlyList<Navigation
                     ]));
             }, onDestinationSelected is null ? null : () => onDestinationSelected(index))));
         }
-        return new DecoratedBox(new BoxDecoration(Color: s.SurfaceContainerLow, BorderRadius: radius, BoxShadow: theme.Shape.Shadows(1, s.Shadow)),
+        return new DecoratedBox(new BoxDecoration(Color: s.SurfaceContainerLow, BorderRadius: radius, BoxShadow: Elevation.Shadows(1, s.Shadow)),
             new ClipRRect(radius, new SingleChildScrollView(
                 new Padding(EdgeInsets.Symmetric(vertical: 12), new Column(rows, mainAxisSize: MainAxisSize.Min, crossAxisAlignment: CrossAxisAlignment.Stretch)))));
     }
@@ -322,12 +324,10 @@ public sealed class BottomSheet(Widget child, Key? key = null) : StatelessWidget
 {
     public override Widget Build(BuildContext context)
     {
-        var theme = Theme.Of(context);
-        var s = theme.ColorScheme;
-        float r = theme.Shape.ExtraLarge;
-        var radius = new BorderRadius(new Radius(r, r), new Radius(r, r), new Radius(0, 0), new Radius(0, 0));
+        var s = Theme.Of(context).ColorScheme;
+        var radius = new BorderRadius(new Radius(28, 28), new Radius(28, 28), new Radius(0, 0), new Radius(0, 0));
         return new ConstrainedBox(new BoxConstraints(0, 640, 0, float.PositiveInfinity),
-            new DecoratedBox(new BoxDecoration(Color: s.SurfaceContainerLow, BorderRadius: radius, BoxShadow: theme.Shape.Shadows(1, s.Shadow)),
+            new DecoratedBox(new BoxDecoration(Color: s.SurfaceContainerLow, BorderRadius: radius, BoxShadow: Elevation.Shadows(1, s.Shadow)),
                 new ClipRRect(radius, new Column(mainAxisSize: MainAxisSize.Min, crossAxisAlignment: CrossAxisAlignment.Stretch, children:
                 [
                     new Padding(EdgeInsets.Symmetric(vertical: 16), new Center(new SizedBox(32, 4, new DecoratedBox(
@@ -438,6 +438,6 @@ sealed class DatePickerDialogState : State<DatePickerDialog>
                 new TextButton(new Text("Cancel"), Widget.OnCancel),
                 new TextButton(new Text("OK"), () => Widget.OnConfirm(_selected)),
             ]))),
-        ]), s.SurfaceContainerHigh, 3, BorderRadius.Circular(theme.Shape.ExtraLarge)));
+        ]), s.SurfaceContainerHigh, 3, BorderRadius.Circular(Shapes.ExtraLarge)));
     }
 }

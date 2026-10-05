@@ -31,7 +31,7 @@ public sealed class WidgetsBinding
 
     Brightness _platformBrightness = Brightness.Light;
 
-    /// <summary>The operating system's light/dark preference; the host sets it. MaterialApp follows it in System mode.</summary>
+    /// <summary>The operating system's light/dark preference; the host sets it. A design system's app widget can follow it.</summary>
     public Brightness PlatformBrightness
     {
         get => _platformBrightness;

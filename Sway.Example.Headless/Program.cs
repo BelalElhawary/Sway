@@ -6,7 +6,7 @@ using Sway.Example;
 
 // Renders the example without a window. `--screenshot out.png` writes a PNG. Scripted steps run in order before each capture:
 //   --move x,y  --click x,y  --wheel x,y,delta  --type text  --key [ctrl+][shift+]Name  --advance ms
-// Options: --page components|layout|forms|motion|effects|rtl|stress|media|icons|data  --dark  --rtl  --carbon  --size WxH  --bench
+// Options: --page components|layout|forms|motion|effects|rtl|stress|media|icons|carbon  --dark  --rtl  --size WxH  --bench
 LibVlcMediaBackend.Install();
 int shot = Array.IndexOf(args, "--screenshot");
 bool bench = args.Contains("--bench");
@@ -18,7 +18,7 @@ if ((shot < 0 || shot + 1 >= args.Length) && !bench)
 
 var steps = new List<Action<WidgetsBinding>>();
 string page = "components";
-bool dark = false, rtl = false, carbon = false;
+bool dark = false, rtl = false;
 int width = 1100, height = 760;
 for (int i = 0; i < args.Length; i++)
 {
@@ -28,7 +28,6 @@ for (int i = 0; i < args.Length; i++)
         case "--page": page = args[++i]; break;
         case "--dark": dark = true; break;
         case "--rtl": rtl = true; break;
-        case "--carbon": carbon = true; break;
         case "--size": { var p = args[++i].Split('x'); width = int.Parse(p[0]); height = int.Parse(p[1]); break; }
         case "--move": { var n = Numbers(args[++i]); steps.Add(b => b.Gestures.PointerMove(n[0], n[1])); break; }
         case "--click":
@@ -62,7 +61,7 @@ if (bench)
     var binding = new WidgetsBinding();
     binding.UseManualClock();
     var sw = Stopwatch.StartNew();
-    binding.AttachRoot(new DemoRoot(page, dark, rtl, carbon));
+    binding.AttachRoot(new DemoRoot(page, dark, rtl));
     using (var first = binding.RenderToBitmap(width, height)) { }
     Console.WriteLine($"cold start (mount + first frame): {sw.ElapsedMilliseconds} ms");
 
@@ -88,4 +87,4 @@ if (bench)
     return;
 }
 
-Headless.Screenshot(new DemoRoot(page, dark, rtl, carbon), args[shot + 1], width, height, steps);
+Headless.Screenshot(new DemoRoot(page, dark, rtl), args[shot + 1], width, height, steps);

@@ -16,40 +16,40 @@ public sealed class Pagination(int totalItems, int page, int pageSize, Action<in
 
     public override Widget Build(BuildContext context)
     {
-        var theme = Theme.Of(context);
-        var s = theme.ColorScheme;
-        var secondary = theme.TextTheme.BodySmall.Merge(new TextStyle(Color: s.OnSurfaceVariant));
+        var theme = CarbonTheme.Of(context);
+        var k = theme.Colors;
+        var secondary = theme.Type.Label01.Merge(new TextStyle(Color: k.TextSecondary));
         int pages = PageCount(totalItems, pageSize);
         int current = Math.Clamp(page, 0, pages - 1);
         int first = totalItems == 0 ? 0 : current * pageSize + 1;
         int last = Math.Min(totalItems, (current + 1) * pageSize);
         var sizes = (pageSizes ?? DefaultPageSizes).Contains(pageSize) ? pageSizes ?? DefaultPageSizes : [.. pageSizes ?? DefaultPageSizes, pageSize];
 
-        Widget Divider() => new Container(width: 1, height: 24, color: s.OutlineVariant);
+        Widget Divider() => new Container(width: 1, height: 24, color: k.BorderSubtle01);
 
         // Narrow bars give up the wordy parts first: the "Items per page" label, then the page count.
         return new LayoutBuilder((ctx, box) =>
         {
             bool roomy = box.MaxWidth >= 600, medium = box.MaxWidth >= 440;
-            return new Container(height: Math.Max(48, theme.Shape.FieldHeight), color: s.SurfaceContainerHigh, child: new Column(
+            return new Container(height: 48, color: k.Layer01, child: new Column(
                 crossAxisAlignment: CrossAxisAlignment.Stretch, children:
             [
-                new Container(height: 1, color: s.OutlineVariant),
+                new Container(height: 1, color: k.BorderSubtle01),
                 new Expanded(new Row(crossAxisAlignment: CrossAxisAlignment.Center, spacing: 12, children:
                 [
                     new SizedBox(width: 4),
                     ..onPageSizeChanged is null ? Array.Empty<Widget>() :
                     [
                         ..roomy ? [new Text("Items per page:", style: secondary)] : Array.Empty<Widget>(),
-                        new SizedBox(width: 88, child: new DropdownButton<int>(
-                            sizes.Select(n => new DropdownMenuItem<int>(n, new Text(n.ToString()))).ToList(), pageSize, onPageSizeChanged)),
+                        new SizedBox(width: 88, child: new CarbonDropdown<int>(
+                            sizes.Select(n => new CarbonDropdownItem<int>(n, n.ToString())).ToList(), pageSize, onPageSizeChanged, size: CarbonFieldSize.Large, onLayer: true)),
                         Divider(),
                     ],
                     new Expanded(new Text($"{first}–{last} of {totalItems}{(roomy ? $" item{(totalItems == 1 ? "" : "s")}" : "")}",
                         style: secondary, softWrap: false, overflow: TextOverflow.Ellipsis, maxLines: 1)),
                     ..medium ? [new Text($"{current + 1} of {pages} page{(pages == 1 ? "" : "s")}", style: secondary)] : Array.Empty<Widget>(),
-                    new IconButton(new Icon(Icons.ChevronLeft), current > 0 ? () => onPageChanged(current - 1) : null),
-                    new IconButton(new Icon(Icons.ChevronRight), current < pages - 1 ? () => onPageChanged(current + 1) : null),
+                    new CarbonIconButton(Icons.ChevronLeft, current > 0 ? () => onPageChanged(current - 1) : null, CarbonButtonSize.Large),
+                    new CarbonIconButton(Icons.ChevronRight, current < pages - 1 ? () => onPageChanged(current + 1) : null, CarbonButtonSize.Large),
                 ])),
             ]));
         });

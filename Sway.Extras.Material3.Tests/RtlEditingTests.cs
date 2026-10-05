@@ -1,7 +1,10 @@
 using System.Reflection;
+using Sway.Extras.Material3;
+using Sway.Widgets;
+using Sway.Widgets.Tests;
 using Xunit;
 
-namespace Sway.Widgets.Tests;
+namespace Sway.Extras.Material3.Tests;
 
 public class RtlEditingTests
 {

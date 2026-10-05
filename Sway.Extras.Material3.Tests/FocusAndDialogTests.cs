@@ -1,6 +1,9 @@
 using Xunit;
 
-namespace Sway.Widgets.Tests;
+using Sway.Extras.Material3;
+using Sway.Widgets;
+using Sway.Widgets.Tests;
+namespace Sway.Extras.Material3.Tests;
 
 public class FocusAndDialogTests
 {

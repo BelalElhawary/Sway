@@ -16,7 +16,10 @@ sidebar_position: 2
 
 ```
 Sway.slnx
-Sway.Widgets/           # the platform-neutral library: Foundation, Rendering, Widgets
+Sway.Widgets/           # the platform- and design-neutral library: Foundation, Rendering, Widgets
+Sway.Extras.Material3/  # optional: Material 3 theme and components
+Sway.Extras.Material3.Media/ # optional: Material 3 video and audio players
+Sway.Extras.Ibm/        # optional: IBM Carbon theme, controls and data table
 Sway.Platform.Desktop/  # Windows/Linux/macOS host: window, input, OS theme (Silk.NET)
 Sway.Platform.Android/  # Android host: GL surface, touch, soft keyboard, system theme
 Sway.Platform.Web/      # Browser host: Blazor WebAssembly component on SkiaSharp.Views.Blazor
@@ -26,15 +29,18 @@ Sway.Platform.Headless/ # windowless host: renders to a PNG
 Sway.Example.Headless/  # headless runner for the example (screenshots, bench)
 Sway.Example.Android/   # Android runner for the example
 Sway.Example.Web/       # Browser runner for the example (needs the wasm-tools workload)
-Sway.Media/             # platform-neutral video and audio players and the IMediaBackend interface
+Sway.Media/             # platform-neutral media controller, video surface and the IMediaBackend interface
 Sway.Media.LibVlc/      # LibVLC backend: Windows, Linux, macOS, Android
 Sway.Media.Web/         # browser backend: HTML media element
-Sway.Widgets.Tests/     # xUnit tests that run the widget tree headlessly
+Sway.Widgets.Tests/     # xUnit tests for the core library, run headlessly
+Sway.Extras.Material3.Tests/ # tests for the Material 3 components
+Sway.Extras.Ibm.Tests/  # tests for the Carbon components
 ```
 
 `Sway.Widgets` is the library. It depends only on SkiaSharp and SkiaSharp.HarfBuzz, so it carries no windowing or OS
 code. `Sway.Platform.Desktop` adds the window and input host (Silk.NET); an app references both and calls `App.Run`.
-Add `using Sway.Widgets;`.
+Add `using Sway.Widgets;`. A design system is a separate package you also reference: `Sway.Extras.Material3`
+(`using Sway.Extras.Material3;`) or `Sway.Extras.Ibm`. The examples below use Material 3.
 
 ## Run the demo
 
@@ -62,6 +68,7 @@ devices is not supported on the web yet.
 ## Your first app
 
 ```csharp
+using Sway.Extras.Material3;
 using Sway.Widgets;
 
 App.Run(new MaterialApp(home: new HelloPage()), "Hello", 640, 480);
@@ -76,7 +83,7 @@ class HelloPage : StatelessWidget
 ```
 
 `App.Run(widget, title, width, height)` opens the window and mounts the widget. `MaterialApp` installs the theme,
-default text style and surface colour; without it widgets still work and use the default Material 3 light theme.
+default text style and surface colour; without it the Material 3 widgets still work and use the default light theme.
 
 ### Stateful widgets
 

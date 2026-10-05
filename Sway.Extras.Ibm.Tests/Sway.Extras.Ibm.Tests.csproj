@@ -15,7 +15,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Sway.Widgets\Sway.Widgets.csproj" />
-    <ProjectReference Include="..\Sway.Platform.Desktop\Sway.Platform.Desktop.csproj" />
+    <ProjectReference Include="..\Sway.Extras.Ibm\Sway.Extras.Ibm.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The same headless harness the core tests use. -->
+    <Compile Include="..\Sway.Widgets.Tests\Harness.cs" Link="Harness.cs" />
   </ItemGroup>
 
 </Project>

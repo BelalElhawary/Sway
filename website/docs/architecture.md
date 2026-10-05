@@ -89,4 +89,6 @@ Nothing in `Sway.Widgets` changes.
 | Focus and keyboard | `Widgets/Focus.cs`, `Sway.Platform.Desktop/KeyMap.cs` |
 | Scrolling | `Widgets/Scrolling.cs` |
 | Animation | `Foundation/Animation.cs`, `Curves.cs`, `Lerp.cs`, `Widgets/Animated.cs` |
-| Theme and Material 3 | `Foundation/ColorScheme.cs`, `Widgets/Theme.cs`, `Controls.cs`, `TextField.cs` |
+| Material 3 (`Sway.Extras.Material3`) | `ColorScheme.cs`, `Theme.cs`, `Controls.cs`, `Components.cs`, `Menus.cs`, `TextField.cs` |
+| IBM Carbon (`Sway.Extras.Ibm`) | `CarbonColors.cs`, `CarbonTheme.cs`, `CarbonButton.cs`, `CarbonTextInput.cs`, `DataTable.cs` |
+| Design-neutral building blocks | `Widgets/Interactive.cs`, `Icon.cs`, `EditableText.cs` |

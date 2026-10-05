@@ -87,7 +87,7 @@ left-to-right and right-to-left runs.
 
 `Directionality(TextDirection.Rtl, child)` mirrors a subtree: rows reverse, text aligns to the end edge, and
 `EdgeInsetsDirectional`, `AlignmentDirectional` and `PositionedDirectional` resolve start and end against it.
-`MaterialApp(textDirection: ...)` sets it for the whole app.
+The app widget of your design system (`MaterialApp(textDirection: ...)`, `CarbonApp(textDirection: ...)`) sets it for the whole app.
 
 ## Overlays
 
@@ -96,7 +96,7 @@ and so does the dropdown menu. Insert your own with `Overlay.Of(context).Insert(
 
 ## Media and file pickers
 
-`Sway.Media` is platform-neutral. Each host installs the engine it can run, once at startup, and the widgets work the same
+`Sway.Media` is platform-neutral, and `VideoPlayer` and `AudioPlayer` (Material 3) come from `Sway.Extras.Material3.Media`. Each host installs the engine it can run, once at startup, and the widgets work the same
 everywhere:
 
 | Platform | Install | Engine |

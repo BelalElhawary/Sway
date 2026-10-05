@@ -58,7 +58,7 @@ public sealed class RenderParagraph : RenderBox
         return Walk(_text, TextStyle.Fallback.Merge(_baseStyle));
     }
 
-    internal static float Measure(string text, TextStyle style, SKFont font)
+    public static float Measure(string text, TextStyle style, SKFont font)
     {
         float w = TextShaper.MeasureShaped(text, font);
         if (style.LetterSpacing is { } ls) w += ls * text.Length;

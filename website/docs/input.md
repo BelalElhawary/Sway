@@ -56,7 +56,7 @@ flags; `Command` is true for Ctrl or Meta. Typed characters arrive separately th
 
 ## Text fields
 
-`TextField` is the Material 3 field; `EditableText` is the undecorated core. Both take a `TextEditingController`:
+`EditableText` is the undecorated core in `Sway.Widgets`; `TextField` (Material 3) and `CarbonTextInput` (Carbon) are the decorated fields built on it. Both take a `TextEditingController`:
 
 ```csharp
 var name = new TextEditingController("Ada");

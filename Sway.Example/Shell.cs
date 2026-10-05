@@ -1,13 +1,12 @@
 using SkiaSharp;
-using Sway.Extras.Ibm;
+using Sway.Extras.Material3;
 using Sway.Widgets;
 
 namespace Sway.Example;
 
 /// <summary>The demo app: a Material 3 shell with a navigation rail, theme-mode, seed-colour and text-direction switches.</summary>
-public class DemoRoot(string page = "components", bool dark = false, bool rtl = false, bool carbon = false) : StatefulWidget
+public class DemoRoot(string page = "components", bool dark = false, bool rtl = false) : StatefulWidget
 {
-    public bool Carbon => carbon;
     public string Page => page;
     public bool Dark => dark;
     public bool Rtl => rtl;
@@ -20,7 +19,7 @@ class DemoRootState : State<DemoRoot>
     [
         ("components", "Home", Icons.Home), ("layout", "Layout", Icons.Menu), ("forms", "Forms", Icons.Edit),
         ("motion", "Motion", Icons.Star), ("effects", "Effects", Icons.Favorite), ("rtl", "RTL", Icons.ArrowForward), ("stress", "Stress", Icons.MoreVert),
-        ("media", "Media", Icons.PlayArrow), ("icons", "Icons", Icons.GridView), ("data", "Data", Icons.Menu),
+        ("media", "Media", Icons.PlayArrow), ("icons", "Icons", Icons.GridView), ("carbon", "Carbon", Icons.Menu),
     ];
 
     /// <summary>Below this width (logical px) the shell drops the navigation rail and tightens page padding.</summary>
@@ -38,13 +37,9 @@ class DemoRootState : State<DemoRoot>
         _page = Widget.Page;
         _mode = Widget.Dark ? ThemeMode.Dark : ThemeMode.Light;
         _rtl = Widget.Rtl;
-        if (Widget.Carbon) _seed = Seeds.Length;
     }
 
-    /// <summary>The star button cycles the seed colours and then Carbon, IBM's design system.</summary>
-    bool Carbon => _seed == Seeds.Length;
-
-    ThemeData Theme(Brightness b) => Carbon ? IbmTheme.For(b) : Seeds[_seed] is { } seed ? ThemeData.FromSeed(seed, b) : b == Brightness.Dark ? ThemeData.Dark() : ThemeData.Light();
+    ThemeData Theme(Brightness b) => Seeds[_seed] is { } seed ? ThemeData.FromSeed(seed, b) : b == Brightness.Dark ? ThemeData.Dark() : ThemeData.Light();
 
     Widget Body() => _page switch
     {
@@ -56,7 +51,7 @@ class DemoRootState : State<DemoRoot>
         "stress" => new StressPage(),
         "media" => new MediaPage(),
         "icons" => new IconsPage(),
-        "data" => new DataPage(),
+        "carbon" => new CarbonPage(),
         _ => new ComponentsPage(),
     };
 
@@ -73,7 +68,7 @@ class DemoRootState : State<DemoRoot>
                 return new Scaffold(
                     appBar: new AppBar(title: new Text("Sway Widgets"), actions:
                     [
-                        new IconButton(new Icon(Icons.Star), () => SetState(() => _seed = (_seed + 1) % (Seeds.Length + 1))),
+                        new IconButton(new Icon(Icons.Star), () => SetState(() => _seed = (_seed + 1) % Seeds.Length)),
                         new IconButton(new Icon(dark ? Icons.LightMode : Icons.DarkMode), () => SetState(() => _mode = dark ? ThemeMode.Light : ThemeMode.Dark)),
                         new TextButton(new Text(_rtl ? "LTR" : "RTL"), () => SetState(() => _rtl = !_rtl)),
                     ]),

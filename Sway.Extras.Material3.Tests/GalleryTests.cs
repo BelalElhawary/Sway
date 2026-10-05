@@ -1,6 +1,9 @@
 using Xunit;
 
-namespace Sway.Widgets.Tests;
+using Sway.Extras.Material3;
+using Sway.Widgets;
+using Sway.Widgets.Tests;
+namespace Sway.Extras.Material3.Tests;
 
 /// <summary>Renders widgets to a PNG so a person can look at them. Set SWAY_GALLERY to a directory to enable.</summary>
 public class GalleryTests
