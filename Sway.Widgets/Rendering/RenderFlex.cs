@@ -197,9 +197,13 @@ public sealed class RenderFlex : RenderBoxContainer
         using var yellow = new SkiaSharp.SKPaint { Color = new SkiaSharp.SKColor(0xFF, 0xD6, 0x00) };
         canvas.DrawRect(r, yellow);
         using var black = new SkiaSharp.SKPaint { Color = SkiaSharp.SKColors.Black, StrokeWidth = 4, IsAntialias = true };
+        // Stripes run along the band's long side, so a vertical band is striped over its whole height too.
         float reach = Math.Max(r.Width, r.Height) + band * 2;
         for (float d = -band * 2; d < reach; d += band)
-            canvas.DrawLine(r.Left + d, r.Top, r.Left + d + band, r.Top + band, black);
+        {
+            if (Horizontal) canvas.DrawLine(r.Left, r.Top + d, r.Left + band, r.Top + d + band, black);
+            else canvas.DrawLine(r.Left + d, r.Top, r.Left + d + band, r.Top + band, black);
+        }
         canvas.Restore();
     }
 
