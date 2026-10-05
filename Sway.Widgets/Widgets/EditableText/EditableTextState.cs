@@ -69,7 +69,7 @@ sealed class EditableTextState : State<EditableText>
         if (has == _hadFocus) return;
         _hadFocus = has;
         _caretOn = true;
-        if (has) StartBlink(); else StopBlink();
+        if (has) StartBlink(); else { StopBlink(); Edit.MoveTo(Edit.Caret, false); }
         if (Mounted) SetState();
     }
 

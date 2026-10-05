@@ -399,6 +399,8 @@ public sealed class RenderEditable : RenderBox
                 _lastDownMs = t;
                 _lastDownPos = e.LocalPosition;
                 _dragging = true;
+                _claimed = false;
+                Arena.Add(e.Pointer, _arenaMember);
 
                 int idx = IndexAtPoint(e.LocalPosition);
                 if (_clickCount == 2) _state.SelectWordAt(idx);
@@ -408,14 +410,28 @@ public sealed class RenderEditable : RenderBox
                 break;
             }
             case PointerEventKind.Move when _dragging && _clickCount == 1:
+                // Selecting by dragging owns the pointer, so an enclosing scrollable does not scroll along with it.
+                if (!_claimed) { _claimed = true; Arena.Resolve(e.Pointer, _arenaMember, true); }
                 _state.MoveTo(IndexAtPoint(e.LocalPosition), true);
                 AfterCaretMove();
                 break;
             case PointerEventKind.Up:
+                if (_dragging && !_claimed) Arena.Resolve(e.Pointer, _arenaMember, false); // a plain click stays available to ancestors
                 _dragging = false;
                 break;
         }
     }
+
+    bool _claimed;
+    readonly ArenaMember _arenaMember = new();
+
+    sealed class ArenaMember : IGestureArenaMember
+    {
+        public void AcceptGesture(int pointer) { }
+        public void RejectGesture(int pointer) { }
+    }
+
+    static GestureArena Arena => WidgetsBinding.Instance.Gestures.Arena;
 
     public override float? GetDistanceToBaseline() => _baseline;
     public override float MinIntrinsicWidth(float h) => 0;
