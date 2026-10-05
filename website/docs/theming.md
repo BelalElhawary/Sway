@@ -88,6 +88,36 @@ Carbon needs a few things Material does not, and each is a general theme setting
 - `ShapeTheme.CheckboxRadius`, `ControlHalo` and `CompactSwitch` give square checkboxes, a focus border instead of
   the round hover halo, and a flat 48x24 switch.
 
+### Data tables
+
+`Sway.Extras.Ibm` also has the widgets Carbon is known for in data-heavy apps: `DataTable<T>`, `Pagination` and `Tag`.
+
+```csharp
+new DataTable<Server>(
+    columns:
+    [
+        DataColumn<Server>.By("Name", r => r.Name, width: 160),
+        new DataColumn<Server>("Status", r => r.Status, Width: 140, Cell: r => new Tag(r.Status, TagColor.Green)),
+        DataColumn<Server>.By("CPU", r => r.Cpu, v => $"{v}%", align: TextAlign.End),
+    ],
+    rows: servers, title: "Servers", size: TableSize.Medium,
+    selectable: true, searchable: true, pageSize: 10, maxBodyHeight: 480,
+    batchActions: [new BatchAction<Server>("Delete", rows => Remove(rows), Icons.Delete)],
+    onRowTap: row => Open(row));
+```
+
+- Search, sorting (click a header: ascending, descending, off), selection and paging are handled inside the table. You
+  supply the rows and hear about changes through `onSelectionChanged` and `onRowTap`.
+- `DataColumn<T>.By` sorts by a key (numbers, dates) instead of by the cell text; use the plain constructor for text
+  columns, and its `Cell` to draw something other than text.
+- `TableSize` is Carbon's row height: `ExtraSmall` 24, `Small` 32, `Medium` 40, `Large` 48, `ExtraLarge` 64.
+- Rows are virtualised and the header stays put. Without `maxBodyHeight` the table is as tall as the rows on the page.
+- Selecting a row swaps the toolbar for a blue batch bar with your `batchActions` and a Cancel button.
+- A table does not scroll sideways yet, so give wide tables fixed `Width`s that fit.
+
+`Pagination` also works alone (`totalItems`, zero-based `page`, `pageSize`, and callbacks), and `Tag` has the Carbon colours
+(`TagColor`), an outline style and an optional close button.
+
 ## Components
 
 | Group | Widgets |
