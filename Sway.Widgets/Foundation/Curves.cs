@@ -21,7 +21,8 @@ sealed class FuncCurve(Func<float, float> f) : Curve
 /// <summary>A cubic Bezier easing from (0,0) to (1,1) with control points (a,b) and (c,d).</summary>
 public sealed class Cubic(float a, float b, float c, float d) : Curve
 {
-    const float Tolerance = 1e-3f;
+    const float Tolerance = 1e-5f;
+    const int MaxIterations = 40;
 
     static float Sample(float p1, float p2, float t)
     {
@@ -32,13 +33,15 @@ public sealed class Cubic(float a, float b, float c, float d) : Curve
     protected override float TransformInternal(float x)
     {
         float lo = 0, hi = 1;
-        while (true)
+        float mid = 0.5f;
+        for (int i = 0; i < MaxIterations; i++)
         {
-            float mid = (lo + hi) / 2;
+            mid = (lo + hi) / 2;
             float est = Sample(a, c, mid);
-            if (MathF.Abs(x - est) < Tolerance) return Sample(b, d, mid);
+            if (MathF.Abs(x - est) < Tolerance) break;
             if (est < x) lo = mid; else hi = mid;
         }
+        return Sample(b, d, mid);
     }
 }
 

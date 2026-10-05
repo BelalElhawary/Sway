@@ -13,7 +13,8 @@ class MotionPageState : TickerProviderState<MotionPage>
     bool _toggled, _faded, _expanded, _second;
     int _counter;
     float _target = 1;
-    AnimationController _spin = null!, _pulse = null!, _stagger = null!;
+    bool _elastic;
+    AnimationController _spin = null!, _pulse = null!, _stagger = null!, _curve = null!;
 
     public override void InitState()
     {
@@ -23,12 +24,34 @@ class MotionPageState : TickerProviderState<MotionPage>
         _pulse.Repeat(reverse: true);
         _stagger = new AnimationController(this, TimeSpan.FromMilliseconds(1200));
         _stagger.Repeat(reverse: true);
+        _curve = new AnimationController(this, TimeSpan.FromMilliseconds(4000));
+        _curve.Repeat();
     }
 
     public override void Dispose()
     {
-        _spin.Dispose(); _pulse.Dispose(); _stagger.Dispose();
+        _spin.Dispose(); _pulse.Dispose(); _stagger.Dispose(); _curve.Dispose();
         base.Dispose();
+    }
+
+    // One cycle is out then back; both legs play the curve forward in time (a reversed controller would play it backwards).
+    static float CurvePosition(Curve curve, float t) => t < 0.5f ? curve.Transform(t * 2) : 1 - curve.Transform((t - 0.5f) * 2);
+
+    // How far past 0..1 a curve swings (1 for curves that do not overshoot). The track is sized so the swing just reaches its edges.
+    static readonly Dictionary<Curve, float> Reach = new();
+    static float ReachOf(Curve curve)
+    {
+        if (Reach.TryGetValue(curve, out var r)) return r;
+        r = 1;
+        for (int i = 0; i <= 400; i++) r = Math.Max(r, Math.Abs(curve.Transform(i / 400f) - 0.5f) + 0.5f);
+        return Reach[curve] = r;
+    }
+
+    /// <summary>Track position (0..1 across the full width) for a curve at cycle time <paramref name="t"/>, with its overshoot kept inside the track.</summary>
+    static float TrackPosition(Curve curve, float t)
+    {
+        float reach = ReachOf(curve);
+        return (CurvePosition(curve, t) - (1 - reach)) / (2 * reach - 1);
     }
 
     Widget CurveRow(BuildContext c, string name, Curve curve)
@@ -37,8 +60,9 @@ class MotionPageState : TickerProviderState<MotionPage>
         return new Row(spacing: 12, children:
         [
             new SizedBox(width: 90, child: new Text(name, style: Theme.Of(c).TextTheme.LabelSmall)),
-            new Expanded(new SizedBox(height: 16, child: new ColoredBox(s.SurfaceContainerHighest, new AnimatedBuilder(_pulse, (_, __) =>
-                new Align(new Alignment(-1 + 2 * curve.Transform(_pulse.Value), 0),
+            new Expanded(new SizedBox(height: 16, child: new ColoredBox(s.SurfaceContainerHighest, new AnimatedBuilder(_curve, (_, __) =>
+                // The overshoot of back and elastic curves is scaled to fit the track, not clipped, so its shape stays intact.
+                new Align(new Alignment(-1 + 2 * TrackPosition(curve, _curve.Value), 0),
                     new Container(width: 14, height: 14, decoration: new BoxDecoration(Color: s.Primary, Shape: BoxShape.Circle)))))))
         ]);
     }
@@ -84,6 +108,22 @@ class MotionPageState : TickerProviderState<MotionPage>
             [
                 CurveRow(context, "Linear", Curves.Linear), CurveRow(context, "EaseInOut", Curves.EaseInOut), CurveRow(context, "BounceOut", Curves.BounceOut),
                 CurveRow(context, "ElasticOut", Curves.ElasticOut), CurveRow(context, "EaseOutBack", Curves.EaseOutBack),
+            ])),
+
+            Ui.Section(context, "ElasticOut in action", new Column(crossAxisAlignment: CrossAxisAlignment.Start, mainAxisSize: MainAxisSize.Min, spacing: 14, children:
+            [
+                new FilledButton(new Text(_elastic ? "Spring back" : "Spring"), () => SetState(() => _elastic = !_elastic)),
+                new SizedBox(height: 56, child: new ColoredBox(s.SurfaceContainerHighest, new AnimatedAlign(
+                    new Alignment(_elastic ? 0.6f : -0.6f, 0), TimeSpan.FromMilliseconds(1400), curve: Curves.ElasticOut,
+                    child: new Container(width: 40, height: 40, decoration: new BoxDecoration(Color: s.Primary, Shape: BoxShape.Circle))))),
+                new Row(spacing: 48, children:
+                [
+                    new Padding(EdgeInsets.Only(left: 12), new AnimatedScale(_elastic ? 1.2f : 0.8f, TimeSpan.FromMilliseconds(1400), curve: Curves.ElasticOut,
+                        child: new Container(width: 48, height: 48, decoration: new BoxDecoration(Color: s.Tertiary, BorderRadius: BorderRadius.Circular(10))))),
+                    new AnimatedRotation(_elastic ? 0.25f : 0, TimeSpan.FromMilliseconds(1400), curve: Curves.ElasticOut,
+                        child: new Container(width: 48, height: 48, decoration: new BoxDecoration(Color: s.Secondary, BorderRadius: BorderRadius.Circular(10)))),
+                    new Text("Slide, scale and rotation all spring past their target and settle."),
+                ]),
             ])),
 
             Ui.Section(context, "Implicit: opacity, switcher, size, cross-fade", new Column(crossAxisAlignment: CrossAxisAlignment.Start, mainAxisSize: MainAxisSize.Min, spacing: 12, children:
