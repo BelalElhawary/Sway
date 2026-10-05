@@ -25,6 +25,9 @@ class DemoRootState : State<DemoRoot>
     static readonly (string id, string label, IconData icon)[] AvailablePages =
         OperatingSystem.IsBrowser() ? Pages.Where(p => p.id != "media").ToArray() : Pages;
 
+    /// <summary>Below this width (logical px) the shell drops the navigation rail and tightens page padding.</summary>
+    public const float CompactWidth = 600;
+
     static readonly SKColor?[] Seeds = [null, Colors.FromRgb(0x006A6A), Colors.FromRgb(0xB3261E), Colors.FromRgb(0x1B6EF3), Colors.FromRgb(0x386A20)];
 
     string _page = "";
@@ -59,16 +62,27 @@ class DemoRootState : State<DemoRoot>
         return new MaterialApp(
             themeMode: _mode, theme: Theme(Brightness.Light), darkTheme: Theme(Brightness.Dark),
             textDirection: _rtl ? TextDirection.Rtl : TextDirection.Ltr,
-            home: new Builder(ctx => new Scaffold(
-                appBar: new AppBar(title: new Text("Sway Widgets"), actions:
-                [
-                    new IconButton(new Icon(Icons.Star), () => SetState(() => _seed = (_seed + 1) % Seeds.Length)),
-                    new IconButton(new Icon(dark ? Icons.LightMode : Icons.DarkMode), () => SetState(() => _mode = dark ? ThemeMode.Light : ThemeMode.Dark)),
-                    new TextButton(new Text(_rtl ? "LTR" : "RTL"), () => SetState(() => _rtl = !_rtl)),
-                ]),
-                navigationRail: new NavigationRail(Array.FindIndex(AvailablePages, p => p.id == _page),
-                    AvailablePages.Select(p => new NavigationDestination(p.icon, p.label)).ToList(), i => SetState(() => _page = AvailablePages[i].id)),
-                body: Body())));
+            home: new LayoutBuilder((ctx, box) =>
+            {
+                bool compact = box.MaxWidth < CompactWidth;
+                int selected = Array.FindIndex(AvailablePages, p => p.id == _page);
+                return new Scaffold(
+                    appBar: new AppBar(title: new Text("Sway Widgets"), actions:
+                    [
+                        new IconButton(new Icon(Icons.Star), () => SetState(() => _seed = (_seed + 1) % Seeds.Length)),
+                        new IconButton(new Icon(dark ? Icons.LightMode : Icons.DarkMode), () => SetState(() => _mode = dark ? ThemeMode.Light : ThemeMode.Dark)),
+                        new TextButton(new Text(_rtl ? "LTR" : "RTL"), () => SetState(() => _rtl = !_rtl)),
+                    ]),
+                    // A rail needs ~80px of the width; on a phone the pages move to a scrolling strip of chips under the app bar instead.
+                    navigationRail: compact ? null : new NavigationRail(selected,
+                        AvailablePages.Select(p => new NavigationDestination(p.icon, p.label)).ToList(), i => SetState(() => _page = AvailablePages[i].id)),
+                    body: compact ? new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, children:
+                    [
+                        new SingleChildScrollView(scrollDirection: Axis.Horizontal, padding: EdgeInsets.Symmetric(12, 4), child: new Row(spacing: 8, children:
+                            AvailablePages.Select(p => (Widget)new Chip(new Text(p.label), () => SetState(() => _page = p.id), selected: p.id == _page, icon: p.icon)).ToList())),
+                        new Expanded(Body()),
+                    ]) : Body());
+            }));
     }
 }
 
@@ -87,7 +101,9 @@ static class Ui
             ])));
     }
 
-    public static Widget Page(string title, IReadOnlyList<Widget> sections) => new Builder(ctx => new SingleChildScrollView(padding: EdgeInsets.All(24),
+    public static bool IsCompact(BoxConstraints box) => box.MaxWidth < DemoRootState.CompactWidth;
+
+    public static Widget Page(string title, IReadOnlyList<Widget> sections) => new LayoutBuilder((ctx, box) => new SingleChildScrollView(padding: EdgeInsets.All(IsCompact(box) ? 12 : 24),
         child: new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, mainAxisSize: MainAxisSize.Min, spacing: 16, children:
         [
             new Text(title, style: Theme.Of(ctx).TextTheme.HeadlineMedium),

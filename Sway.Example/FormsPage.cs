@@ -57,7 +57,7 @@ class FormsPageState : State<FormsPage>
                     [new("a", new Text("Option A")), new("b", new Text("Option B"))], null, v => { }, hint: new Text("Pick one"))),
             ])),
 
-            Ui.Section(context, "Submit", new Row(spacing: 12, children:
+            Ui.Section(context, "Submit", new Wrap(spacing: 12, runSpacing: 12, crossAxisAlignment: WrapCrossAlignment.Center, children:
             [
                 new FilledButton(new Text("Submit"), () => SetState(() => _submitted = $"{_name.Text} / {_plan} / {_country} / agree={_agree}")),
                 new OutlinedButton(new Text("Reset"), () => SetState(() => { _name.Text = ""; _agree = false; })),

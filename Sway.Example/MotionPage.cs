@@ -75,7 +75,7 @@ class MotionPageState : TickerProviderState<MotionPage>
         Animation<float> Bar(int i) => new FloatTween(0.15f, 1).Animate(new CurvedAnimation(_stagger, new Interval(i * 0.12f, 0.5f + i * 0.12f, Curves.EaseOutBack)));
 
         return Ui.Page("Motion", [
-            Ui.Section(context, "AnimatedContainer", new Row(spacing: 16, children:
+            Ui.Section(context, "AnimatedContainer", new Wrap(spacing: 16, runSpacing: 12, crossAxisAlignment: WrapCrossAlignment.Center, children:
             [
                 new GestureDetector(onTap: () => SetState(() => _toggled = !_toggled), child: new AnimatedContainer(
                     TimeSpan.FromMilliseconds(500), curve: Curves.EaseInOutCubic,
@@ -88,7 +88,7 @@ class MotionPageState : TickerProviderState<MotionPage>
                 new Text("Tap the box: size, colour, radius and shadow tween together."),
             ])),
 
-            Ui.Section(context, "Explicit animations: Repeat and transitions", new Row(spacing: 24, children:
+            Ui.Section(context, "Explicit animations: Repeat and transitions", new Wrap(spacing: 24, runSpacing: 12, crossAxisAlignment: WrapCrossAlignment.Center, children:
             [
                 new RotationTransition(_spin, new Container(width: 48, height: 48, color: s.Primary)),
                 new ScaleTransition(new FloatTween(0.6f, 1.2f).Animate(_pulse), new Container(width: 48, height: 48,
@@ -116,7 +116,7 @@ class MotionPageState : TickerProviderState<MotionPage>
                 new SizedBox(height: 56, child: new ColoredBox(s.SurfaceContainerHighest, new AnimatedAlign(
                     new Alignment(_elastic ? 0.6f : -0.6f, 0), TimeSpan.FromMilliseconds(1400), curve: Curves.ElasticOut,
                     child: new Container(width: 40, height: 40, decoration: new BoxDecoration(Color: s.Primary, Shape: BoxShape.Circle))))),
-                new Row(spacing: 48, children:
+                new Wrap(spacing: 48, runSpacing: 12, crossAxisAlignment: WrapCrossAlignment.Center, children:
                 [
                     new Padding(EdgeInsets.Only(left: 12), new AnimatedScale(_elastic ? 1.2f : 0.8f, TimeSpan.FromMilliseconds(1400), curve: Curves.ElasticOut,
                         child: new Container(width: 48, height: 48, decoration: new BoxDecoration(Color: s.Tertiary, BorderRadius: BorderRadius.Circular(10))))),
@@ -151,7 +151,7 @@ class MotionPageState : TickerProviderState<MotionPage>
                     _second ? CrossFadeState.ShowSecond : CrossFadeState.ShowFirst, TimeSpan.FromMilliseconds(400)),
             ])),
 
-            Ui.Section(context, "TweenAnimationBuilder", new Row(spacing: 12, children:
+            Ui.Section(context, "TweenAnimationBuilder", new Wrap(spacing: 12, runSpacing: 12, crossAxisAlignment: WrapCrossAlignment.Center, children:
             [
                 new FilledButton(new Text("Retarget"), () => SetState(() => _target = _target == 1 ? 0 : 1)),
                 new TweenAnimationBuilder<float>(new FloatTween(0, _target), TimeSpan.FromMilliseconds(700),

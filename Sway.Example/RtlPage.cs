@@ -46,10 +46,14 @@ class RtlPage : StatelessWidget
     }
 
     public override Widget Build(BuildContext context) => Ui.Page("Right-to-left", [
-        new Builder(ctx => new Row(crossAxisAlignment: CrossAxisAlignment.Start, spacing: 20, children:
-        [
-            new Expanded(new Directionality(TextDirection.Ltr, Ui.Section(ctx, "LTR", Content(ctx, false)))),
-            new Expanded(new Directionality(TextDirection.Rtl, Ui.Section(ctx, "RTL", Content(ctx, true)))),
-        ])),
+        new LayoutBuilder((ctx, box) =>
+        {
+            Widget ltr = new Directionality(TextDirection.Ltr, Ui.Section(ctx, "LTR", Content(ctx, false)));
+            Widget rtl = new Directionality(TextDirection.Rtl, Ui.Section(ctx, "RTL", Content(ctx, true)));
+            // Side by side needs room for two forms; on a phone they stack.
+            return Ui.IsCompact(box)
+                ? new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, mainAxisSize: MainAxisSize.Min, spacing: 16, children: [ltr, rtl])
+                : new Row(crossAxisAlignment: CrossAxisAlignment.Start, spacing: 20, children: [new Expanded(ltr), new Expanded(rtl)]);
+        }),
     ]);
 }
