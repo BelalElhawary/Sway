@@ -130,12 +130,15 @@ public abstract class RenderObject : IDisposable
     /// <summary>Tests <paramref name="position"/> (local to this object) and records hits, deepest first.</summary>
     public virtual bool HitTest(HitTestResult result, Offset position) => false;
 
-    /// <summary>Converts a point in this object's coordinates to window coordinates (ignores transforms).</summary>
+    /// <summary>Converts a point in this object's coordinates to window coordinates, including scroll shifts (ignores other transforms).</summary>
     public Offset LocalToGlobal(Offset local)
     {
         var p = local;
         for (var o = this; o.Parent is not null; o = o.Parent)
+        {
             if (o.ParentData is BoxParentData bpd) p += bpd.Offset;
+            if (o.Parent is IScrollViewport viewport) p += viewport.PaintShift;
+        }
         return p;
     }
 

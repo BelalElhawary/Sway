@@ -74,7 +74,7 @@ public class FocusAndDialogTests
         }
         Assert.True(controller.Offset > 0, "the scrollable followed the focus");
         var box = (RenderBox)nodes[14].Element!.FindRenderObject()!;
-        float top = box.LocalToGlobal(Offset.Zero).Dy - controller.Offset; // the viewport shifts children at paint time
+        float top = box.LocalToGlobal(Offset.Zero).Dy;
         Assert.InRange(top, 0, 300 - 30 + 0.5f);
     }
 
@@ -87,6 +87,34 @@ public class FocusAndDialogTests
         nodes[19].RequestFocus();
         h.Pump();
         Assert.Equal(0, controller.Offset);
+    }
+
+    static Widget Hit() => new GestureDetector(onTap: () => { }, behavior: HitTestBehavior.Opaque, child: new SizedBox());
+
+    [Fact]
+    public void PressingOutsideATextFieldDropsItsFocus()
+    {
+        var node = new FocusNode { DebugLabel = "field", OnTextInput = _ => { } };
+        var h = new Harness(new Column([new SizedBox(100, 30, new Focus(Hit(), node)), new SizedBox(100, 100, Hit())]));
+        node.RequestFocus();
+        h.Pump();
+        Assert.Same(node, h.Binding.Focus.Primary);
+        h.Tap(200, 15);
+        Assert.Same(node, h.Binding.Focus.Primary);
+        h.Tap(200, 100);
+        Assert.Null(h.Binding.Focus.Primary);
+    }
+
+    [Fact]
+    public void LocalToGlobalIncludesTheScrollOffset()
+    {
+        var controller = new ScrollController();
+        var node = Field("n");
+        var h = new Harness(new SingleChildScrollView(new Column([new SizedBox(100, 500), FocusBox(node, "n")]), controller: controller));
+        float before = ((RenderBox)node.Element!.FindRenderObject()!).LocalToGlobal(Offset.Zero).Dy;
+        controller.JumpTo(100);
+        h.Pump();
+        Assert.Equal(before - 100, ((RenderBox)node.Element!.FindRenderObject()!).LocalToGlobal(Offset.Zero).Dy, 0.5f);
     }
 
     // ---- dialogs ----

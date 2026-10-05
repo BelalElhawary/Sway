@@ -97,7 +97,7 @@ public sealed class FocusManager
         for (RenderObject? o = box.Parent; o is not null; o = o.Parent)
         {
             if (o is not IScrollViewport viewport || o is not RenderBox view || view.SizeOrNull is not { } viewSize) continue;
-            var local = box.LocalToGlobal(Offset.Zero) - view.LocalToGlobal(Offset.Zero) + viewport.PaintShift;
+            var local = box.LocalToGlobal(Offset.Zero) - view.LocalToGlobal(Offset.Zero);
             bool vertical = viewport.ScrollAxis == Axis.Vertical;
             float start = vertical ? local.Dy : local.Dx;
             float extent = vertical ? size.Height : size.Width;

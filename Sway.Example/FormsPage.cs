@@ -15,7 +15,7 @@ class FormsPageState : State<FormsPage>
     readonly TextEditingController _notes = new("First line\nSecond line that is long enough to wrap around the edge of the box when it is narrow.");
     bool _agree = true, _notify;
     string _plan = "free";
-    string? _country = "eg";
+    string? _country = "eg", _pick;
     string _submitted = "";
 
     public override Widget Build(BuildContext context)
@@ -54,7 +54,7 @@ class FormsPageState : State<FormsPage>
                      new("jp", new Text("Japan")), new("xx", new Text("Disabled option"), false)],
                     _country, v => SetState(() => _country = v), label: "Country")),
                 new SizedBox(width: 240, child: new DropdownButton<string>(
-                    [new("a", new Text("Option A")), new("b", new Text("Option B"))], null, v => { }, hint: new Text("Pick one"))),
+                    [new("a", new Text("Option A")), new("b", new Text("Option B"))], _pick, v => SetState(() => _pick = v), hint: new Text("Pick one"))),
             ])),
 
             Ui.Section(context, "Submit", new Wrap(spacing: 12, runSpacing: 12, crossAxisAlignment: WrapCrossAlignment.Center, children:

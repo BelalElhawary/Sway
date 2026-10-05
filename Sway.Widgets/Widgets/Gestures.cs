@@ -125,10 +125,22 @@ public sealed class GestureBinding(WidgetsBinding binding)
         UpdateHover(p);
         var path = HitTest(p).Path;
         _paths[MousePointer] = path;
+        var focused = binding.Focus.Primary;
         var e = new PointerEvent(PointerEventKind.Down, MousePointer, p, TimestampMs: (long)binding.Now.TotalMilliseconds);
         Dispatch(path, e);
         Arena.Close(MousePointer);
+        // A press outside the focused text field drops its focus (and with it the soft keyboard), unless something else took focus meanwhile.
+        if (focused is { OnTextInput: not null } && binding.Focus.Primary == focused && !HitsNode(path, focused)) focused.Unfocus();
         binding.RequestFrame();
+    }
+
+    static bool HitsNode(IReadOnlyList<HitTestEntry> path, FocusNode node)
+    {
+        if (node.Element?.FindRenderObject() is not { } target) return false;
+        foreach (var entry in path)
+            for (RenderObject? o = entry.Target; o is not null; o = o.Parent)
+                if (o == target) return true;
+        return false;
     }
 
     public void PointerMove(float x, float y)
