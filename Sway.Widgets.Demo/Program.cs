@@ -5,7 +5,7 @@ using Sway.Widgets.Demo;
 
 // `--screenshot out.png` renders headlessly. Scripted steps run in order before each capture:
 //   --move x,y  --click x,y  --wheel x,y,delta  --type text  --key [ctrl+][shift+]Name  --advance ms
-// Options: --page components|layout|forms|motion|effects|rtl|stress  --dark  --rtl  --size WxH  --bench
+// Options: --page components|layout|forms|motion|effects|rtl|stress|media  --dark  --rtl  --size WxH  --bench
 int shot = Array.IndexOf(args, "--screenshot");
 bool bench = args.Contains("--bench");
 if ((shot < 0 || shot + 1 >= args.Length) && !bench)

@@ -18,6 +18,7 @@ class DemoRootState : State<DemoRoot>
     [
         ("components", "Home", Icons.Home), ("layout", "Layout", Icons.Menu), ("forms", "Forms", Icons.Edit),
         ("motion", "Motion", Icons.Star), ("effects", "Effects", Icons.Favorite), ("rtl", "RTL", Icons.ArrowForward), ("stress", "Stress", Icons.MoreVert),
+        ("media", "Media", Icons.PlayArrow),
     ];
 
     static readonly SKColor?[] Seeds = [null, Colors.FromRgb(0x006A6A), Colors.FromRgb(0xB3261E), Colors.FromRgb(0x1B6EF3), Colors.FromRgb(0x386A20)];
@@ -44,6 +45,7 @@ class DemoRootState : State<DemoRoot>
         "effects" => new EffectsPage(),
         "rtl" => new RtlPage(),
         "stress" => new StressPage(),
+        "media" => new MediaPage(),
         _ => new ComponentsPage(),
     };
 
