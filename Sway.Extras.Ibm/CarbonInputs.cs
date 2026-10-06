@@ -84,13 +84,15 @@ sealed class CarbonTextAreaState : State<CarbonTextArea>
 /// <summary>
 /// A Carbon number input: a field with decrement and increment buttons. The text may be typed freely; it is parsed, clamped to
 /// <paramref name="min"/> and <paramref name="max"/> and reported through <c>onChanged</c> when it is a valid number, and tidied when focus leaves.
+/// Passing <paramref name="onCleared"/> makes an empty field valid: it is reported through that callback, and a null <paramref name="value"/> shows it empty.
 /// </summary>
-public sealed class CarbonNumberInput(double value, Action<double>? onChanged = null, double min = double.NegativeInfinity, double max = double.PositiveInfinity,
+public sealed class CarbonNumberInput(double? value, Action<double>? onChanged = null, double min = double.NegativeInfinity, double max = double.PositiveInfinity,
     double step = 1, string? label = null, string? helperText = null, string? errorText = null, CarbonFieldSize size = CarbonFieldSize.Medium,
-    bool onLayer = false, Key? key = null) : StatefulWidget(key)
+    bool onLayer = false, Action? onCleared = null, Key? key = null) : StatefulWidget(key)
 {
-    internal double Value => value;
+    internal double? Value => value;
     internal Action<double>? OnChanged => onChanged;
+    internal Action? OnCleared => onCleared;
     internal double Min => min;
     internal double Max => max;
     internal double Step => step;
@@ -109,19 +111,25 @@ sealed class CarbonNumberInputState : State<CarbonNumberInput>
     bool _hover;
     // The newest value this field has emitted, so a rebuild with the parent's older value does not clobber typing.
     double _current;
+    // The field is empty (only possible when the owner passed onCleared); _current then holds the number steps start from.
+    bool _empty;
 
     static string Format(double v) => v.ToString("0.##########", CultureInfo.CurrentCulture);
+    string Shown => _empty ? "" : Format(_current);
 
     public override void InitState()
     {
-        _current = Widget.Value;
-        _text.Text = Format(_current);
+        _empty = Widget.Value is null && Widget.OnCleared is not null;
+        _current = Clamp(Widget.Value ?? 0);
+        _text.Text = Shown;
         _node.Changed += OnFocus;
     }
 
     public override void DidUpdateWidget(CarbonNumberInput old)
     {
-        if (Widget.Value != old.Value && Widget.Value != _current) { _current = Widget.Value; _text.Text = Format(_current); }
+        if (Widget.Value == old.Value) return;
+        if (Widget.Value is not { } v) { if (!_empty && Widget.OnCleared is not null) { _empty = true; _text.Text = ""; } }
+        else if (_empty || v != _current) { _empty = false; _current = v; _text.Text = Format(_current); }
     }
 
     public override void Dispose() => _node.Changed -= OnFocus;
@@ -129,7 +137,7 @@ sealed class CarbonNumberInputState : State<CarbonNumberInput>
     void OnFocus()
     {
         if (!Mounted) return;
-        if (!_node.HasFocus) _text.Text = Format(_current);
+        if (!_node.HasFocus) _text.Text = Shown;
         SetState();
     }
 
@@ -139,14 +147,22 @@ sealed class CarbonNumberInputState : State<CarbonNumberInput>
     {
         v = Clamp(v);
         _current = v;
+        _empty = false;
         _text.Text = Format(v);
         Widget.OnChanged?.Invoke(v);
     }
 
     void Typed(string s)
     {
+        if (string.IsNullOrWhiteSpace(s) && Widget.OnCleared is { } cleared)
+        {
+            _empty = true;
+            cleared();
+            return;
+        }
         if (double.TryParse(s, NumberStyles.Float, CultureInfo.CurrentCulture, out var v))
         {
+            _empty = false;
             _current = Clamp(v);
             Widget.OnChanged?.Invoke(_current);
         }
@@ -158,7 +174,8 @@ sealed class CarbonNumberInputState : State<CarbonNumberInput>
         var c = theme.Colors;
         bool enabled = Widget.OnChanged is not null;
         float height = (float)Widget.Size;
-        bool invalid = !double.TryParse(_text.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var parsed) || parsed < Widget.Min || parsed > Widget.Max;
+        bool emptyOk = Widget.OnCleared is not null && string.IsNullOrWhiteSpace(_text.Text);
+        bool invalid = !emptyOk && (!double.TryParse(_text.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out var parsed) || parsed < Widget.Min || parsed > Widget.Max);
         bool error = Widget.ErrorText is not null || invalid;
         var text = theme.Type.BodyCompact01.Merge(new TextStyle(Color: enabled ? c.TextPrimary : c.TextDisabled));
 
@@ -171,11 +188,11 @@ sealed class CarbonNumberInputState : State<CarbonNumberInput>
             new Expanded(new GestureDetector(onTap: enabled ? () => _node.RequestFocus() : null, behavior: HitTestBehavior.Opaque,
                 child: new Padding(EdgeInsets.Symmetric(horizontal: 16), new Align(AlignmentDirectional.CenterStart,
                     new EditableText(_text, _node, text, text, null, false, 1, null, !enabled, c.TextPrimary, c.Highlight, Typed,
-                        _ => Set(_current)))))),
+                        _ => { if (!_empty) Set(_current); }))))),
             new Container(width: 1, height: height / 2, color: c.BorderSubtle01),
-            Step(Icons.Remove, -Widget.Step, enabled && _current > Widget.Min),
+            Step(Icons.Remove, -Widget.Step, enabled && (_empty || _current > Widget.Min)),
             new Container(width: 1, height: height / 2, color: c.BorderSubtle01),
-            Step(Icons.Add, Widget.Step, enabled && _current < Widget.Max),
+            Step(Icons.Add, Widget.Step, enabled && (_empty || _current < Widget.Max)),
         ]);
         var below = Widget.ErrorText ?? (invalid ? CarbonLocalizations.Of(context).EnterValidNumber : null);
         return new MouseRegion(onEnter: _ => SetState(() => _hover = true), onExit: _ => SetState(() => _hover = false), opaque: false,

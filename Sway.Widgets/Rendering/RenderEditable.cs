@@ -417,7 +417,8 @@ public sealed class RenderEditable : RenderBox
             var c = CaretPosition(_state.Caret);
             using var caretPaint = new SKPaint { Color = _cursorColor, IsAntialias = false };
             // A caret at the very edge of the box (an empty RTL field) would fall outside the clip and vanish.
-            float cx = Math.Clamp(c.Dx, _state.ScrollX, _state.ScrollX + Size.Width - 1.5f);
+            // A box narrower than the caret has no room to keep it inside, so it just sits at the left edge.
+            float cx = Math.Clamp(c.Dx, _state.ScrollX, Math.Max(_state.ScrollX, _state.ScrollX + Size.Width - 1.5f));
             canvas.DrawRect(cx, c.Dy + 1, 1.5f, _lineHeight - 2, caretPaint);
         }
 

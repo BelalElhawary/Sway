@@ -292,15 +292,15 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
         if (_reordering < 0) return;
         _reorderCenter += dx;
         var order = Order();
-        int from = order.IndexOf(_reordering), to = order.Count - 1;
-        float left = 0;
-        for (int p = 0; p < order.Count; p++)
-        {
-            if (_reorderCenter < left + widths[order[p]]) { to = p; break; }
-            left += widths[order[p]];
-        }
-        if (to == from) return;
-        SetState(() => { order.RemoveAt(from); order.Insert(to, _reordering); });
+        int at = order.IndexOf(_reordering);
+        float Left(int p) { float l = 0; for (int i = 0; i < p; i++) l += widths[order[i]]; return l; }
+        // A column trades places once the dragged centre passes its neighbour's centre. Passing the edge instead would put the
+        // dragged column's centre back inside the neighbour's span after the swap, and the two would swap back and forth.
+        int to = at;
+        while (to + 1 < order.Count && _reorderCenter > Left(to + 1) + widths[order[to + 1]] / 2) to++;
+        while (to > 0 && _reorderCenter < Left(to - 1) + widths[order[to - 1]] / 2) to--;
+        if (to == at) return;
+        SetState(() => { order.RemoveAt(at); order.Insert(to, _reordering); });
     }
 
     void ReorderEnd()
@@ -410,7 +410,7 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
                     ..Widget.Selectable
                         ? [new SizedBox(width: SelectWidth, height: rowHeight - 1, child: new Center(new CarbonCheckbox(picked, v => ToggleRow(row, v), hitPadding: 8)))]
                         : Array.Empty<Widget>(),
-                ], Order().Select(c => BodyCell(row, c, Widget.Columns[c], widths[c], rowHeight - 1, theme, style)).ToList(), Order().Select(c => widths[c]).ToArray(), pinned)),
+                ], Order().Select(c => (Widget)new KeyedSubtree(new ValueKey<int>(c), BodyCell(row, c, Widget.Columns[c], widths[c], rowHeight - 1, theme, style))).ToList(), Order().Select(c => widths[c]).ToArray(), pinned)),
                 new Container(height: 1, color: k.BorderSubtle01),
             ])),
             tappable ? () => Widget.OnRowTap!(row) : () => { }, cursor: tappable ? MouseCursor.Click : MouseCursor.Default, focusable: false);
@@ -497,7 +497,7 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
                         ..Widget.Selectable
                             ? [new SizedBox(width: SelectWidth, height: rowHeight, child: new Center(new CarbonCheckbox(allPicked, v => ToggleAll(visible, v), indeterminate: somePicked, hitPadding: 8)))]
                             : Array.Empty<Widget>(),
-                    ], Order().Select(i => HeaderCell(i, Widget.Columns[i], widths[i], theme, headBack, widths)).ToList(), shown, pinned)),
+                    ], Order().Select(i => (Widget)new KeyedSubtree(new ValueKey<int>(i), HeaderCell(i, Widget.Columns[i], widths[i], theme, headBack, widths))).ToList(), shown, pinned)),
                     Body(widths, pinned),
                 ]);
                 // When the columns do not fit, the header and rows scroll sideways together; the toolbar and pager stay put.
