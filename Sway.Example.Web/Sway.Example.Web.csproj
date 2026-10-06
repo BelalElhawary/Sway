@@ -7,6 +7,16 @@
     <RootNamespace>Sway.Example.Web</RootNamespace>
   </PropertyGroup>
 
+  <!-- Publish-only: AOT roughly doubles-to-triples Skia/layout throughput over the interpreter, at the cost of a larger
+       download and a slow publish (needs the wasm-tools workload). Debug builds and `dotnet run` are unaffected. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <RunAOTCompilation>true</RunAOTCompilation>
+    <WasmEnableSIMD>true</WasmEnableSIMD>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <WasmStripILAfterAOT>true</WasmStripILAfterAOT>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.0" PrivateAssets="all" />

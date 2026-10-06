@@ -29,6 +29,10 @@ public static class App
             ShouldSwapAutomatically = false, // swap only when a frame was drawn
         };
 
+        // Silk discovers its platform by reflection, which fails in single-file/trimmed publishes; register it explicitly.
+        Silk.NET.Windowing.Glfw.GlfwWindowing.Use();
+        Silk.NET.Input.Glfw.GlfwInput.RegisterPlatform();
+
         var window = Window.Create(options);
         IInputContext? input = null;
         GRContext? grContext = null;

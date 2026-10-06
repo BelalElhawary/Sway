@@ -3,7 +3,7 @@
 Flutter-style widgets for .NET, rendered natively with SkiaSharp and Silk.NET. You build UI from immutable widgets,
 keep mutable state in `State` objects and call `SetState` to rebuild. Layout uses box constraints, and there is no
 browser, WebView, HTML, CSS or XAML involved. The core library has no look of its own: design systems are optional
-packages (`Sway.Extras.Material3`, `Sway.Extras.Ibm`).
+packages (`Sway.Extras.Material3`, `Sway.Extras.Ibm`, `Sway.Extras.Shopify`).
 
 ```csharp
 using Sway.Extras.Material3;
@@ -67,6 +67,7 @@ class CounterState : State<CounterPage>
 | `Sway.Extras.Material3` | Optional: Material 3. `MaterialApp`, `ThemeData`, `ColorScheme`, `TextTheme`, and the components (buttons, fields, switches, sliders, dialogs, menus, navigation, ...). |
 | `Sway.Extras.Material3.Media` | Optional: the Material 3 `VideoPlayer`, `AudioPlayer` and their controls. Needs `Sway.Extras.Material3` and `Sway.Media`. |
 | `Sway.Extras.Ibm` | Optional: IBM Carbon. `CarbonApp`, `CarbonThemeData` (White, Gray 10, Gray 90, Gray 100), embedded IBM Plex fonts, `CarbonButton`, `CarbonTextInput`, `CarbonDropdown`, `CarbonCheckbox`, `CarbonTag`, `DataTable<T>`, `Pagination`. Does not use Material 3. |
+| `Sway.Extras.Shopify` | Optional: commerce components in the Shopify design language, built for phones first (44px touch targets, 2/3/4-column reflow, bottom sheet and bottom nav). `ShopifyApp`, light (cream) and dark (cinematic) themes, `ShopifyButton`, `ShopifyTextField`, `ShopifySearchField`, `ShopifyProductCard`, `ShopifyProductGrid`, `ShopifyPrice`, `ShopifyRating`, `ShopifyQuantityStepper`, `ShopifyOptionChips`, `ShopifySwatchPicker`, `ShopifyCartLine`, `ShopifyOrderSummary`, `ShopifyFreeShippingBar`, `ShopifyCheckoutSteps`, `ShopifyHeader`, `ShopifyBottomNavBar`, `ShopifyHero`, `ShopifyAccordion`, `ShopifySheet`. Fonts (Neue Haas Grotesk Display, Inter) are not bundled; it falls back to Helvetica/Arial. |
 | `Sway.Example` | The shared example UI (a Material 3 app with pages for components, layout, forms, motion, effects, RTL, stress, media, icons and an IBM Carbon page). No platform code. |
 | `Sway.Example.Desktop` | Runs the example in a desktop window. |
 | `Sway.Example.Headless` | Runs the example without a window: the `--screenshot` and `--bench` tooling. |
@@ -75,6 +76,7 @@ class CounterState : State<CounterPage>
 | `Sway.Widgets.Tests` | xUnit tests for the core library, run headlessly. |
 | `Sway.Extras.Material3.Tests` | Tests for the Material 3 components. |
 | `Sway.Extras.Ibm.Tests` | Tests for the Carbon components and data table. |
+| `Sway.Extras.Shopify.Tests` | Tests for the commerce components, including phone-width overflow and touch-target checks. |
 | `website/` | Documentation site (Docusaurus). |
 
 An app references `Sway.Widgets`, a platform project and the design system it wants (`Sway.Extras.Material3`, `Sway.Extras.Ibm`, or its own). Other platforms add their own

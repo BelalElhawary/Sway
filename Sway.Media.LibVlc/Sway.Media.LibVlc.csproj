@@ -2,7 +2,9 @@
 
   <!-- LibVLC backend for Sway.Media: Windows, Linux, macOS (net10.0) and Android (net10.0-android). -->
   <PropertyGroup>
-    <TargetFrameworks>net10.0;net10.0-android</TargetFrameworks>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <!-- Skip the Android target for desktop RIDs (e.g. publishing win-x64): restoring it there needs the Mono win-x64 runtime pack, which doesn't exist. -->
+    <TargetFrameworks Condition="'$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('android'))">net10.0;net10.0-android</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>Sway.Media</RootNamespace>

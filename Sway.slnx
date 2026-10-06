@@ -11,6 +11,7 @@
   <Project Path="Sway.Extras.Material3/Sway.Extras.Material3.csproj" />
   <Project Path="Sway.Extras.Material3.Media/Sway.Extras.Material3.Media.csproj" />
   <Project Path="Sway.Extras.Ibm/Sway.Extras.Ibm.csproj" />
+  <Project Path="Sway.Extras.Shopify/Sway.Extras.Shopify.csproj" />
   <Project Path="Sway.Example/Sway.Example.csproj" />
   <Project Path="Sway.Example.Desktop/Sway.Example.Desktop.csproj" />
   <Project Path="Sway.Example.Headless/Sway.Example.Headless.csproj" />
@@ -21,4 +22,5 @@
   <Project Path="Sway.Widgets.Tests/Sway.Widgets.Tests.csproj" />
   <Project Path="Sway.Extras.Material3.Tests/Sway.Extras.Material3.Tests.csproj" />
   <Project Path="Sway.Extras.Ibm.Tests/Sway.Extras.Ibm.Tests.csproj" />
+  <Project Path="Sway.Extras.Shopify.Tests/Sway.Extras.Shopify.Tests.csproj" />
 </Solution>
