@@ -28,6 +28,7 @@ public sealed class NavigationRail(int selectedIndex, IReadOnlyList<NavigationDe
             ])), () => onDestinationSelected?.Invoke(index)));
         }
         return new Container(width: 80, color: s.Surface, padding: EdgeInsets.Symmetric(vertical: 8),
-            child: new Column(mainAxisSize: MainAxisSize.Max, crossAxisAlignment: CrossAxisAlignment.Center, children: items));
+            // Scrolls when the destinations are taller than the window instead of being clipped.
+            child: new SingleChildScrollView(child: new Column(mainAxisSize: MainAxisSize.Min, crossAxisAlignment: CrossAxisAlignment.Center, children: items)));
     }
 }
