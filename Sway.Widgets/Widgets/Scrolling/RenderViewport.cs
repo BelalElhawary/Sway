@@ -8,17 +8,20 @@ public sealed class RenderViewport : RenderObjectWithChildBox, IScrollViewport
     Axis _axis;
     ScrollPosition _position;
     bool _shrinkWrap;
+    bool _showScrollbar;
     readonly ScrollbarInteraction _scrollbar = new();
 
-    public RenderViewport(Axis axis, ScrollPosition position, bool shrinkWrap = false)
+    public RenderViewport(Axis axis, ScrollPosition position, bool shrinkWrap = false, bool showScrollbar = true)
     {
         _axis = axis;
         _position = position;
         _shrinkWrap = shrinkWrap;
+        _showScrollbar = showScrollbar;
     }
 
-    public void Update(Axis axis, ScrollPosition position, bool shrinkWrap = false)
+    public void Update(Axis axis, ScrollPosition position, bool shrinkWrap = false, bool showScrollbar = true)
     {
+        if (_showScrollbar != showScrollbar) { _showScrollbar = showScrollbar; MarkNeedsPaint(); }
         if (_shrinkWrap != shrinkWrap) { _shrinkWrap = shrinkWrap; MarkNeedsLayout(); }
         if (_axis == axis && ReferenceEquals(_position, position)) return;
         if (Owner is not null) _position.Changed -= OnScroll;
@@ -81,13 +84,13 @@ public sealed class RenderViewport : RenderObjectWithChildBox, IScrollViewport
     {
         if (Child is not { } child) return;
         context.PushClipRect(offset, Size.ToRect(), (ctx, o) => ctx.PaintChild(child, o + ChildOffset));
-        _scrollbar.Paint(context.Canvas, Size, _axis, _position, offset, MarkNeedsPaint);
+        if (_showScrollbar) _scrollbar.Paint(context.Canvas, Size, _axis, _position, offset, MarkNeedsPaint);
     }
 
     public override bool HitTest(HitTestResult result, Offset position)
     {
         if (SizeOrNull is not { } size || !size.ToRect().Contains(position)) return false;
-        if (_scrollbar.HitTest(size, _axis, _position, position))
+        if (_showScrollbar && _scrollbar.HitTest(size, _axis, _position, position))
         {
             result.Add(this);
             return true;

@@ -42,11 +42,13 @@ public sealed record BatchAction<T>(string Label, Action<IReadOnlyList<T>> OnPre
 /// <param name="detailHeight">A fixed height for the panel, or null to size it to its content. Content-sized panels make the body a plain scroller instead of a virtualised list while any row is open.</param>
 /// <param name="resizable">Lets the user drag the right edge of a header to resize its column (never below 48).</param>
 /// <param name="stickyColumns">How many leading columns stay in view (after the expand and selection columns) while the rest scroll sideways.</param>
+/// <param name="reorderable">Lets the user drag a header sideways to move its column to another place.</param>
 public sealed class DataTable<T>(IReadOnlyList<DataColumn<T>> columns, IReadOnlyList<T> rows, string? title = null, string? description = null,
     TableSize size = TableSize.Large, bool selectable = false, bool searchable = false, bool zebra = false, int? pageSize = null,
     IReadOnlyList<int>? pageSizes = null, float? maxBodyHeight = null, IReadOnlyList<Widget>? toolbarActions = null,
     IReadOnlyList<BatchAction<T>>? batchActions = null, Action<IReadOnlyList<T>>? onSelectionChanged = null, Action<T>? onRowTap = null,
-    Func<T, Widget>? rowDetail = null, float? detailHeight = null, bool resizable = false, int stickyColumns = 0, Key? key = null) : StatefulWidget(key) where T : notnull
+    Func<T, Widget>? rowDetail = null, float? detailHeight = null, bool resizable = false, int stickyColumns = 0, Key? key = null,
+    bool reorderable = false) : StatefulWidget(key) where T : notnull
 {
     internal IReadOnlyList<DataColumn<T>> Columns => columns;
     internal IReadOnlyList<T> Rows => rows;
@@ -67,6 +69,7 @@ public sealed class DataTable<T>(IReadOnlyList<DataColumn<T>> columns, IReadOnly
     internal float? DetailHeight => detailHeight;
     internal bool Resizable => resizable;
     internal int StickyColumns => stickyColumns;
+    internal bool Reorderable => reorderable;
     public override State CreateState() => new DataTableState<T>();
 }
 
@@ -91,6 +94,18 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
     float _dragStartWidth, _dragTravel;
     // One position shared by every row's sideways viewport when columns are pinned.
     readonly ScrollController _sideways = new();
+
+    // The order columns are shown in, as indexes into Widget.Columns. Everything else (sort, widths, edits) keeps using the
+    // original index, so moving a column never disturbs them.
+    List<int> _order = new();
+    int _reordering = -1;
+    float _reorderCenter;
+
+    List<int> Order()
+    {
+        if (_order.Count != Widget.Columns.Count) _order = Enumerable.Range(0, Widget.Columns.Count).ToList();
+        return _order;
+    }
 
     // The cell being edited, and the field that edits it.
     (T Row, int Column)? _editing;
@@ -231,12 +246,14 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
         return widths;
     }
 
+    // Clipped so a custom cell wider than its column cannot paint over the neighbouring one.
     Widget Cell(DataColumn<T> col, float width, Widget child) =>
-        new SizedBox(width: width, child: new Padding(EdgeInsets.Symmetric(horizontal: CellPadding),
-            new Align(col.Align == TextAlign.End ? Alignment.CenterRight : col.Align == TextAlign.Center ? Alignment.Center : AlignmentDirectional.CenterStart, child)));
+        new SizedBox(width: width, child: new ClipRect(new Padding(EdgeInsets.Symmetric(horizontal: CellPadding),
+            new Align(col.Align == TextAlign.End ? Alignment.CenterRight : col.Align == TextAlign.Center ? Alignment.Center : AlignmentDirectional.CenterStart, child))));
 
     // Lays out one line of the table. With pinned columns the leading widgets and the first columns stay put and the rest
-    // sit in a viewport driven by the shared sideways position; otherwise it is a plain row.
+    // sit in a viewport driven by the shared sideways position; otherwise it is a plain row. The viewports draw no scrollbar of
+    // their own: the grid draws a single one (see Build).
     Widget Line(List<Widget> leading, List<Widget> cells, float[] widths, int pinned)
     {
         if (pinned <= 0) return new Row(crossAxisAlignment: CrossAxisAlignment.Center, children: [.. leading, .. cells]);
@@ -245,7 +262,7 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
         [
             new SizedBox(width: pinnedWidth, child: new Row(crossAxisAlignment: CrossAxisAlignment.Center, children: [.. leading, .. cells.Take(pinned)])),
             new Expanded(new Viewport(Axis.Horizontal, _sideways.Position, new SizedBox(width: scrolling,
-                child: new Row(crossAxisAlignment: CrossAxisAlignment.Center, children: [.. cells.Skip(pinned)])))),
+                child: new Row(crossAxisAlignment: CrossAxisAlignment.Center, children: [.. cells.Skip(pinned)])), showScrollbar: false)),
         ]);
     }
 
@@ -260,7 +277,39 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
                     k.TextPrimary, k.Highlight, null, _ => CommitEdit())))));
     }
 
-    Widget HeaderCell(int index, DataColumn<T> col, float width, CarbonThemeData theme, SKColor back)
+    // Dragging a header moves its column live: whenever the dragged header's centre passes into another column's span, the two swap places.
+    void ReorderStart(int index, float[] widths)
+    {
+        var order = Order();
+        float left = 0;
+        foreach (var i in order) { if (i == index) break; left += widths[i]; }
+        _reordering = index;
+        _reorderCenter = left + widths[index] / 2;
+    }
+
+    void ReorderUpdate(float dx, float[] widths)
+    {
+        if (_reordering < 0) return;
+        _reorderCenter += dx;
+        var order = Order();
+        int from = order.IndexOf(_reordering), to = order.Count - 1;
+        float left = 0;
+        for (int p = 0; p < order.Count; p++)
+        {
+            if (_reorderCenter < left + widths[order[p]]) { to = p; break; }
+            left += widths[order[p]];
+        }
+        if (to == from) return;
+        SetState(() => { order.RemoveAt(from); order.Insert(to, _reordering); });
+    }
+
+    void ReorderEnd()
+    {
+        if (_reordering < 0) return;
+        SetState(() => _reordering = -1);
+    }
+
+    Widget HeaderCell(int index, DataColumn<T> col, float width, CarbonThemeData theme, SKColor back, float[] widths)
     {
         var k = theme.Colors;
         var style = theme.Type.HeadingCompact01.Merge(new TextStyle(Color: k.TextPrimary));
@@ -282,6 +331,10 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
                 color: st.Pressed ? k.LayerAccentHover01 : st.Hover || sorted ? k.LayerAccentHover01 : back,
                 child: CarbonFocus.Around(st.FocusVisible, theme, new Row(children: [Cell(col, width, Label(st.Hover))]))), () => Sort(index))
             : new Row(children: [Cell(col, width, Label(false))]);
+        if (Widget.Reorderable)
+            header = new Opacity(_reordering == index ? 0.7f : 1f, new GestureDetector(header, behavior: HitTestBehavior.Opaque,
+                onHorizontalDragStart: _ => ReorderStart(index, widths), onHorizontalDragUpdate: d => ReorderUpdate(d.Delta.Dx, widths),
+                onHorizontalDragEnd: _ => ReorderEnd()));
         if (!Widget.Resizable) return header;
 
         // The handle sits over the right edge of the header and is the only part that drags.
@@ -357,7 +410,7 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
                     ..Widget.Selectable
                         ? [new SizedBox(width: SelectWidth, height: rowHeight - 1, child: new Center(new CarbonCheckbox(picked, v => ToggleRow(row, v), hitPadding: 8)))]
                         : Array.Empty<Widget>(),
-                ], Widget.Columns.Select((col, c) => BodyCell(row, c, col, widths[c], rowHeight - 1, theme, style)).ToList(), widths, pinned)),
+                ], Order().Select(c => BodyCell(row, c, Widget.Columns[c], widths[c], rowHeight - 1, theme, style)).ToList(), Order().Select(c => widths[c]).ToArray(), pinned)),
                 new Container(height: 1, color: k.BorderSubtle01),
             ])),
             tappable ? () => Widget.OnRowTap!(row) : () => { }, cursor: tappable ? MouseCursor.Click : MouseCursor.Default, focusable: false);
@@ -432,7 +485,8 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
                 bool scrolls = total > box.MaxWidth + 0.5f;
                 // Pinned columns need room left over for the ones that scroll, or they would just hide them.
                 int pinned = Math.Clamp(Widget.StickyColumns, 0, widths.Length);
-                if (!scrolls || LeadingWidth + widths.Take(pinned).Sum() > box.MaxWidth - 120) pinned = 0;
+                var shown = Order().Select(c => widths[c]).ToArray();
+                if (!scrolls || LeadingWidth + shown.Take(pinned).Sum() > box.MaxWidth - 120) pinned = 0;
                 else if (pinned == widths.Length) pinned = 0;
 
                 Widget grid = new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, mainAxisSize: MainAxisSize.Min, children:
@@ -443,15 +497,23 @@ sealed class DataTableState<T> : State<DataTable<T>> where T : notnull
                         ..Widget.Selectable
                             ? [new SizedBox(width: SelectWidth, height: rowHeight, child: new Center(new CarbonCheckbox(allPicked, v => ToggleAll(visible, v), indeterminate: somePicked, hitPadding: 8)))]
                             : Array.Empty<Widget>(),
-                    ], widths.Select((w, i) => HeaderCell(i, Widget.Columns[i], w, theme, headBack)).ToList(), widths, pinned)),
+                    ], Order().Select(i => HeaderCell(i, Widget.Columns[i], widths[i], theme, headBack, widths)).ToList(), shown, pinned)),
                     Body(widths, pinned),
                 ]);
                 // When the columns do not fit, the header and rows scroll sideways together; the toolbar and pager stay put.
                 // Pinned columns are laid out inside each row instead, all sharing one position that this scrollable drives.
                 if (!scrolls) return grid;
-                return pinned > 0
-                    ? new Scrollable(Axis.Horizontal, (_, _) => grid, _sideways, wheelScrollsOtherAxis: false)
-                    : new SingleChildScrollView(new SizedBox(width: total, child: grid), Axis.Horizontal, wheelScrollsOtherAxis: false);
+                if (pinned == 0)
+                    return new SingleChildScrollView(new SizedBox(width: total, child: grid), Axis.Horizontal, wheelScrollsOtherAxis: false);
+                // The rows' own viewports draw no scrollbar, so one more viewport over the scrolling part of the grid, sharing their
+                // position and width, draws the grid's single bar along the bottom.
+                float pinnedWidth = LeadingWidth + shown.Take(pinned).Sum();
+                return new Scrollable(Axis.Horizontal, (_, _) => new Stack(
+                [
+                    grid,
+                    new Positioned(new Viewport(Axis.Horizontal, _sideways.Position, new SizedBox(width: total - pinnedWidth, height: 1)),
+                        left: pinnedWidth, right: 0, bottom: 0, height: 12),
+                ], clip: false), _sideways, wheelScrollsOtherAxis: false);
             }),
             ..Widget.PageSize is null ? Array.Empty<Widget>() :
             [

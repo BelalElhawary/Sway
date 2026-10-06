@@ -269,6 +269,46 @@ public class DataTableTests
     }
 
     [Fact]
+    public void DraggingAHeaderMovesItsColumnWhenReorderable()
+    {
+        var h = new Harness(new CarbonApp(new Align(Alignment.TopLeft, new DataTable<Item>(WideColumns, Items.Take(3).ToList(), size: TableSize.Medium,
+            reorderable: true)), theme: CarbonThemeData.White(), themeMode: CarbonThemeMode.Light), 900, 300);
+        float y = YOf(h, "A");
+        Assert.True(XOf(h, "A") < XOf(h, "B"));
+        // A is 0-250; drag it past B's centre (375).
+        h.Gestures.PointerDown(100, y);
+        h.Gestures.PointerMove(200, y);
+        h.Gestures.PointerMove(300, y);
+        h.Gestures.PointerMove(420, y);
+        h.Gestures.PointerUp(420, y);
+        h.Pump();
+        Assert.True(XOf(h, "B") < XOf(h, "A"), "A moved after B");
+        Assert.True(XOf(h, "A") < XOf(h, "C"));
+    }
+
+    [Fact]
+    public void HeadersDoNotMoveWithoutReorderable()
+    {
+        var h = ShowWide(width: 900);
+        float y = YOf(h, "A");
+        h.Gestures.PointerDown(100, y);
+        h.Gestures.PointerMove(300, y);
+        h.Gestures.PointerMove(420, y);
+        h.Gestures.PointerUp(420, y);
+        h.Pump();
+        Assert.True(XOf(h, "A") < XOf(h, "B"));
+    }
+
+    [Fact]
+    public void ACellWiderThanItsColumnIsClipped()
+    {
+        DataColumn<Item>[] cols = [new("A", r => r.Name, Width: 100, Cell: r => new SizedBox(width: 400, height: 10)), new("B", r => r.Name, Width: 100)];
+        var h = new Harness(new CarbonApp(new Align(Alignment.TopLeft, new DataTable<Item>(cols, Items.Take(1).ToList(), size: TableSize.Medium)),
+            theme: CarbonThemeData.White(), themeMode: CarbonThemeMode.Light), 600, 200);
+        Assert.NotEmpty(h.Find<RenderClip>());
+    }
+
+    [Fact]
     public void StickyColumnsStayInViewWhileTheRestScroll()
     {
         var h = ShowWide(sticky: 1);
