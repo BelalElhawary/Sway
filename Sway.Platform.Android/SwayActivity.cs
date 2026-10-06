@@ -3,6 +3,7 @@ using Android.Content.Res;
 using Android.OS;
 using Android.Views;
 using Android.Widget;
+using Android.Window;
 using Android.App;
 
 namespace Sway.Widgets;
@@ -15,6 +16,7 @@ public abstract class SwayActivity : Activity
 {
     WidgetsBinding? _binding;
     SwayView? _view;
+    MemoryLocationSource? _history;
 
     /// <summary>The widget tree to run.</summary>
     protected abstract Widget CreateRoot();
@@ -28,6 +30,8 @@ public abstract class SwayActivity : Activity
 
         SystemTheme.Source = new AndroidThemeSource(this);
         FilePicker.Source = new AndroidFilePicker(this);
+        // A link that launched the app (https://host/products/42) is where a Router starts; the history lives in memory.
+        AppLocation.Source = _history = new MemoryLocationSource(LocationOf(Intent) ?? "/");
         _binding = new WidgetsBinding { PlatformBrightness = SystemTheme.Brightness() };
         _binding.GetClipboard = ReadClipboard;
         _binding.SetClipboard = WriteClipboard;
@@ -40,6 +44,39 @@ public abstract class SwayActivity : Activity
         frame.AddView(_view, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.MatchParent));
         frame.SetOnApplyWindowInsetsListener(new InsetsListener());
         SetContentView(frame);
+
+        // From Android 13 the system only reports back through a registered callback when the app opts into predictive back.
+        if (OperatingSystem.IsAndroidVersionAtLeast(33))
+            OnBackInvokedDispatcher.RegisterOnBackInvokedCallback(0, new BackCallback(this));
+    }
+
+    /// <summary>The path and query of the link an intent was opened with, or null when it carries none.</summary>
+    static string? LocationOf(Intent? intent)
+    {
+        if (intent?.Data is not { Path: { Length: > 0 } path } uri) return null;
+        return uri.EncodedQuery is { Length: > 0 } query ? path + "?" + query : path;
+    }
+
+    /// <summary>A link arrived while the app is running (<c>launchMode="singleTop"</c>): open it as a new page.</summary>
+    protected override void OnNewIntent(Intent? intent)
+    {
+        base.OnNewIntent(intent);
+        if (LocationOf(intent) is { } location) _history?.Open(location);
+    }
+
+    /// <summary>The back button or gesture: the <see cref="Router"/> goes back first, and the activity closes once there is nothing left.</summary>
+    [Obsolete("Replaced by OnBackInvokedCallback on Android 13+; still the path on older versions.")]
+    public override void OnBackPressed()
+    {
+        if (!(_binding?.HandleBack() ?? false)) base.OnBackPressed();
+    }
+
+    sealed class BackCallback(SwayActivity activity) : Java.Lang.Object, IOnBackInvokedCallback
+    {
+        public void OnBackInvoked()
+        {
+            if (!(activity._binding?.HandleBack() ?? false)) activity.Finish();
+        }
     }
 
     public override void OnConfigurationChanged(Configuration newConfig)

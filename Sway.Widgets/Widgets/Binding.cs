@@ -193,6 +193,30 @@ public sealed class WidgetsBinding
         RequestFrame();
     }
 
+    // ---- back navigation ----
+
+    readonly List<Func<bool>> _backHandlers = new();
+
+    /// <summary>Registers a handler for the platform's back action; the most recently added one is asked first. Return true to consume it.</summary>
+    public void AddBackHandler(Func<bool> handler) => _backHandlers.Add(handler);
+
+    public void RemoveBackHandler(Func<bool> handler) => _backHandlers.Remove(handler);
+
+    /// <summary>
+    /// The host calls this for its back action (Android back button or gesture, Alt+Left or the mouse's back button on desktop).
+    /// Returns false when nothing consumed it, and the host should apply its own default (finish the activity).
+    /// </summary>
+    public bool HandleBack()
+    {
+        for (int i = _backHandlers.Count - 1; i >= 0; i--)
+        {
+            if (!_backHandlers[i]()) continue;
+            RequestFrame();
+            return true;
+        }
+        return false;
+    }
+
     // ---- app root ----
 
     public void AttachRoot(Widget app)

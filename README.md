@@ -45,6 +45,7 @@ class CounterState : State<CounterPage>
   `CarbonApp(locale: ...)` translate the built-in strings (English, Arabic, Spanish, French, German), format dates with the
   locale's culture and week start, and switch to right-to-left for RTL languages. Add your own resources with
   `localizationsDelegates` and read them with `Localizations.Of<T>(context)`.
+- **Navigation**: `Router` with URL routes (`/products/:id?color=red`), push, go, replace and back, page transitions and redirects. On the web it drives the address bar and History API (reload, deep links, back and forward); on desktop and Android it keeps an in-memory history wired to Alt+Left, the mouse back button and the Android back gesture.
 - **Input**: gestures, hover, focus traversal and keyboard handling.
 - **Painting effects**: shadows, gradients, transforms, clipping and backdrop filters.
 - **Media**: a `MediaPlayerController` and `VideoSurface` in the core media package, Material 3 `VideoPlayer` and `AudioPlayer` widgets with controls in `Sway.Extras.Material3.Media`, on LibVLC (Windows, Linux, macOS, Android) or an HTML media element (browser).
@@ -113,14 +114,14 @@ dotnet run --project Sway.Example.Headless -- --screenshot out.png --page forms 
 dotnet run --project Sway.Example.Headless -- --bench --page stress
 ```
 
-Pages: `components`, `layout`, `forms`, `motion`, `effects`, `rtl`, `stress`, `media`. Options: `--dark`, `--rtl`,
+Pages: `components`, `layout`, `forms`, `motion`, `effects`, `rtl`, `stress`, `media`, `navigation`. Options: `--dark`, `--rtl`,
 `--size WxH`. Scripted steps: `--move`, `--click`, `--wheel`, `--type`, `--key`, `--advance`.
 
 ## Documentation
 
 The docs live in [website/docs](website/docs): [getting started](website/docs/getting-started.md),
 [architecture](website/docs/architecture.md), [widgets](website/docs/widgets.md),
-[input](website/docs/input.md), [animation](website/docs/animation.md) and [theming](website/docs/theming.md).
+[input](website/docs/input.md), [navigation](website/docs/navigation.md), [animation](website/docs/animation.md) and [theming](website/docs/theming.md).
 To browse them as a site, run `npm install && npm start` inside `website/`.
 
 Known gaps and approximations are tracked in [LIMITS.md](LIMITS.md).

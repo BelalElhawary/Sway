@@ -16,6 +16,10 @@ export async function writeClipboard(text) {
     try { await navigator.clipboard.writeText(text); } catch { /* ignore */ }
 }
 
+export function setTitle(title) {
+    document.title = title;
+}
+
 export function attach(host, dotnet) {
     const cleanup = [];
     const on = (target, type, fn, opts) => {
@@ -64,7 +68,7 @@ export function attach(host, dotnet) {
         // Pressing a modifier is the last chance to fetch the clipboard before a paste shortcut.
         if (down && (e.key === 'Control' || e.key === 'Meta')) readClipboard(dotnet);
 
-        if (swallow.has(e.key) || (mod && chords.has(e.key.toLowerCase()))) e.preventDefault();
+        if ((swallow.has(e.key) && !e.altKey) || (mod && chords.has(e.key.toLowerCase()))) e.preventDefault();
         dotnet.invokeMethodAsync('OnKey', e.key, e.code, down, e.repeat, e.shiftKey, e.ctrlKey, e.altKey, e.metaKey);
 
         // Printable characters are text, not key presses (the key name is a single code point).

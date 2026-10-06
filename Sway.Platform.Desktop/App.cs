@@ -8,9 +8,14 @@ namespace Sway.Widgets;
 /// <summary>Desktop host (Windows, Linux, macOS) on Silk.NET/GLFW + OpenGL. Entry point: <c>App.Run(new MyApp(), "Title", 1024, 768)</c>.</summary>
 public static class App
 {
-    /// <summary>Opens a window and runs <paramref name="root"/> until it is closed.</summary>
-    public static void Run(Widget root, string title = "Sway", int width = 1024, int height = 768, bool showFps = false)
+    /// <summary>
+    /// Opens a window and runs <paramref name="root"/> until it is closed. <paramref name="location"/> is where a <see cref="Router"/> starts
+    /// (<c>/products/42</c>); the history lives in memory, and Alt+Left, Alt+Right and the mouse's back and forward buttons walk it.
+    /// </summary>
+    public static void Run(Widget root, string title = "Sway", int width = 1024, int height = 768, bool showFps = false, string? location = null)
     {
+        var history = new MemoryLocationSource(location ?? "/");
+        AppLocation.Source = history;
         SystemTheme.Source = DesktopSystemTheme.ForCurrentOS();
         FilePicker.Source = DesktopFilePicker.ForCurrentOS();
         var binding = new WidgetsBinding();
@@ -62,7 +67,12 @@ public static class App
             foreach (var mouse in input.Mice)
             {
                 mouse.MouseMove += (m, p) => binding.Gestures.PointerMove(p.X, p.Y);
-                mouse.MouseDown += (m, b) => { if (b == MouseButton.Left) binding.Gestures.PointerDown(m.Position.X, m.Position.Y); };
+                mouse.MouseDown += (m, b) =>
+                {
+                    if (b == MouseButton.Left) binding.Gestures.PointerDown(m.Position.X, m.Position.Y);
+                    else if (b == MouseButton.Button4) binding.HandleBack();
+                    else if (b == MouseButton.Button5) { history.Forward(); binding.RequestFrame(); }
+                };
                 mouse.MouseUp += (m, b) => { if (b == MouseButton.Left) binding.Gestures.PointerUp(m.Position.X, m.Position.Y); };
                 // One wheel notch is 100 logical pixels (3 lines on most platforms).
                 mouse.Scroll += (m, wheel) => binding.Gestures.PointerScroll(m.Position.X, m.Position.Y, -wheel.X * 100, -wheel.Y * 100);
@@ -99,6 +109,11 @@ public static class App
                     var (name, code, _) = KeyMap.Translate(key, binding.Shift);
                     bool repeat = !heldKeys.Add(key); // GLFW reports key repeats as further KeyDown events
                     if (key == Silk.NET.Input.Key.F3 && !repeat) binding.ShowFps = !binding.ShowFps;
+                    if (binding.Alt && !repeat)
+                    {
+                        if (key == Silk.NET.Input.Key.Left) binding.HandleBack();
+                        else if (key == Silk.NET.Input.Key.Right) { history.Forward(); binding.RequestFrame(); }
+                    }
                     binding.KeyDown(name, code, repeat);
                 };
                 keyboard.KeyUp += (k, key, _) =>

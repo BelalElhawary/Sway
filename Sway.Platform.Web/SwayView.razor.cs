@@ -12,6 +12,7 @@ namespace Sway.Widgets;
 public partial class SwayView : ComponentBase, IAsyncDisposable
 {
     [Inject] IJSRuntime Js { get; set; } = null!;
+    [Inject] NavigationManager Navigation { get; set; } = null!;
 
     /// <summary>The widget tree to run.</summary>
     [Parameter, EditorRequired] public Widget Root { get; set; } = null!;
@@ -19,6 +20,7 @@ public partial class SwayView : ComponentBase, IAsyncDisposable
     /// <summary>Show the frame-rate overlay (also toggled with F3).</summary>
     [Parameter] public bool ShowFps { get; set; }
 
+    WebLocationSource? _location;
     ElementReference _host;
     SKGLView? _view;
     WidgetsBinding? _binding;
@@ -31,6 +33,8 @@ public partial class SwayView : ComponentBase, IAsyncDisposable
     protected override void OnInitialized()
     {
         SystemTheme.Source = new WebThemeSource();
+        // The address bar is the app's location; it must be in place before the root attaches so a Router starts on the URL.
+        AppLocation.Source = _location = new WebLocationSource(Navigation, Js);
         _binding = new WidgetsBinding { ShowFps = ShowFps, PlatformBrightness = SystemTheme.Brightness() };
         _binding.GetClipboard = () => _clipboard;
         _binding.SetClipboard = text => { _clipboard = text; _ = _module?.InvokeVoidAsync("writeClipboard", text); };
@@ -44,6 +48,7 @@ public partial class SwayView : ComponentBase, IAsyncDisposable
         _self = DotNetObjectReference.Create(this);
         _module = await Js.InvokeAsync<IJSObjectReference>("import", "./_content/Sway.Platform.Web/sway.js");
         FilePicker.Source = new WebFilePicker(_module);
+        if (_location is not null) _location.Module = _module;
         await _module.InvokeVoidAsync("attach", _host, _self);
         _binding!.RequestFrame();
     }
@@ -157,5 +162,6 @@ public partial class SwayView : ComponentBase, IAsyncDisposable
             catch (JSDisconnectedException) { }
         }
         _self?.Dispose();
+        _location?.Dispose();
     }
 }
