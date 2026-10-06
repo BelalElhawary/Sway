@@ -19,7 +19,7 @@ class DemoRootState : State<DemoRoot>
     [
         ("material", "Material", Icons.Home), ("layout", "Layout", Icons.Menu), ("forms", "Forms", Icons.Edit),
         ("motion", "Motion", Icons.Star), ("effects", "Effects", Icons.Favorite), ("rtl", "Language", Icons.ArrowForward), ("stress", "Stress", Icons.MoreVert),
-        ("media", "Media", Icons.PlayArrow), ("icons", "Icons", Icons.GridView), ("carbon", "Carbon", Icons.Menu),
+        ("media", "Media", Icons.PlayArrow), ("icons", "Icons", Icons.GridView), ("carbon", "Carbon", Icons.Menu), ("shopify", "Shop", Icons.ShoppingCart),
     ];
 
     /// <summary>Below this width (logical px) the shell drops the navigation rail and tightens page padding.</summary>
@@ -52,6 +52,7 @@ class DemoRootState : State<DemoRoot>
         "media" => new MediaPage(),
         "icons" => new IconsPage(),
         "carbon" => new CarbonPage(),
+        "shopify" => new ShopifyPage(),
         _ => new MaterialPage(),
     };
 

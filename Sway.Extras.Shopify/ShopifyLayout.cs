@@ -108,7 +108,7 @@ public sealed class ShopifyBottomNavBar(IReadOnlyList<ShopifyNavDestination> des
                     new Stack([
                         new Container(width: 56, height: 28, alignment: Alignment.Center,
                             decoration: new BoxDecoration(Color: sel ? (dark ? c.Hairline : c.Aloe) : Colors.Transparent, BorderRadius: BorderRadius.Circular(14)),
-                            child: new Icon(sel ? d.SelectedIcon ?? d.Icon : d.Icon, 22, sel && !dark ? Colors.Black : fg)),
+                            child: new Icon(sel ? d.SelectedIcon ?? d.Icon : d.Icon, 22, sel && !dark ? c.OnAloe : fg)),
                         ..d.Badge > 0 ? [new Positioned(new ShopifyCountBadge(d.Badge), top: -4, right: 0)] : Array.Empty<Widget>(),
                     ], clip: false),
                     new Text(d.Label, softWrap: false, maxLines: 1, overflow: TextOverflow.Ellipsis,

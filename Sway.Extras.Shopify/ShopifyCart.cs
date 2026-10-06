@@ -54,23 +54,24 @@ public sealed class ShopifyOrderSummary(IReadOnlyList<ShopifySummaryLine> lines,
     {
         var theme = ShopifyTheme.Of(context);
         var c = theme.Colors;
-        // On aloe the secondary greys lose contrast, so everything is ink.
-        var muted = featured ? c.Ink : c.InkSecondary;
+        // On aloe the secondary greys lose contrast, so everything uses the on-aloe colour.
+        var ink = featured ? c.OnAloe : c.Ink;
+        var muted = featured ? c.OnAloe : c.InkSecondary;
 
         Widget Row_(string label, string value, TextStyle style, SKColor color) => new Row(crossAxisAlignment: CrossAxisAlignment.Center, spacing: 12, children:
         [
             new Expanded(new Text(label, style: style.Merge(new TextStyle(Color: color)))),
-            new Text(value, style: style.Merge(new TextStyle(Color: c.Ink))),
+            new Text(value, style: style.Merge(new TextStyle(Color: ink))),
         ]);
 
         return new Container(padding: EdgeInsets.All(24), decoration: new BoxDecoration(Color: featured ? c.Aloe : c.Surface, BorderRadius: BorderRadius.Circular(12),
             Border: featured ? null : Border.All(c.Hairline)),
             child: new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, mainAxisSize: MainAxisSize.Min, spacing: 12, children:
             [
-                new Text(title, style: theme.Type.HeadingMd.Merge(new TextStyle(Color: c.Ink))),
+                new Text(title, style: theme.Type.HeadingMd.Merge(new TextStyle(Color: ink))),
                 ..lines.Select(l => Row_(l.Label, l.Value, l.Emphasis ? theme.Type.BodyStrong : theme.Type.BodyMd, muted)),
-                new Container(height: 1, color: featured ? Colors.Black.WithOpacity(0.15f) : c.Hairline),
-                Row_("Total", total, theme.Type.HeadingMd, c.Ink),
+                new Container(height: 1, color: featured ? c.OnAloe.WithOpacity(0.15f) : c.Hairline),
+                Row_("Total", total, theme.Type.HeadingMd, ink),
                 new SizedBox(height: 4),
                 new ShopifyButton(checkoutLabel, onCheckout, ShopifyButtonKind.Primary, ShopifyButtonSize.Large, Icons.Lock, fill: true),
             ]));
@@ -92,12 +93,12 @@ public sealed class ShopifyFreeShippingBar(decimal subtotal, decimal threshold, 
             [
                 new Row(spacing: 8, children:
                 [
-                    new Icon(done ? Icons.CheckCircle : Icons.LocalShipping, 20, Colors.Black),
-                    new Expanded(new Text(text, style: theme.Type.Caption.Merge(new TextStyle(Color: Colors.Black)))),
+                    new Icon(done ? Icons.CheckCircle : Icons.LocalShipping, 20, c.OnPistachio),
+                    new Expanded(new Text(text, style: theme.Type.Caption.Merge(new TextStyle(Color: c.OnPistachio)))),
                 ]),
                 new SizedBox(height: 6, child: new ClipRRect(BorderRadius.Circular(3), new Stack([
-                    Positioned.Fill(new ColoredBox(Colors.White.WithOpacity(0.7f))),
-                    Positioned.Fill(new FractionallySizedBox(widthFactor: progress, heightFactor: 1, alignment: Alignment.CenterLeft, child: new ColoredBox(Colors.Black))),
+                    Positioned.Fill(new ColoredBox(c.OnPistachio.WithOpacity(0.18f))),
+                    Positioned.Fill(new FractionallySizedBox(widthFactor: progress, heightFactor: 1, alignment: Alignment.CenterLeft, child: new ColoredBox(c.OnPistachio))),
                 ], fit: StackFit.Expand))),
             ]));
     }
@@ -115,7 +116,7 @@ public sealed class ShopifyEmptyState(IconData icon, string title, string? messa
             new Column(mainAxisSize: MainAxisSize.Min, spacing: 12, children:
             [
                 new Container(width: 72, height: 72, alignment: Alignment.Center,
-                    decoration: new BoxDecoration(Color: c.Pistachio, BorderRadius: BorderRadius.Circular(36)), child: new Icon(icon, 32, Colors.Black)),
+                    decoration: new BoxDecoration(Color: c.Pistachio, BorderRadius: BorderRadius.Circular(36)), child: new Icon(icon, 32, c.OnPistachio)),
                 new Text(title, textAlign: TextAlign.Center, style: theme.Type.HeadingLg.Merge(new TextStyle(Color: c.Ink))),
                 ..message is null ? Array.Empty<Widget>() : [new Text(message, textAlign: TextAlign.Center, style: theme.Type.BodyMd.Merge(new TextStyle(Color: c.InkSecondary)))],
                 ..actionLabel is null ? Array.Empty<Widget>() : [new SizedBox(height: 4), new ShopifyButton(actionLabel, onAction, size: ShopifyButtonSize.Large)],

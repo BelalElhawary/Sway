@@ -1,26 +1,36 @@
 <Solution>
-  <Project Path="Sway.Assets/Sway.Assets.csproj" />
-  <Project Path="Sway.Widgets/Sway.Widgets.csproj" />
-  <Project Path="Sway.Platform.Desktop/Sway.Platform.Desktop.csproj" />
-  <Project Path="Sway.Platform.Android/Sway.Platform.Android.csproj" />
-  <Project Path="Sway.Platform.Web/Sway.Platform.Web.csproj" />
-  <Project Path="Sway.Platform.Headless/Sway.Platform.Headless.csproj" />
-  <Project Path="Sway.Media/Sway.Media.csproj" />
-  <Project Path="Sway.Media.LibVlc/Sway.Media.LibVlc.csproj" />
-  <Project Path="Sway.Media.Web/Sway.Media.Web.csproj" />
-  <Project Path="Sway.Extras.Material3/Sway.Extras.Material3.csproj" />
-  <Project Path="Sway.Extras.Material3.Media/Sway.Extras.Material3.Media.csproj" />
-  <Project Path="Sway.Extras.Ibm/Sway.Extras.Ibm.csproj" />
-  <Project Path="Sway.Extras.Shopify/Sway.Extras.Shopify.csproj" />
-  <Project Path="Sway.Example/Sway.Example.csproj" />
-  <Project Path="Sway.Example.Desktop/Sway.Example.Desktop.csproj" />
-  <Project Path="Sway.Example.Headless/Sway.Example.Headless.csproj" />
-  <Project Path="Sway.Example.Android/Sway.Example.Android.csproj">
-    <Deploy Solution="Debug|*" />
-  </Project>
-  <Project Path="Sway.Example.Web/Sway.Example.Web.csproj" />
-  <Project Path="Sway.Widgets.Tests/Sway.Widgets.Tests.csproj" />
-  <Project Path="Sway.Extras.Material3.Tests/Sway.Extras.Material3.Tests.csproj" />
-  <Project Path="Sway.Extras.Ibm.Tests/Sway.Extras.Ibm.Tests.csproj" />
-  <Project Path="Sway.Extras.Shopify.Tests/Sway.Extras.Shopify.Tests.csproj" />
+  <Folder Name="/Core/">
+    <Project Path="Sway.Assets/Sway.Assets.csproj" />
+    <Project Path="Sway.Media.LibVlc/Sway.Media.LibVlc.csproj" />
+    <Project Path="Sway.Media.Web/Sway.Media.Web.csproj" />
+    <Project Path="Sway.Media/Sway.Media.csproj" />
+    <Project Path="Sway.Widgets/Sway.Widgets.csproj" />
+  </Folder>
+  <Folder Name="/Examples/">
+    <Project Path="Sway.Example.Android/Sway.Example.Android.csproj">
+      <Deploy Solution="Debug|*" />
+    </Project>
+    <Project Path="Sway.Example.Desktop/Sway.Example.Desktop.csproj" />
+    <Project Path="Sway.Example.Headless/Sway.Example.Headless.csproj" />
+    <Project Path="Sway.Example.Web/Sway.Example.Web.csproj" />
+    <Project Path="Sway.Example/Sway.Example.csproj" />
+  </Folder>
+  <Folder Name="/Extra/">
+    <Project Path="Sway.Extras.Ibm/Sway.Extras.Ibm.csproj" />
+    <Project Path="Sway.Extras.Material3.Media/Sway.Extras.Material3.Media.csproj" />
+    <Project Path="Sway.Extras.Material3/Sway.Extras.Material3.csproj" />
+    <Project Path="Sway.Extras.Shopify/Sway.Extras.Shopify.csproj" />
+  </Folder>
+  <Folder Name="/Platforms/">
+    <Project Path="Sway.Platform.Android/Sway.Platform.Android.csproj" />
+    <Project Path="Sway.Platform.Desktop/Sway.Platform.Desktop.csproj" />
+    <Project Path="Sway.Platform.Headless/Sway.Platform.Headless.csproj" />
+    <Project Path="Sway.Platform.Web/Sway.Platform.Web.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Sway.Extras.Ibm.Tests/Sway.Extras.Ibm.Tests.csproj" />
+    <Project Path="Sway.Extras.Material3.Tests/Sway.Extras.Material3.Tests.csproj" />
+    <Project Path="Sway.Extras.Shopify.Tests/Sway.Extras.Shopify.Tests.csproj" />
+    <Project Path="Sway.Widgets.Tests/Sway.Widgets.Tests.csproj" />
+  </Folder>
 </Solution>

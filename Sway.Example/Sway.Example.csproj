@@ -12,6 +12,7 @@
     <ProjectReference Include="..\Sway.Extras.Material3.Media\Sway.Extras.Material3.Media.csproj" />
     <ProjectReference Include="..\Sway.Media\Sway.Media.csproj" />
     <ProjectReference Include="..\Sway.Extras.Ibm\Sway.Extras.Ibm.csproj" />
+    <ProjectReference Include="..\Sway.Extras.Shopify\Sway.Extras.Shopify.csproj" />
   </ItemGroup>
 
 </Project>

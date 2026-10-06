@@ -108,6 +108,44 @@ public class ShopifyTests
         Assert.Equal(Colors.FromRgb(0x000000), d.GetPixel(200, 400));
     }
 
+    [Fact]
+    public void TheBundledInterFacesBackTheTypeScale()
+    {
+        ShopifyFonts.Register();
+        var t = new ShopifyType();
+        Assert.Contains("Inter", t.BodyMd.ToFont().Typeface.FamilyName);
+        Assert.Contains("Inter", t.DisplayXxl.ToFont().Typeface.FamilyName);
+    }
+
+    [Fact]
+    public void TheDarkTrackNeverShowsTheGreens()
+    {
+        var greens = new[] { ShopifyColors.Light.Aloe, ShopifyColors.Light.Pistachio };
+        Assert.DoesNotContain(ShopifyColors.Night.Aloe, greens);
+        Assert.DoesNotContain(ShopifyColors.Night.Pistachio, greens);
+
+        var h = Show(new SizedBox(width: 340, child: new Column(spacing: 8, children:
+        [
+            new ShopifyButton("Featured", () => { }, ShopifyButtonKind.Aloe), new ShopifyTag("New"), new ShopifyCountBadge(3),
+            new ShopifyFreeShippingBar(10m, 50m), new ShopifyOrderSummary([new("Subtotal", "$10.00")], "$10.00", featured: true),
+        ])), width: 360, height: 700, mode: ShopifyThemeMode.Dark);
+        using var bmp = h.Render();
+        for (int y = 0; y < bmp.Height; y++)
+            for (int x = 0; x < bmp.Width; x++)
+                Assert.DoesNotContain(bmp.GetPixel(x, y), greens);
+    }
+
+    [Fact]
+    public void TextOnAFillAlwaysContrastsWithTheFill()
+    {
+        foreach (var c in new[] { ShopifyColors.Light, ShopifyColors.Night })
+        {
+            Assert.NotEqual(c.OnAloe, c.Aloe);
+            Assert.NotEqual(c.OnPistachio, c.Pistachio);
+            Assert.NotEqual(c.OnShade, c.Shade);
+        }
+    }
+
     // ---- buttons ----
 
     [Fact]
@@ -603,6 +641,43 @@ public class ShopifyTests
         TapText(h, "Shipping");
         Assert.Contains("Free", Texts(h));
         Assert.DoesNotContain("Cotton", Texts(h));
+    }
+
+    static (float X, float Y) HandleCentre(Harness h)
+    {
+        var handle = h.Find<RenderDecoratedBox>().First(b => Math.Abs(b.Size.Width - 36) < 0.5f && Math.Abs(b.Size.Height - 4) < 0.5f);
+        var at = handle.LocalToGlobal(Offset.Zero);
+        return (at.Dx + 18, at.Dy + 2);
+    }
+
+    [Fact]
+    public void DraggingThePhoneSheetByItsHandleDismissesIt()
+    {
+        var h = Show(new Builder(ctx => new ShopifyButton("Filter", () => ShopifySheet.Show(ctx, (c, close) => new Text("Sizes"), "Filters"))));
+        TapText(h, "Filter");
+        var (x, y) = HandleCentre(h);
+        h.Gestures.PointerDown(x, y);
+        for (int i = 1; i <= 10; i++) { h.Gestures.PointerMove(x, y + i * 20); h.Advance(16); }
+        h.Gestures.PointerUp(x, y + 200);
+        h.Pump();
+        Assert.DoesNotContain("Filters", Texts(h));
+    }
+
+    [Fact]
+    public void ASmallDragSnapsTheSheetBack()
+    {
+        var h = Show(new Builder(ctx => new ShopifyButton("Filter", () => ShopifySheet.Show(ctx, (c, close) => new Text("Sizes"), "Filters"))));
+        TapText(h, "Filter");
+        float Top() => h.Find<RenderParagraph>().First(p => p.PlainText == "Filters").LocalToGlobal(Offset.Zero).Dy;
+        float before = Top();
+        var (x, y) = HandleCentre(h);
+        h.Gestures.PointerDown(x, y);
+        for (int i = 1; i <= 4; i++) { h.Gestures.PointerMove(x, y + i * 8); h.Advance(100); }
+        Assert.True(Top() > before);
+        h.Gestures.PointerUp(x, y + 32);
+        h.Pump();
+        Assert.Contains("Filters", Texts(h));
+        Assert.Equal(before, Top(), 0.5);
     }
 
     // ---- sheet ----

@@ -56,7 +56,7 @@ class CounterState : State<CounterPage>
 
 | Project | Purpose |
 | --- | --- |
-| `Sway.Widgets` | The platform-neutral, design-neutral library: Foundation, Rendering and Widgets (layout, text, gestures, focus, scrolling, animation, `EditableText`, `Icon`, `Interactive`). Depends only on SkiaSharp and HarfBuzz. |
+| `Sway.Widgets` | The platform-neutral, design-neutral library: Foundation, Rendering and Widgets (layout, text, gestures, focus, scrolling, animation, `EditableText`, `Icon`, `Image`, `Interactive`). Depends only on SkiaSharp and HarfBuzz. |
 | `Sway.Platform.Android` | Android host: GL surface, touch, soft keyboard, system theme. Subclass `SwayActivity`. |
 | `Sway.Platform.Web` | Browser host: Blazor WebAssembly component (`SwayView`) on `SkiaSharp.Views.Blazor` (WebGL), pointer, keyboard, clipboard and theme. |
 | `Sway.Platform.Headless` | Windowless host: renders to a PNG with a software surface (`Headless.Screenshot`). |
@@ -67,8 +67,8 @@ class CounterState : State<CounterPage>
 | `Sway.Extras.Material3` | Optional: Material 3. `MaterialApp`, `ThemeData`, `ColorScheme`, `TextTheme`, and the components (buttons, fields, switches, sliders, dialogs, menus, navigation, ...). |
 | `Sway.Extras.Material3.Media` | Optional: the Material 3 `VideoPlayer`, `AudioPlayer` and their controls. Needs `Sway.Extras.Material3` and `Sway.Media`. |
 | `Sway.Extras.Ibm` | Optional: IBM Carbon. `CarbonApp`, `CarbonThemeData` (White, Gray 10, Gray 90, Gray 100), embedded IBM Plex fonts, `CarbonButton`, `CarbonTextInput`, `CarbonDropdown`, `CarbonCheckbox`, `CarbonTag`, `DataTable<T>`, `Pagination`. Does not use Material 3. |
-| `Sway.Extras.Shopify` | Optional: commerce components in the Shopify design language, built for phones first (44px touch targets, 2/3/4-column reflow, bottom sheet and bottom nav). `ShopifyApp`, light (cream) and dark (cinematic) themes, `ShopifyButton`, `ShopifyTextField`, `ShopifySearchField`, `ShopifyProductCard`, `ShopifyProductGrid`, `ShopifyPrice`, `ShopifyRating`, `ShopifyQuantityStepper`, `ShopifyOptionChips`, `ShopifySwatchPicker`, `ShopifyCartLine`, `ShopifyOrderSummary`, `ShopifyFreeShippingBar`, `ShopifyCheckoutSteps`, `ShopifyHeader`, `ShopifyBottomNavBar`, `ShopifyHero`, `ShopifyAccordion`, `ShopifySheet`. Fonts (Neue Haas Grotesk Display, Inter) are not bundled; it falls back to Helvetica/Arial. |
-| `Sway.Example` | The shared example UI (a Material 3 app with pages for components, layout, forms, motion, effects, RTL, stress, media, icons and an IBM Carbon page). No platform code. |
+| `Sway.Extras.Shopify` | Optional: commerce components in the Shopify design language, built for phones first (44px touch targets, 2/3/4-column reflow, bottom sheet and bottom nav). `ShopifyApp`, light (cream) and dark (cinematic) themes, `ShopifyButton`, `ShopifyTextField`, `ShopifySearchField`, `ShopifyProductCard`, `ShopifyProductGrid`, `ShopifyPrice`, `ShopifyRating`, `ShopifyQuantityStepper`, `ShopifyOptionChips`, `ShopifySwatchPicker`, `ShopifyCartLine`, `ShopifyOrderSummary`, `ShopifyFreeShippingBar`, `ShopifyCheckoutSteps`, `ShopifyHeader`, `ShopifyBottomNavBar`, `ShopifyHero`, `ShopifyAccordion`, `ShopifySheet`. Bundles Inter and Inter Display (OFL) as the open stand-in for Neue Haas Grotesk; an installed Neue Haas is used if present. The aloe and pistachio greens exist only on the light theme. |
+| `Sway.Example` | The shared example UI (a Material 3 app with pages for components, layout, forms, motion, effects, RTL, stress, media, icons and an IBM Carbon page and a Shopify-style storefront). No platform code. |
 | `Sway.Example.Desktop` | Runs the example in a desktop window. |
 | `Sway.Example.Headless` | Runs the example without a window: the `--screenshot` and `--bench` tooling. |
 | `Sway.Example.Android` | Runs the example on Android. |

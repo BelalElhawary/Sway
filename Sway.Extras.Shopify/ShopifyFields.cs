@@ -84,7 +84,7 @@ sealed class ShopifyTextFieldState : State<ShopifyTextField>
         var text = theme.Type.BodyMd.Merge(new TextStyle(Color: enabled ? c.Ink : c.OnDisabled));
 
         Widget field = new EditableText(Controller, Node, text, text.Merge(new TextStyle(Color: c.InkTertiary)), Widget.Placeholder,
-            Widget.Obscure, 1, null, Widget.ReadOnly || !enabled, c.Ink, c.Aloe, Widget.OnChanged, Widget.OnSubmitted);
+            Widget.Obscure, 1, null, Widget.ReadOnly || !enabled, c.Ink, c.Selection, Widget.OnChanged, Widget.OnSubmitted);
 
         Widget frame = ShopifyField.Frame(theme, Node.HasFocus, Widget.ErrorText is not null, enabled,
             new GestureDetector(onTap: enabled ? () => Node.RequestFocus() : null, behavior: HitTestBehavior.Opaque, child: new Row(
@@ -146,7 +146,7 @@ sealed class ShopifySearchFieldState : State<ShopifySearchField>
         var c = theme.Colors;
         var text = theme.Type.BodyMd.Merge(new TextStyle(Color: c.Ink));
         Widget field = new EditableText(Controller, Node, text, text.Merge(new TextStyle(Color: c.InkTertiary)), Widget.Placeholder,
-            false, 1, null, false, c.Ink, c.Aloe, Widget.OnChanged, Widget.OnSubmitted);
+            false, 1, null, false, c.Ink, c.Selection, Widget.OnChanged, Widget.OnSubmitted);
 
         // A pill, like the rest of the controls, so a search field reads as an action rather than a form input.
         var radius = BorderRadius.Circular(ShopifyField.Height / 2);

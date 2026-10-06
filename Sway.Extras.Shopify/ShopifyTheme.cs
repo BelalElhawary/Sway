@@ -5,7 +5,7 @@ namespace Sway.Extras.Shopify;
 
 /// <summary>
 /// Colour tokens for one of the two canvases of the design: the transactional light track (white and cream, with aloe and pistachio
-/// greens) or the cinematic night track (black). Aloe and pistachio are surface fills, never text colours.
+/// greens) or the cinematic night track (black). Aloe and pistachio are surface fills, never text colours, and exist only on the light track: the night colours map them to neutrals.
 /// </summary>
 public sealed record ShopifyColors
 {
@@ -24,14 +24,19 @@ public sealed record ShopifyColors
     public required SKColor Aloe { get; init; }
     public required SKColor Pistachio { get; init; }
     public required SKColor Shade { get; init; }
+    /// <summary>Text and icons on <see cref="Aloe"/>.</summary>
+    public required SKColor OnAloe { get; init; }
+    /// <summary>Text and icons on <see cref="Pistachio"/>.</summary>
+    public required SKColor OnPistachio { get; init; }
+    /// <summary>Text and icons on <see cref="Shade"/>.</summary>
+    public required SKColor OnShade { get; init; }
+    /// <summary>Background of selected text in fields.</summary>
+    public required SKColor Selection { get; init; }
     public required SKColor Focus { get; init; }
     public required SKColor Critical { get; init; }
     public required SKColor Disabled { get; init; }
     public required SKColor OnDisabled { get; init; }
     public required SKColor Scrim { get; init; }
-
-    static readonly SKColor AloeColor = Colors.FromRgb(0xC1FBD4);
-    static readonly SKColor PistachioColor = Colors.FromRgb(0xD4F9E0);
 
     /// <summary>The transactional track: white cards on a cream canvas, black pills.</summary>
     public static ShopifyColors Light { get; } = new()
@@ -41,7 +46,8 @@ public sealed record ShopifyColors
         Ink = Colors.FromRgb(0x000000), InkSecondary = Colors.FromRgb(0x52525B), InkTertiary = Colors.FromRgb(0x71717A),
         Hairline = Colors.FromRgb(0xE4E4E7),
         Primary = Colors.FromRgb(0x000000), PrimaryPressed = Colors.FromRgb(0x3F3F46), OnPrimary = Colors.FromRgb(0xFFFFFF),
-        Aloe = AloeColor, Pistachio = PistachioColor, Shade = Colors.FromRgb(0xD4D4D8),
+        Aloe = Colors.FromRgb(0xC1FBD4), Pistachio = Colors.FromRgb(0xD4F9E0), Shade = Colors.FromRgb(0xD4D4D8),
+        OnAloe = Colors.Black, OnPistachio = Colors.Black, OnShade = Colors.Black, Selection = Colors.FromRgb(0xC1FBD4),
         Focus = Colors.FromRgb(0x000000), Critical = Colors.FromRgb(0xB42318),
         Disabled = Colors.FromRgb(0xE4E4E7), OnDisabled = Colors.FromRgb(0xA1A1AA), Scrim = Colors.Black.WithOpacity(0.5f),
     };
@@ -54,20 +60,22 @@ public sealed record ShopifyColors
         Ink = Colors.FromRgb(0xFFFFFF), InkSecondary = Colors.FromRgb(0xA1A1AA), InkTertiary = Colors.FromRgb(0x9DABAD),
         Hairline = Colors.FromRgb(0x1E2C31),
         Primary = Colors.FromRgb(0xFFFFFF), PrimaryPressed = Colors.FromRgb(0xD4D4D8), OnPrimary = Colors.FromRgb(0x000000),
-        Aloe = AloeColor, Pistachio = PistachioColor, Shade = Colors.FromRgb(0x3F3F46),
+        // The greens are for the light track only, so on black the same tokens resolve to neutrals and nothing green ever appears.
+        Aloe = Colors.FromRgb(0xE4E4E7), Pistachio = Colors.FromRgb(0x1E2C31), Shade = Colors.FromRgb(0x3F3F46),
+        OnAloe = Colors.Black, OnPistachio = Colors.White, OnShade = Colors.White, Selection = Colors.FromRgb(0x3F3F46),
         Focus = Colors.FromRgb(0xFFFFFF), Critical = Colors.FromRgb(0xFF8A80),
         Disabled = Colors.FromRgb(0x1E2C31), OnDisabled = Colors.FromRgb(0x71717A), Scrim = Colors.Black.WithOpacity(0.7f),
     };
 }
 
 /// <summary>
-/// The type scale. Display sizes are Neue Haas Grotesk Display at weight 330 (falling back to Helvetica, then Arial); body and UI text is
-/// Inter. No faces are bundled: install them, register them with <see cref="FontCache"/>, or let the fallbacks render.
+/// The type scale. Display sizes use Neue Haas Grotesk Display at weight 330 when it is installed, else the bundled Inter Display Light
+/// (the open stand-in the design names); body and UI text is the bundled Inter. See <see cref="ShopifyFonts"/>.
 /// </summary>
 public sealed record ShopifyType
 {
-    public const string Display = "Neue Haas Grotesk Display, Helvetica, Arial, sans-serif";
-    public const string Ui = "Inter Variable, Inter, Helvetica, Arial, sans-serif";
+    public const string Display = "Neue Haas Grotesk Display, Inter Display, Helvetica, Arial, sans-serif";
+    public const string Ui = "Inter, Helvetica, Arial, sans-serif";
 
     static TextStyle D(float size, float line, int weight, float tracking = 0) =>
         new(FontSize: size, Height: line, FontWeight: weight, LetterSpacing: tracking, FontFamily: Display);
@@ -145,9 +153,15 @@ public sealed record ShopifyThemeData(ShopifyColors Colors, ShopifyType Type)
 {
     public Brightness Brightness => Colors.Brightness;
     /// <summary>The transactional track (cream and white).</summary>
-    public static ShopifyThemeData Light() => new(ShopifyColors.Light, new ShopifyType());
+    public static ShopifyThemeData Light() => Make(ShopifyColors.Light);
     /// <summary>The cinematic track (black).</summary>
-    public static ShopifyThemeData Dark() => new(ShopifyColors.Night, new ShopifyType());
+    public static ShopifyThemeData Dark() => Make(ShopifyColors.Night);
+
+    static ShopifyThemeData Make(ShopifyColors colors)
+    {
+        ShopifyFonts.Register();
+        return new ShopifyThemeData(colors, new ShopifyType());
+    }
 }
 
 /// <summary>Supplies a <see cref="ShopifyThemeData"/> to the subtree. <see cref="ShopifyApp"/> installs one; nest <see cref="Scope"/> to switch track for a section.</summary>
@@ -186,7 +200,11 @@ public sealed class ShopifyApp(Widget home, ShopifyThemeData? theme = null, Shop
 
 sealed class ShopifyAppState : State<ShopifyApp>
 {
-    public override void InitState() => WidgetsBinding.Instance.PlatformBrightnessChanged += OnBrightness;
+    public override void InitState()
+    {
+        ShopifyFonts.Register();
+        WidgetsBinding.Instance.PlatformBrightnessChanged += OnBrightness;
+    }
     public override void Dispose() => WidgetsBinding.Instance.PlatformBrightnessChanged -= OnBrightness;
     void OnBrightness() { if (Mounted) SetState(); }
 

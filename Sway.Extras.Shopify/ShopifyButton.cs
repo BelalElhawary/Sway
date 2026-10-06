@@ -50,8 +50,8 @@ public sealed class ShopifyButton(Widget child, Action? onPressed = null, Shopif
                     bg = st.Pressed ? c.Ink.WithOpacity(0.12f) : st.Hover ? c.Ink.WithOpacity(0.06f) : Colors.Transparent;
                     fg = c.Ink; border = Border.All(c.Ink, dark ? 2 : 1); break;
                 case ShopifyButtonKind.Aloe:
-                    bg = st.Pressed ? Mix(c.Aloe, Colors.Black, 0.12f) : st.Hover ? Mix(c.Aloe, Colors.Black, 0.06f) : c.Aloe;
-                    fg = Colors.Black; break;
+                    bg = st.Pressed ? Mix(c.Aloe, c.OnAloe, 0.12f) : st.Hover ? Mix(c.Aloe, c.OnAloe, 0.06f) : c.Aloe;
+                    fg = c.OnAloe; break;
                 default:
                     bg = st.Pressed ? c.PrimaryPressed : st.Hover ? Mix(c.Primary, c.OnPrimary, 0.12f) : c.Primary; fg = c.OnPrimary; break;
             }
@@ -111,7 +111,7 @@ public sealed class ShopifyCountBadge(int count, Key? key = null) : StatelessWid
         return new Container(padding: EdgeInsets.Symmetric(horizontal: 5),
             constraints: new BoxConstraints(18, float.PositiveInfinity, 18, 18),
             decoration: new BoxDecoration(Color: theme.Colors.Aloe, BorderRadius: BorderRadius.Circular(9)),
-            child: new Center(new Text(text, softWrap: false, maxLines: 1, style: theme.Type.Eyebrow.Merge(new TextStyle(Color: Colors.Black, FontWeight: 600, LetterSpacing: 0))), 1, 1));
+            child: new Center(new Text(text, softWrap: false, maxLines: 1, style: theme.Type.Eyebrow.Merge(new TextStyle(Color: theme.Colors.OnAloe, FontWeight: 600, LetterSpacing: 0))), 1, 1));
     }
 }
 
@@ -126,9 +126,9 @@ public sealed class ShopifyTag(string label, ShopifyTagKind kind = ShopifyTagKin
         var c = theme.Colors;
         var (bg, fg) = kind switch
         {
-            ShopifyTagKind.Shade => (c.Shade, Colors.Black),
+            ShopifyTagKind.Shade => (c.Shade, c.OnShade),
             ShopifyTagKind.Solid => (c.Primary, c.OnPrimary),
-            _ => (c.Aloe, Colors.Black),
+            _ => (c.Aloe, c.OnAloe),
         };
         Widget text = new Text(label, softWrap: false, maxLines: 1, overflow: TextOverflow.Ellipsis, style: theme.Type.Eyebrow.Merge(new TextStyle(Color: fg)));
         Widget content = onClose is null ? text : new Row(mainAxisSize: MainAxisSize.Min, spacing: 6, children:
