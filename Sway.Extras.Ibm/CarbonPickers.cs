@@ -368,18 +368,28 @@ sealed class CarbonCalendarState : State<CarbonCalendar>
 
 /// <summary>A Carbon date picker: a field you can type a date into, with a calendar that opens beneath it. Dates are written month/day/year.</summary>
 public sealed class CarbonDatePicker(DateTime? value, Action<DateTime?>? onChanged = null, string? label = null, string? helperText = null,
-    DateTime? min = null, DateTime? max = null, CarbonFieldSize size = CarbonFieldSize.Medium, bool onLayer = false, Key? key = null) : StatefulWidget(key)
+    DateTime? min = null, DateTime? max = null, CarbonFieldSize size = CarbonFieldSize.Medium, bool onLayer = false, string? errorText = null, Key? key = null) : StatefulWidget(key)
 {
     internal const string Format = "MM/dd/yyyy";
     internal DateTime? Value => value;
     internal Action<DateTime?>? OnChanged => onChanged;
     internal string? Label => label;
     internal string? HelperText => helperText;
+    internal string? ErrorText => errorText;
     internal DateTime? Min => min;
     internal DateTime? Max => max;
     internal CarbonFieldSize Size => size;
     internal bool OnLayer => onLayer;
     public override State CreateState() => new CarbonDatePickerState();
+
+    /// <summary>
+    /// A date picker over a date kept as <c>yyyy-MM-dd</c> text, the form drafts and servers usually hold: empty text is no date, and clearing the field
+    /// reports empty text. A null <paramref name="onChanged"/> shows it disabled, and <paramref name="errorText"/> replaces the helper text in the error colour.
+    /// </summary>
+    public static CarbonDatePicker Iso(string? value, Action<string>? onChanged, string? label = null, string? helperText = null, string? errorText = null,
+        DateTime? min = null, DateTime? max = null, CarbonFieldSize size = CarbonFieldSize.Medium, bool onLayer = false) =>
+        new(DateTime.TryParseExact(value?.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null,
+            onChanged is null ? null : v => onChanged(v?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? ""), label, helperText, min, max, size, onLayer, errorText);
 }
 
 sealed class CarbonDatePickerState : State<CarbonDatePicker>
@@ -476,8 +486,9 @@ sealed class CarbonDatePickerState : State<CarbonDatePicker>
             child: new Column(crossAxisAlignment: CrossAxisAlignment.Stretch, mainAxisSize: MainAxisSize.Min, spacing: 8, children:
             [
                 ..Widget.Label is null ? Array.Empty<Widget>() : [new Text(Widget.Label, style: theme.Type.Label01.Merge(new TextStyle(Color: enabled ? c.TextSecondary : c.TextDisabled)))],
-                CarbonField.Frame(theme, height, _node.HasFocus || _entry is not null, _hover && enabled, _invalid, enabled, Widget.OnLayer ? c.Field02 : null, content),
-                ..(_invalid ? [new Text(CarbonLocalizations.Of(context).EnterDateAs("mm/dd/yyyy"), style: theme.Type.HelperText01.Merge(new TextStyle(Color: c.TextError)))]
+                CarbonField.Frame(theme, height, _node.HasFocus || _entry is not null, _hover && enabled, _invalid || Widget.ErrorText is not null, enabled, Widget.OnLayer ? c.Field02 : null, content),
+                ..(Widget.ErrorText is { } e ? [new Text(e, style: theme.Type.HelperText01.Merge(new TextStyle(Color: c.TextError)))]
+                    : _invalid ? [new Text(CarbonLocalizations.Of(context).EnterDateAs("mm/dd/yyyy"), style: theme.Type.HelperText01.Merge(new TextStyle(Color: c.TextError)))]
                     : Widget.HelperText is { } h ? [new Text(h, style: theme.Type.HelperText01.Merge(new TextStyle(Color: c.TextHelper)))] : Array.Empty<Widget>()),
             ]));
     }

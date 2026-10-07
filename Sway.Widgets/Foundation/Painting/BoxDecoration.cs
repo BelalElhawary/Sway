@@ -46,14 +46,14 @@ public sealed record BoxDecoration(
 
     SKPath ShapePath(Rect rect)
     {
-        var path = new SKPath();
+        using var b = new SKPathBuilder();
         if (Shape == BoxShape.Circle)
-            path.AddOval(rect.ToSk());
+            b.AddOval(rect.ToSk());
         else if (BorderRadius is { IsZero: false } br)
-            path.AddRoundRect(br.ToRoundRect(rect));
+            b.AddRoundRect(br.ToRoundRect(rect));
         else
-            path.AddRect(rect.ToSk());
-        return path;
+            b.AddRect(rect.ToSk());
+        return b.Detach();
     }
 
     void PaintBorder(SKCanvas canvas, Rect rect, Border border)
@@ -64,10 +64,11 @@ public sealed record BoxDecoration(
             if (!side.IsVisible) return;
             using var paint = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = side.Width, Color = side.Color };
             var inset = new Rect(rect.Left + side.Width / 2, rect.Top + side.Width / 2, rect.Width - side.Width, rect.Height - side.Width);
-            using var path = new SKPath();
-            if (Shape == BoxShape.Circle) path.AddOval(inset.ToSk());
-            else if (BorderRadius is { IsZero: false } br) path.AddRoundRect(br.ToRoundRect(inset));
-            else path.AddRect(inset.ToSk());
+            using var b = new SKPathBuilder();
+            if (Shape == BoxShape.Circle) b.AddOval(inset.ToSk());
+            else if (BorderRadius is { IsZero: false } br) b.AddRoundRect(br.ToRoundRect(inset));
+            else b.AddRect(inset.ToSk());
+            using var path = b.Detach();
             canvas.DrawPath(path, paint);
             return;
         }

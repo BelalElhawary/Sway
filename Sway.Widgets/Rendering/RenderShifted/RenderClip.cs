@@ -2,7 +2,7 @@ using SkiaSharp;
 
 namespace Sway.Widgets;
 
-public sealed class RenderClip(BorderRadius? radius, bool antiAlias = true) : RenderProxyBox
+public sealed class RenderClip(BorderRadius? radius) : RenderProxyBox
 {
     BorderRadius? _radius = radius;
 

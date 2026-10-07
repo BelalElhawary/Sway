@@ -85,14 +85,14 @@ public static class TextShaper
         int cp = 0;
         foreach (var rune in text.EnumerateRunes())
             if (rune.Value <= 0xFFFF && IsRtlChar((char)rune.Value)) { cp = rune.Value; break; }
-        if (cp == 0 || font.Typeface.ContainsGlyph(cp)) return font;
+        if (cp == 0 || font.GetGlyph(cp) != 0) return font;
 
         SKTypeface? face;
         lock (Fallbacks)
         {
             if (!FaceForChar.TryGetValue((font.Typeface, cp), out face))
             {
-                face = Fallbacks.Where(f => f.ContainsGlyph(cp)).OrderBy(f => Math.Abs(f.FontWeight - font.Typeface.FontWeight)).FirstOrDefault();
+                face = Fallbacks.Where(f => { using var ff = new SKFont(f); return ff.GetGlyph(cp) != 0; }).OrderBy(f => Math.Abs(f.FontWeight - font.Typeface.FontWeight)).FirstOrDefault();
                 face ??= SKFontManager.Default.MatchCharacter(font.Typeface.FamilyName, font.Typeface.FontStyle, null, cp);
                 FaceForChar[(font.Typeface, cp)] = face;
             }
@@ -109,6 +109,44 @@ public static class TextShaper
             return f;
         }
     }
+
+    /// <summary>
+    /// When RTL text needs a fallback face that lacks some of its neutral characters (the Arabic face has no "$" or brackets),
+    /// splits it into logical pieces so those characters are drawn with the requested font instead of as missing-glyph boxes.
+    /// Null when one font covers the whole text.
+    /// </summary>
+    static List<(string Text, SKFont Font)>? Split(string text, SKFont font)
+    {
+        var face = Resolve(text, font);
+        if (ReferenceEquals(face, font)) return null;
+
+        var pieces = new List<(string, SKFont)>();
+        var sb = new System.Text.StringBuilder();
+        bool? primary = null;
+        void Flush()
+        {
+            if (sb.Length > 0) pieces.Add((sb.ToString(), primary == true ? font : face));
+            sb.Clear();
+        }
+        foreach (var rune in text.EnumerateRunes())
+        {
+            bool usePrimary = !(rune.Value <= 0xFFFF && IsRtlChar((char)rune.Value)) && face.GetGlyph(rune.Value) == 0 && font.GetGlyph(rune.Value) != 0;
+            if (primary != usePrimary) { Flush(); primary = usePrimary; }
+            // The requested font is drawn unshaped, so it does not mirror brackets inside right-to-left text itself.
+            sb.Append(usePrimary ? Mirror(rune) : rune.ToString());
+        }
+        Flush();
+        return pieces.Count > 1 || pieces[0].Item2 == font ? pieces : null;
+    }
+
+    static string Mirror(System.Text.Rune r) => r.Value switch
+    {
+        '(' => ")", ')' => "(", '[' => "]", ']' => "[", '{' => "}", '}' => "{", '<' => ">", '>' => "<",
+        _ => r.ToString(),
+    };
+
+    static float PieceWidth(string text, SKFont font) =>
+        ContainsRtl(text) ? GetShaped(text, font).Result?.Width ?? font.MeasureText(text) : font.MeasureText(text);
 
     const int MaxCached = 2048;
     static readonly GenerationCache<ShapeKey, Shaped> ShapeCache = new(MaxCached, shaped => shaped.Blob?.Dispose());
@@ -190,6 +228,7 @@ public static class TextShaper
         if (string.IsNullOrEmpty(text)) return 0;
         if (!ContainsRtl(text)) return font.MeasureText(text);
 
+        if (Split(text, font) is { } pieces) return pieces.Sum(p => PieceWidth(p.Text, p.Font));
         return GetShaped(text, font).Result?.Width ?? font.MeasureText(text);
     }
 
@@ -202,6 +241,25 @@ public static class TextShaper
         var offsets = new float[text.Length + 1];
         if (text.Length == 0) return offsets;
 
+        if (ContainsRtl(text) && Split(text, font) is { } pieces)
+        {
+            float total = pieces.Sum(p => PieceWidth(p.Text, p.Font)), before = 0;
+            int at = 0;
+            foreach (var (pt, pf) in pieces)
+            {
+                float w = PieceWidth(pt, pf), left = rtl ? total - before - w : before;
+                var po = CaretOffsetsOf(pt, pf, rtl);
+                for (int j = 0; j <= pt.Length; j++) offsets[at + j] = left + po[j];
+                at += pt.Length; before += w;
+            }
+            return offsets;
+        }
+        return CaretOffsetsOf(text, font, rtl);
+    }
+
+    static float[] CaretOffsetsOf(string text, SKFont font, bool rtl)
+    {
+        var offsets = new float[text.Length + 1];
         var shaped = ContainsRtl(text) ? GetShaped(text, font).Result : null;
         if (shaped is null || shaped.Clusters.Length == 0)
         {
@@ -259,6 +317,19 @@ public static class TextShaper
         if (!ContainsRtl(text))
         {
             canvas.DrawText(text, x, baseline, textAlign, font, paint);
+            return;
+        }
+
+        if (Split(text, font) is { } pieces)
+        {
+            float total = pieces.Sum(p => PieceWidth(p.Text, p.Font));
+            float px = x + textAlign switch { SKTextAlign.Center => -total / 2, SKTextAlign.Right => -total, _ => 0 };
+            // Pieces are logical; right-to-left text puts the first one at the right.
+            foreach (var (pt, pf) in Enumerable.Reverse(pieces))
+            {
+                DrawShapedText(canvas, pt, px, baseline, pf, paint);
+                px += PieceWidth(pt, pf);
+            }
             return;
         }
 

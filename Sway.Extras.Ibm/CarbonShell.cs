@@ -11,7 +11,7 @@ public sealed record CarbonHeaderAction(IconData Icon, Action OnPressed, string?
 /// as Carbon's is. <paramref name="onMenu"/> adds the hamburger that opens the side navigation.
 /// </summary>
 public sealed class CarbonHeader(string name, string? prefix = null, Action? onMenu = null, IReadOnlyList<CarbonHeaderAction>? actions = null,
-    Key? key = null) : StatelessWidget(key)
+    Widget? logo = null, Key? key = null) : StatelessWidget(key)
 {
     static readonly SKColor Back = Colors.FromRgb(0x161616), Line = Colors.FromRgb(0x393939), Hover = Colors.FromRgb(0x2C2C2C), Text_ = Colors.FromRgb(0xF4F4F4);
 
@@ -28,6 +28,7 @@ public sealed class CarbonHeader(string name, string? prefix = null, Action? onM
                 ..onMenu is null ? Array.Empty<Widget>() : [Square(Icons.Menu, onMenu)],
                 new Padding(EdgeInsets.Symmetric(horizontal: 16), new Row(mainAxisSize: MainAxisSize.Min, spacing: 4, children:
                 [
+                    ..logo is null ? Array.Empty<Widget>() : [logo],
                     ..prefix is null ? Array.Empty<Widget>() : [new Text(prefix, style: theme.Type.Heading01.Merge(new TextStyle(Color: Text_, FontWeight: FontWeight.W600)))],
                     new Text(name, style: theme.Type.Body01.Merge(new TextStyle(Color: Text_))),
                 ])),

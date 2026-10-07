@@ -36,12 +36,12 @@ sealed class CircularProgressState : TickerProviderState<CircularProgressIndicat
     public override Widget Build(BuildContext context)
     {
         var s = Theme.Of(context).ColorScheme;
-        return new CustomPaint(new CircularPainter(Widget.Value, _c?.Value ?? 0, Widget.Color ?? s.Primary, s.SecondaryContainer, Widget.Stroke),
+        return new CustomPaint(new CircularPainter(Widget.Value, _c?.Value ?? 0, Widget.Color ?? s.Primary, Widget.Stroke),
             size: new Size(Widget.Diameter, Widget.Diameter));
     }
 }
 
-sealed class CircularPainter(float? value, float t, SKColor color, SKColor track, float stroke) : CustomPainter
+sealed class CircularPainter(float? value, float t, SKColor color, float stroke) : CustomPainter
 {
     public override void Paint(SKCanvas canvas, Size size)
     {

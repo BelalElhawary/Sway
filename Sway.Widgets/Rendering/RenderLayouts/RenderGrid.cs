@@ -63,7 +63,6 @@ public sealed class RenderGrid : RenderBoxContainer
             {
                 pd.C = Math.Clamp(col, 0, cols.Count - pd.ColumnSpan); pd.R = Math.Max(0, row);
                 Mark(pd.R, pd.C, pd.RowSpan, pd.ColumnSpan);
-                pd.Offset = pd.Offset; // placed
             }
             else pd.R = -1;
         }
